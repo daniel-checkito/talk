@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Rehearse — talk it out</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#fff;--panel2:#f7f7f7;--ink:#3c3c3c;--muted:#afafaf;
+    --accent:#58cc02;--accent2:#58a700;--warn:#ffc800;--bad:#ff4b4b;--blue:#1cb0f6;--line:#e5e5e5;
+    --font:'Nunito',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overscroll-behavior:none}
+  body{background:var(--bg);color:var(--ink);font-family:var(--font);font-weight:700;-webkit-font-smoothing:antialiased;max-width:440px;margin:0 auto;min-height:100vh;position:relative}
+  @media(min-width:460px){body{margin:24px auto;min-height:calc(100vh - 48px);border-radius:34px;overflow:hidden;box-shadow:0 30px 80px rgba(120,90,40,.18),0 0 0 1px var(--line);max-height:920px;display:flex;flex-direction:column}}
+  .screen{display:none;padding:max(20px,env(safe-area-inset-top)) 18px 24px;min-height:100vh}
+  .screen.active{display:flex;flex-direction:column}
+  @media(min-width:460px){.screen{min-height:0;flex:1}}
+  .logo{font-weight:900;font-size:28px;letter-spacing:-.5px;color:var(--accent)}
+  .logo span{color:var(--ink)}
+  .sub{color:var(--muted);font-size:15px;font-weight:700;margin:6px 0 22px;line-height:1.45}
+  .label{font-size:12px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;font-weight:800}
+  .tcard{background:#fff;border:2px solid var(--line);border-bottom-width:4px;border-radius:16px;padding:14px 16px;margin-bottom:12px;cursor:pointer;transition:.1s;display:flex;align-items:center;gap:14px}
+  .tcard:active{transform:translateY(2px);border-bottom-width:2px;background:var(--panel2)}
+  .tcard .ic{width:46px;height:46px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;background:var(--panel2)}
+  .tcard:nth-of-type(1) .ic{background:#e5ffd6}.tcard:nth-of-type(2) .ic{background:#ffe0ec}.tcard:nth-of-type(3) .ic{background:#ddf4ff}
+  .tcard .tt{font-size:17px;font-weight:800;margin-bottom:2px}
+  .tcard .ts{font-size:12px;color:var(--muted);font-weight:700}
+  .tcard .arr{margin-left:auto;color:var(--muted);font-size:22px;font-weight:800}
+  .goal{border:2px solid var(--line);border-bottom-width:4px;border-radius:14px;padding:13px 15px;cursor:pointer;transition:.1s;font-size:15px;font-weight:800;margin-bottom:10px}
+  .goal:active,.goal.sel{transform:translateY(2px);border-bottom-width:2px}
+  .goal.sel{border-color:var(--accent);background:#f0fbe6;color:var(--accent2)}
+  .btn{border:none;border-radius:16px;padding:15px 20px;font-size:15px;letter-spacing:.5px;text-transform:uppercase;cursor:pointer;transition:.1s;font-weight:800;width:100%}
+  .btn-go{background:var(--accent);color:#fff;box-shadow:0 4px 0 var(--accent2)}
+  .btn-go:active{transform:translateY(4px);box-shadow:0 0 0}
+  .btn-go:disabled{opacity:.45;cursor:not-allowed}
+  .btn-grey{background:var(--panel2);color:var(--ink);box-shadow:0 4px 0 var(--line)}
+  .btn-grey:active{transform:translateY(4px);box-shadow:0 0 0}
+  .back{background:none;border:none;color:var(--blue);font-weight:800;font-size:13px;letter-spacing:.5px;text-transform:uppercase;cursor:pointer;margin-bottom:14px;align-self:flex-start}
+  .chathead{display:flex;align-items:center;gap:12px;padding-bottom:14px;border-bottom:2px solid var(--line);margin-bottom:14px}
+  .chathead .av{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;background:var(--panel2);flex-shrink:0}
+  .chathead .av.speaking{box-shadow:0 0 0 0 rgba(88,204,2,.5);animation:ring 1s infinite}
+  @keyframes ring{0%{box-shadow:0 0 0 0 rgba(88,204,2,.5)}100%{box-shadow:0 0 0 12px rgba(88,204,2,0)}}
+  .chathead .nm{font-weight:900;font-size:17px}
+  .chathead .gl{font-size:12px;color:var(--muted);font-weight:700}
+  .feed{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding-bottom:8px}
+  .msg{max-width:82%;padding:11px 14px;border-radius:18px;font-size:15px;font-weight:700;line-height:1.4}
+  .msg.them{background:var(--panel2);align-self:flex-start;border-bottom-left-radius:5px}
+  .msg.me{background:var(--blue);color:#fff;align-self:flex-end;border-bottom-right-radius:5px}
+  .nudge{align-self:center;background:#fff7d6;border:2px solid var(--warn);color:#9a7400;font-size:12px;font-weight:800;padding:6px 12px;border-radius:20px;max-width:90%;text-align:center}
+  .winbanner{align-self:center;background:#f0fbe6;border:2px solid var(--accent);color:var(--accent2);font-weight:900;font-size:14px;padding:10px 16px;border-radius:16px;text-align:center}
+  .status{align-self:center;color:var(--muted);font-size:13px;font-weight:800;padding:4px}
+  /* mic dock */
+  .dock{padding-top:12px;border-top:2px solid var(--line);display:flex;flex-direction:column;align-items:center;gap:10px}
+  .mic{width:74px;height:74px;border-radius:50%;border:none;background:var(--accent);color:#fff;font-size:30px;cursor:pointer;box-shadow:0 5px 0 var(--accent2);transition:.1s;display:flex;align-items:center;justify-content:center}
+  .mic:active{transform:translateY(5px);box-shadow:0 0 0}
+  .mic.rec{background:var(--bad);box-shadow:0 5px 0 #d13030;animation:pulse 1.2s infinite}
+  .mic:disabled{opacity:.5;cursor:not-allowed}
+  @keyframes pulse{0%,100%{box-shadow:0 5px 0 #d13030}50%{box-shadow:0 5px 0 #d13030,0 0 0 14px rgba(255,75,75,.15)}}
+  .michint{font-size:12px;color:var(--muted);font-weight:800;letter-spacing:.3px;text-transform:uppercase}
+  .textrow{display:flex;gap:8px;width:100%}
+  .textrow input{flex:1;background:var(--panel2);border:2px solid var(--line);border-radius:14px;padding:12px;font-family:var(--font);font-weight:700;font-size:15px}
+  .textrow input:focus{outline:none;border-color:var(--blue)}
+  .textrow button{background:var(--blue);color:#fff;border:none;border-radius:14px;width:48px;font-size:18px;cursor:pointer}
+  .toggle{font-size:12px;color:var(--blue);font-weight:800;background:none;border:none;cursor:pointer;text-transform:uppercase;letter-spacing:.3px}
+  .bigscore{font-size:60px;font-weight:900;line-height:1;color:var(--accent)}
+  .bigscore small{font-size:20px;color:var(--muted);font-weight:800}
+  .verdict{color:var(--accent2);font-size:16px;font-weight:800;margin:6px 0 18px;line-height:1.35}
+  .dsec{margin-bottom:16px}.dsec h4{font-size:12px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;font-weight:800}
+  .ditem{display:flex;gap:9px;font-size:14px;font-weight:700;line-height:1.45;margin-bottom:7px}
+  .ditem .d{font-weight:900}.ditem .d.g{color:var(--accent)}.ditem .d.b{color:var(--bad)}
+  .rewrite{background:var(--panel2);border:2px solid var(--line);border-radius:14px;padding:13px;font-size:14px;font-weight:700;line-height:1.5}
+  .rewrite .old{color:var(--muted);text-decoration:line-through;margin-bottom:6px}.rewrite .new{color:var(--accent2)}
+  .err{background:rgba(255,75,75,.1);border:2px solid var(--bad);color:#c93030;padding:11px 13px;border-radius:14px;font-size:13px;font-weight:800;margin-top:12px}
+  .loading{color:var(--accent2);font-weight:800;font-size:14px;padding:20px 0;text-align:center}
+  .hidden{display:none!important}
+</style>
+</head>
+<body>
+
+<section class="screen active" id="s-home">
+  <div class="logo">Re<span>hearse</span></div>
+  <p class="sub">Talk through the conversations that matter. Speak out loud, hear them respond, get coached in real time.</p>
+  <div class="label">Who are you talking to?</div>
+  <div class="tcard" onclick="pickPartner('friend')"><div class="ic">😎</div><div><div class="tt">A friend</div><div class="ts">banter, timing, being funnier</div></div><div class="arr">›</div></div>
+  <div class="tcard" onclick="pickPartner('date')"><div class="ic">💘</div><div><div class="tt">A date</div><div class="ts">flirting, curiosity, not being needy</div></div><div class="arr">›</div></div>
+  <div class="tcard" onclick="pickPartner('boss')"><div class="ic">💼</div><div><div class="tt">Your boss</div><div class="ts">negotiating, confidence, holding your number</div></div><div class="arr">›</div></div>
+</section>
+
+<section class="screen" id="s-goal">
+  <button class="back" onclick="go('home')">‹ back</button>
+  <div class="logo" id="goalTitle">Goal</div>
+  <p class="sub" id="goalSub"></p>
+  <div class="label">Pick your goal for this scene</div>
+  <div id="goalList"></div>
+  <div style="flex:1"></div>
+  <button class="btn btn-go" id="startBtn" disabled onclick="startScene()">Start scene</button>
+</section>
+
+<section class="screen" id="s-chat">
+  <div class="chathead">
+    <div class="av" id="chatAv">😎</div>
+    <div style="flex:1"><div class="nm" id="chatNm">—</div><div class="gl" id="chatGl">—</div></div>
+    <button class="back" style="margin:0" onclick="endScene()">End ▸</button>
+  </div>
+  <div class="feed" id="feed"></div>
+  <div class="dock">
+    <button class="mic" id="mic" onclick="toggleRec()">🎤</button>
+    <div class="michint" id="michint">Tap to speak</div>
+    <button class="toggle" id="modeToggle" onclick="toggleInputMode()">⌨ Type instead</button>
+    <div class="textrow hidden" id="textrow">
+      <input id="inp" placeholder="Type your line…" autocomplete="off" onkeydown="if(event.key==='Enter')sendText()">
+      <button onclick="sendText()">➤</button>
+    </div>
+  </div>
+  <div class="err hidden" id="chatErr"></div>
+</section>
+
+<section class="screen" id="s-debrief">
+  <button class="back" onclick="go('home')">‹ done</button>
+  <div id="debriefBody"><div class="loading">⟳ Scoring your scene…</div></div>
+</section>
+
+<script type="module">
+import { PARTNERS } from "./personas.js";
+
+let cur=null,curGoal=null,history=[],won=false,nudgeCount=0;
+let mediaRecorder=null,chunks=[],recording=false,busy=false,useText=false;
+const $=id=>document.getElementById(id);
+const go=s=>{document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));$('s-'+s).classList.add('active');};
+window.go=go;
+
+window.pickPartner=k=>{
+  cur=k;curGoal=null;const p=PARTNERS[k];
+  $('goalTitle').textContent=p.name;$('goalSub').textContent=p.sub;
+  $('goalList').innerHTML=p.goals.map((g,i)=>`<div class="goal" data-i="${i}">${g.t}</div>`).join('');
+  $('goalList').querySelectorAll('.goal').forEach(el=>el.onclick=()=>pickGoal(+el.dataset.i));
+  $('startBtn').disabled=true;go('goal');
+};
+function pickGoal(i){curGoal=i;$('goalList').querySelectorAll('.goal').forEach((el,j)=>el.classList.toggle('sel',j===i));$('startBtn').disabled=false;}
+
+window.startScene=async()=>{
+  const p=PARTNERS[cur];history=[];won=false;nudgeCount=0;
+  $('chatAv').textContent=p.av;$('chatNm').textContent=p.full;$('chatGl').textContent="Goal: "+p.goals[curGoal].t;
+  $('feed').innerHTML='';$('chatErr').classList.add('hidden');
+  go('chat');
+  addThem(p.opening);
+  speak(p.opening,p.voice_id);
+};
+
+function addThem(t){const d=el('msg them',t);$('feed').appendChild(d);history.push({role:'them',text:t});scroll();}
+function addMe(t){const d=el('msg me',t);$('feed').appendChild(d);history.push({role:'me',text:t});scroll();}
+function addNudge(t){if(!t)return;const d=el('nudge','💡 '+t);$('feed').appendChild(d);nudgeCount++;scroll();}
+function addWin(){won=true;const d=el('winbanner','🎉 Goal hit — keep going or tap End');$('feed').appendChild(d);scroll();}
+function status(t){let s=$('liveStatus');if(!s){s=el('status','');s.id='liveStatus';$('feed').appendChild(s);}s.textContent=t;scroll();}
+function clearStatus(){const s=$('liveStatus');if(s)s.remove();}
+function el(c,t){const d=document.createElement('div');d.className=c;d.textContent=t;return d;}
+function scroll(){const f=$('feed');f.scrollTop=f.scrollHeight;}
+function err(t){$('chatErr').textContent=t;$('chatErr').classList.remove('hidden');setTimeout(()=>$('chatErr').classList.add('hidden'),4000);}
+
+/* ---------- input mode ---------- */
+window.toggleInputMode=()=>{
+  useText=!useText;
+  $('textrow').classList.toggle('hidden',!useText);
+  $('mic').classList.toggle('hidden',useText);
+  $('michint').classList.toggle('hidden',useText);
+  $('modeToggle').textContent=useText?'🎤 Speak instead':'⌨ Type instead';
+  if(useText)$('inp').focus();
+};
+window.sendText=()=>{const v=$('inp').value.trim();if(!v||busy)return;$('inp').value='';handleUserTurn(v);};
+
+/* ---------- recording ---------- */
+window.toggleRec=async()=>{
+  if(busy)return;
+  if(!recording)await startRec();else stopRec();
+};
+async function startRec(){
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    const mime=MediaRecorder.isTypeSupported('audio/webm')?'audio/webm':(MediaRecorder.isTypeSupported('audio/mp4')?'audio/mp4':'');
+    mediaRecorder=new MediaRecorder(stream,mime?{mimeType:mime}:undefined);
+    chunks=[];
+    mediaRecorder.ondataavailable=e=>{if(e.data.size>0)chunks.push(e.data);};
+    mediaRecorder.onstop=async()=>{
+      stream.getTracks().forEach(t=>t.stop());
+      const blob=new Blob(chunks,{type:mediaRecorder.mimeType||'audio/webm'});
+      await transcribeAndTurn(blob);
+    };
+    mediaRecorder.start();recording=true;
+    $('mic').classList.add('rec');$('mic').textContent='■';$('michint').textContent='Tap to stop';
+  }catch(e){err('Mic blocked. Allow access or use Type instead.');}
+}
+function stopRec(){if(mediaRecorder&&recording){recording=false;$('mic').classList.remove('rec');$('mic').textContent='🎤';$('michint').textContent='Transcribing…';mediaRecorder.stop();}}
+
+async function transcribeAndTurn(blob){
+  setBusy(true);status('Transcribing…');
+  try{
+    const r=await fetch('/api/stt',{method:'POST',headers:{'Content-Type':blob.type},body:blob});
+    const d=await r.json();
+    clearStatus();
+    if(!d.text){err('Did not catch that — try again.');setBusy(false);$('michint').textContent='Tap to speak';return;}
+    handleUserTurn(d.text);
+  }catch(e){clearStatus();err('Transcription failed.');setBusy(false);$('michint').textContent='Tap to speak';}
+}
+
+/* ---------- the turn loop ---------- */
+async function handleUserTurn(text){
+  addMe(text);setBusy(true);
+  status(PARTNERS[cur].name+' is thinking…');
+  try{
+    const r=await fetch('/api/reply',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({partner:cur,goalIndex:curGoal,history})});
+    const d=await r.json();
+    clearStatus();
+    if(d.error){err(d.error);setBusy(false);return;}
+    addThem(d.reply);
+    if(d.nudge)addNudge(d.nudge);
+    if(d.goal_hit&&!won)addWin();
+    await speak(d.reply,PARTNERS[cur].voice_id);
+  }catch(e){clearStatus();err('Reply failed.');}
+  setBusy(false);$('michint').textContent='Tap to speak';
+}
+
+/* ---------- voice playback ---------- */
+async function speak(text,voice_id){
+  try{
+    $('chatAv').classList.add('speaking');
+    const r=await fetch('/api/tts',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({text,voice_id})});
+    if(!r.ok){$('chatAv').classList.remove('speaking');return;}
+    const buf=await r.arrayBuffer();
+    const url=URL.createObjectURL(new Blob([buf],{type:'audio/mpeg'}));
+    const audio=new Audio(url);
+    await new Promise(res=>{audio.onended=res;audio.onerror=res;audio.play().catch(res);});
+    URL.revokeObjectURL(url);
+  }catch(e){}
+  $('chatAv').classList.remove('speaking');
+}
+
+function setBusy(b){busy=b;$('mic').disabled=b;}
+
+/* ---------- debrief ---------- */
+window.endScene=async()=>{
+  go('debrief');$('debriefBody').innerHTML='<div class="loading">⟳ Scoring your scene…</div>';
+  try{
+    const r=await fetch('/api/debrief',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({partner:cur,goalIndex:curGoal,history,nudgeCount})});
+    const d=await r.json();
+    if(d.error){throw new Error(d.error);}
+    renderDebrief(d);
+  }catch(e){$('debriefBody').innerHTML='<div class="err">Could not score the scene.</div><button class="btn btn-go" style="margin-top:14px" onclick="go(\'home\')">Back home</button>';}
+};
+function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function renderDebrief(d){
+  $('debriefBody').innerHTML=`
+    <div class="logo" style="margin-bottom:14px">Debrief</div>
+    <div class="bigscore">${d.score}<small>/100</small></div>
+    <div style="font-weight:900;font-size:15px;margin:8px 0 2px;color:${d.hit_goal?'var(--accent2)':'var(--bad)'}">${d.hit_goal?'🎯 Goal hit':'✕ Goal missed'}</div>
+    <div class="verdict">${esc(d.verdict)}</div>
+    <div class="dsec"><h4>What worked</h4>${(d.worked||[]).map(w=>`<div class="ditem"><span class="d g">✓</span><span>${esc(w)}</span></div>`).join('')}</div>
+    <div class="dsec"><h4>Fix next time</h4>${(d.fix||[]).map(f=>`<div class="ditem"><span class="d b">→</span><span>${esc(f)}</span></div>`).join('')}</div>
+    ${d.weak_line?`<div class="dsec"><h4>Your weakest line, upgraded</h4><div class="rewrite"><div class="old">${esc(d.weak_line)}</div><div class="new">${esc(d.better_line)}</div></div></div>`:''}
+    <button class="btn btn-go" style="margin-top:8px" onclick="startScene()">↻ Run it again</button>
+    <button class="btn btn-grey" style="margin-top:10px" onclick="go('home')">New scenario</button>`;
+}
+</script>
+</body>
+</html>
