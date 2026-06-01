@@ -38,4 +38,28 @@ export const PARTNERS = {
       { t: "Ask for time off without sounding lazy", hint: "Be direct, name the dates, own the handoff plan." },
     ],
   },
+  stranger: {
+    av: "👋", name: "Alex", full: "Alex (someone you just met)",
+    sub: "At a bar or event. Polite but won't carry the conversation for you.",
+    voice_id: "pNInz6obpgDQGcFmaJgB",
+    opening: "Oh, hey. Sorry, I was kind of in my own head. Are you here with anyone?",
+    goals: [
+      { t: "Get past small talk in 60 seconds", hint: "One real question beats five polite ones. Skip the weather." },
+      { t: "Get a real conversation going", hint: "Find a shared frame fast. Pull on one specific thread." },
+      { t: "Re-engage them after they go monosyllabic", hint: "Don't escalate effort. Pivot once, then let silence work." },
+      { t: "Get an opening to meet again", hint: "Be specific. A plan with a day beats 'we should hang out'." },
+    ],
+  },
+  audience: {
+    av: "🎤", name: "The Room", full: "A skeptical room",
+    sub: "A mixed audience. Arms crossed by default. Has to be earned, sentence by sentence.",
+    voice_id: "nPczCjzI2devNBz1zQrb",
+    opening: "Alright, the floor is yours. Make it worth our time.",
+    goals: [
+      { t: "Open with a hook that lands", hint: "First sentence is the whole thing. Concrete beats clever." },
+      { t: "Handle a hostile question without folding", hint: "Acknowledge, reframe, answer. Don't apologize twice." },
+      { t: "Win over a skeptical board with one ask", hint: "Lead with the outcome. Bury the methodology." },
+      { t: "Land a memorable closing line", hint: "Callback to your opener. Stop before you over-explain." },
+    ],
+  },
 };

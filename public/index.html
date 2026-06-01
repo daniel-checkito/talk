@@ -29,7 +29,7 @@
   .tcard{background:#fff;border:2px solid var(--line);border-bottom-width:4px;border-radius:16px;padding:14px 16px;margin-bottom:12px;cursor:pointer;transition:.1s;display:flex;align-items:center;gap:14px}
   .tcard:active{transform:translateY(2px);border-bottom-width:2px;background:var(--panel2)}
   .tcard .ic{width:46px;height:46px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;background:var(--panel2)}
-  .tcard:nth-of-type(1) .ic{background:#e5ffd6}.tcard:nth-of-type(2) .ic{background:#ffe0ec}.tcard:nth-of-type(3) .ic{background:#ddf4ff}
+  .tcard:nth-of-type(1) .ic{background:#e5ffd6}.tcard:nth-of-type(2) .ic{background:#ffe0ec}.tcard:nth-of-type(3) .ic{background:#ddf4ff}.tcard:nth-of-type(4) .ic{background:#fff0d6}.tcard:nth-of-type(5) .ic{background:#efe2ff}
   .tcard .tt{font-size:17px;font-weight:800;margin-bottom:2px}
   .tcard .ts{font-size:12px;color:var(--muted);font-weight:700}
   .tcard .arr{margin-left:auto;color:var(--muted);font-size:22px;font-weight:800}
@@ -150,6 +150,8 @@
   <div class="tcard" onclick="pickPartner('friend')"><div class="ic">😎</div><div><div class="tt">A friend</div><div class="ts">banter, timing, being funnier</div></div><div class="arr">›</div></div>
   <div class="tcard" onclick="pickPartner('date')"><div class="ic">💘</div><div><div class="tt">A date</div><div class="ts">flirting, curiosity, not being needy</div></div><div class="arr">›</div></div>
   <div class="tcard" onclick="pickPartner('boss')"><div class="ic">💼</div><div><div class="tt">Your boss</div><div class="ts">negotiating, confidence, holding your number</div></div><div class="arr">›</div></div>
+  <div class="tcard" onclick="pickPartner('stranger')"><div class="ic">👋</div><div><div class="tt">A stranger</div><div class="ts">approaching, small talk, getting past it</div></div><div class="arr">›</div></div>
+  <div class="tcard" onclick="pickPartner('audience')"><div class="ic">🎤</div><div><div class="tt">An audience</div><div class="ts">public speaking, hooks, Q&amp;A under pressure</div></div><div class="arr">›</div></div>
   <div style="flex:1"></div>
   <nav class="nav" data-tab="home">
     <button class="nav-item" data-nav="home" onclick="navTo('home')"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7h-6v7H4a1 1 0 0 1-1-1V11z"/></svg>HOME</button>
