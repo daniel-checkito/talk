@@ -1,0 +1,9 @@
+{
+  "name": "rehearse",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Audio-first conversation rehearsal sim. ElevenLabs voice + Claude brain.",
+  "engines": {
+    "node": ">=18"
+  }
+}
