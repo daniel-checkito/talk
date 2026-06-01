@@ -3,7 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Rehearse — talk it out</title>
+<title>Rehearse - talk it out</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
@@ -16,9 +18,9 @@
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   html,body{height:100%;overscroll-behavior:none}
   body{background:var(--bg);color:var(--ink);font-family:var(--font);font-weight:700;-webkit-font-smoothing:antialiased;max-width:440px;margin:0 auto;min-height:100vh;position:relative}
-  @media(min-width:460px){body{margin:24px auto;min-height:calc(100vh - 48px);border-radius:34px;overflow:hidden;box-shadow:0 30px 80px rgba(120,90,40,.18),0 0 0 1px var(--line);max-height:920px;display:flex;flex-direction:column}}
+  @media(min-width:460px){body{margin:24px auto;min-height:calc(100vh - 48px);border-radius:34px;box-shadow:0 30px 80px rgba(120,90,40,.18),0 0 0 1px var(--line);max-height:920px;display:flex;flex-direction:column;overflow:hidden}}
   .screen{display:none;padding:max(20px,env(safe-area-inset-top)) 18px max(40px,calc(env(safe-area-inset-bottom) + 32px));min-height:100vh}
-  .screen.active{display:flex;flex-direction:column}
+  .screen.active{display:flex;flex-direction:column;overflow-y:auto;-webkit-overflow-scrolling:touch}
   @media(min-width:460px){.screen{min-height:0;flex:1}}
   .logo{font-weight:900;font-size:28px;letter-spacing:-.5px;color:var(--accent)}
   .logo span{color:var(--ink)}
@@ -99,6 +101,12 @@
   .take .ts.miss{color:var(--bad)}
   .take .tv{flex:1;font-size:13px;font-weight:700;color:var(--ink);line-height:1.4}
   .take .td{font-size:11px;color:var(--muted);font-weight:700;margin-top:3px;text-transform:uppercase;letter-spacing:.3px}
+  /* goal context preview */
+  .ctx{background:#f0fbe6;border:2px solid var(--accent);border-radius:14px;padding:12px 14px;margin-top:6px;margin-bottom:14px;font-size:13px;font-weight:700;color:var(--accent2);line-height:1.5}
+  .ctx h5{font-size:11px;letter-spacing:.5px;text-transform:uppercase;color:var(--accent2);margin-bottom:6px;font-weight:800;opacity:.85}
+  .ctx .row{display:flex;gap:8px;margin-bottom:4px}
+  .ctx .row:last-child{margin-bottom:0}
+  .ctx .row b{color:var(--ink);font-weight:800;min-width:50px}
 </style>
 </head>
 <body>
@@ -124,6 +132,7 @@
   <p class="sub" id="goalSub"></p>
   <div class="label">Pick your goal for this scene</div>
   <div id="goalList"></div>
+  <div id="goalCtx" class="hidden"></div>
   <div style="flex:1"></div>
   <button class="btn btn-go" id="startBtn" disabled onclick="startScene()">Start scene</button>
 </section>
@@ -131,7 +140,7 @@
 <section class="screen" id="s-chat">
   <div class="chathead">
     <div class="av" id="chatAv">😎</div>
-    <div style="flex:1"><div class="nm" id="chatNm">—</div><div class="gl" id="chatGl">—</div></div>
+    <div style="flex:1"><div class="nm" id="chatNm"></div><div class="gl" id="chatGl"></div></div>
     <div id="timer" style="font-weight:900;font-size:14px;color:var(--muted);margin-right:8px;font-variant-numeric:tabular-nums">5:00</div>
     <button class="back" style="margin:0" onclick="endScene()">End ▸</button>
   </div>
@@ -155,11 +164,11 @@
 
 <section class="screen" id="s-progress">
   <div class="logo">Pro<span>gress</span></div>
-  <p class="sub">Same prompt, tracked over takes — the loop that actually moves the needle.</p>
+  <p class="sub">Same prompt, tracked over takes. The loop that actually moves the needle.</p>
   <div class="stats">
-    <div class="stat"><div class="v dash" id="pTakes">—</div><div class="k">Takes</div></div>
-    <div class="stat"><div class="v dash" id="pBest">—</div><div class="k">Best score</div></div>
-    <div class="stat"><div class="v dash" id="pGain">—</div><div class="k">Gain</div></div>
+    <div class="stat"><div class="v dash" id="pTakes">-</div><div class="k">Takes</div></div>
+    <div class="stat"><div class="v dash" id="pBest">-</div><div class="k">Best score</div></div>
+    <div class="stat"><div class="v dash" id="pGain">-</div><div class="k">Gain</div></div>
   </div>
   <div class="scope" id="pScope">This prompt</div>
   <div class="takelist" id="pList"><div class="empty">No takes yet. Run a scene and your runs show up here.</div></div>
@@ -174,10 +183,12 @@
 <script type="module">
 import { PARTNERS } from "./personas.js";
 
-let cur=null,curGoal=null,history=[],won=false,nudgeCount=0;
+let cur=null,curGoal=null,curVariant=0,history=[],won=false,nudgeCount=0;
 let mediaRecorder=null,chunks=[],recording=false,busy=false,useText=false;
 const SESSION_CAP_MS=5*60*1000, MAX_TURNS=30, MAX_REC_MS=30*1000;
+const VARIANT_COUNT=5; // matches api/_personas.js variants length
 let sessionEndAt=0,timerHandle=null,recHardStop=null,ended=false;
+function stripDashes(s){if(!s)return s;return String(s).replace(/\s*[—–]\s*/g,', ').replace(/[—–]/g,',').replace(/\s+,/g,',').replace(/,+/g,',').replace(/\s+/g,' ').trim();}
 
 function deviceId(){
   let id=localStorage.getItem('rehearse_device_id');
@@ -197,21 +208,37 @@ window.go=go;
 window.pickPartner=k=>{
   cur=k;curGoal=null;const p=PARTNERS[k];
   $('goalTitle').textContent=p.name;$('goalSub').textContent=p.sub;
+  $('goalCtx').classList.add('hidden');$('goalCtx').innerHTML='';
   $('goalList').innerHTML=p.goals.map((g,i)=>`<div class="goal" data-i="${i}">${g.t}</div>`).join('');
   $('goalList').querySelectorAll('.goal').forEach(el=>el.onclick=()=>pickGoal(+el.dataset.i));
   $('startBtn').disabled=true;go('goal');
 };
-function pickGoal(i){curGoal=i;$('goalList').querySelectorAll('.goal').forEach((el,j)=>el.classList.toggle('sel',j===i));$('startBtn').disabled=false;}
+function pickGoal(i){
+  curGoal=i;
+  $('goalList').querySelectorAll('.goal').forEach((el,j)=>el.classList.toggle('sel',j===i));
+  $('startBtn').disabled=false;
+  const p=PARTNERS[cur];const g=p.goals[i];
+  $('goalCtx').classList.remove('hidden');
+  $('goalCtx').innerHTML=`<div class="ctx">
+    <h5>How this works</h5>
+    <div class="row"><b>Who:</b><span>${esc(p.full)}. ${esc(p.sub)}</span></div>
+    <div class="row"><b>Win:</b><span>${esc(g.t)}.</span></div>
+    ${g.hint?`<div class="row"><b>Tip:</b><span>${esc(g.hint)}</span></div>`:''}
+    <div class="row"><b>How:</b><span>Speak out loud (or type). Scenes cap at 5 minutes. You'll get a coached debrief at the end.</span></div>
+  </div>`;
+}
 
 window.startScene=async()=>{
   const p=PARTNERS[cur];history=[];won=false;nudgeCount=0;ended=false;
+  curVariant=Math.floor(Math.random()*VARIANT_COUNT);
   setLastPrompt(cur,curGoal);
   $('chatAv').textContent=p.av;$('chatNm').textContent=p.full;$('chatGl').textContent="Goal: "+p.goals[curGoal].t;
   $('feed').innerHTML='';$('chatErr').classList.add('hidden');
   startTimer();
   go('chat');
-  addThem(p.opening);
-  speak(p.opening,p.voice_id);
+  const opening=stripDashes(p.opening);
+  addThem(opening);
+  speak(opening,p.voice_id);
 };
 function startTimer(){
   sessionEndAt=Date.now()+SESSION_CAP_MS;
@@ -222,16 +249,16 @@ function startTimer(){
     const t=$('timer');if(!t)return;
     t.textContent=m+':'+String(s).padStart(2,'0');
     t.style.color=left<60000?'var(--bad)':(left<120000?'var(--warn)':'var(--muted)');
-    if(left<=0&&!ended){ended=true;clearInterval(timerHandle);if(recording)stopRec();status("Time's up — scoring…");setTimeout(endScene,300);}
+    if(left<=0&&!ended){ended=true;clearInterval(timerHandle);if(recording)stopRec();status("Time's up. Scoring...");setTimeout(endScene,300);}
   };
   tick();timerHandle=setInterval(tick,1000);
 }
 function stopTimer(){if(timerHandle){clearInterval(timerHandle);timerHandle=null;}}
 
-function addThem(t){const d=el('msg them',t);$('feed').appendChild(d);history.push({role:'them',text:t});scroll();}
-function addMe(t){const d=el('msg me',t);$('feed').appendChild(d);history.push({role:'me',text:t});scroll();}
-function addNudge(t){if(!t)return;const d=el('nudge','💡 '+t);$('feed').appendChild(d);nudgeCount++;scroll();}
-function addWin(){won=true;const d=el('winbanner','🎉 Goal hit — keep going or tap End');$('feed').appendChild(d);scroll();}
+function addThem(t){t=stripDashes(t);const d=el('msg them',t);$('feed').appendChild(d);history.push({role:'them',text:t});scroll();}
+function addMe(t){t=stripDashes(t);const d=el('msg me',t);$('feed').appendChild(d);history.push({role:'me',text:t});scroll();}
+function addNudge(t){t=stripDashes(t);if(!t)return;const d=el('nudge','💡 '+t);$('feed').appendChild(d);nudgeCount++;scroll();}
+function addWin(){won=true;const d=el('winbanner','🎉 Goal hit. Keep going or tap End');$('feed').appendChild(d);scroll();}
 function status(t){let s=$('liveStatus');if(!s){s=el('status','');s.id='liveStatus';$('feed').appendChild(s);}s.textContent=t;scroll();}
 function clearStatus(){const s=$('liveStatus');if(s)s.remove();}
 function el(c,t){const d=document.createElement('div');d.className=c;d.textContent=t;return d;}
@@ -281,7 +308,7 @@ async function transcribeAndTurn(blob){
     const d=await r.json().catch(()=>({}));
     clearStatus();
     if(r.status===429){err(d.error||'Daily limit reached.');setBusy(false);$('michint').textContent='Tap to speak';return;}
-    if(!d.text){err('Did not catch that — try again.');setBusy(false);$('michint').textContent='Tap to speak';return;}
+    if(!d.text){err('Did not catch that. Try again.');setBusy(false);$('michint').textContent='Tap to speak';return;}
     handleUserTurn(d.text);
   }catch(e){clearStatus();err('Transcription failed.');setBusy(false);$('michint').textContent='Tap to speak';}
 }
@@ -290,19 +317,20 @@ async function transcribeAndTurn(blob){
 async function handleUserTurn(text){
   if(ended)return;
   const userTurns=history.filter(h=>h.role==='me').length;
-  if(userTurns>=MAX_TURNS){err('Turn limit reached — ending scene.');ended=true;setTimeout(endScene,500);return;}
+  if(userTurns>=MAX_TURNS){err('Turn limit reached. Ending scene.');ended=true;setTimeout(endScene,500);return;}
   addMe(text);setBusy(true);
   status(PARTNERS[cur].name+' is thinking…');
   try{
     const r=await fetch('/api/reply',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({partner:cur,goalIndex:curGoal,history})});
+      body:JSON.stringify({partner:cur,goalIndex:curGoal,history,variant:curVariant})});
     const d=await r.json();
     clearStatus();
     if(d.error){err(d.error);setBusy(false);return;}
-    addThem(d.reply);
+    const cleanReply=stripDashes(d.reply);
+    addThem(cleanReply);
     if(d.nudge)addNudge(d.nudge);
     if(d.goal_hit&&!won)addWin();
-    await speak(d.reply,PARTNERS[cur].voice_id);
+    await speak(cleanReply,PARTNERS[cur].voice_id);
   }catch(e){clearStatus();err('Reply failed.');}
   setBusy(false);$('michint').textContent='Tap to speak';
 }
@@ -354,7 +382,7 @@ window.openProgress=async()=>{
   if(lp){
     qs+='&partner='+encodeURIComponent(lp.partner)+'&goal_index='+lp.goal_index;
     const p=PARTNERS[lp.partner];const g=p&&p.goals[lp.goal_index];
-    scopeEl.innerHTML='This prompt: <b>'+esc(p?p.name:lp.partner)+'</b> — '+esc(g?g.t:'');
+    scopeEl.innerHTML='This prompt: <b>'+esc(p?p.name:lp.partner)+'</b> · '+esc(g?g.t:'');
   }else{
     scopeEl.textContent='All takes';
   }
@@ -365,7 +393,7 @@ window.openProgress=async()=>{
   }catch(e){renderProgress({takes:0,best_score:null,gain:null,recent:[]});}
 };
 function renderProgress(d){
-  const set=(id,v,suffix='')=>{const el=$(id);if(v==null){el.textContent='—';el.classList.add('dash');}else{el.textContent=(v>0&&suffix==='+'?'+':'')+v+suffix;el.classList.remove('dash');}};
+  const set=(id,v,suffix='')=>{const el=$(id);if(v==null){el.textContent='-';el.classList.add('dash');}else{el.textContent=(v>0&&suffix==='+'?'+':'')+v+suffix;el.classList.remove('dash');}};
   set('pTakes',d.takes||0);
   set('pBest',d.best_score);
   if(d.gain==null)set('pGain',null);else $('pGain').textContent=(d.gain>0?'+':'')+d.gain;
@@ -380,7 +408,7 @@ function renderProgress(d){
     const p=PARTNERS[t.partner];const g=p&&p.goals[t.goal_index];
     return `<div class="take">
       <div class="ts ${t.hit_goal?'':'miss'}">${t.score}</div>
-      <div><div class="tv">${esc((p?p.name:t.partner)+' — '+(g?g.t:''))}</div><div class="td">${esc(when)}${t.hit_goal?' · 🎯':''}</div></div>
+      <div><div class="tv">${esc((p?p.name:t.partner)+' · '+(g?g.t:''))}</div><div class="td">${esc(when)}${t.hit_goal?' · 🎯':''}</div></div>
     </div>`;
   }).join('');
 }
