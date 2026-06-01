@@ -78,6 +78,27 @@
   .err{background:rgba(255,75,75,.1);border:2px solid var(--bad);color:#c93030;padding:11px 13px;border-radius:14px;font-size:13px;font-weight:800;margin-top:12px}
   .loading{color:var(--accent2);font-weight:800;font-size:14px;padding:20px 0;text-align:center}
   .hidden{display:none!important}
+  /* bottom nav */
+  .nav{position:sticky;bottom:0;left:0;right:0;display:flex;background:#fff;border-top:2px solid var(--line);padding:8px 0 max(8px,env(safe-area-inset-bottom));z-index:20;margin-top:auto}
+  .nav-item{flex:1;background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 4px;cursor:pointer;color:var(--muted);font-family:var(--font);font-weight:800;font-size:11px;letter-spacing:.5px;text-transform:uppercase}
+  .nav-item svg{width:26px;height:26px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+  .nav-item.active{color:var(--accent)}
+  /* progress page */
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px}
+  .stat{background:#fff;border:2px solid var(--line);border-bottom-width:4px;border-radius:14px;padding:14px 6px;text-align:center}
+  .stat .v{font-size:28px;font-weight:900;color:var(--accent);line-height:1}
+  .stat .v.dash{color:var(--muted)}
+  .stat .k{font-size:10px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);font-weight:800;margin-top:6px}
+  .scope{font-size:13px;color:var(--muted);font-weight:800;margin-bottom:10px}
+  .scope b{color:var(--ink)}
+  .takelist{border:2px solid var(--line);border-radius:14px;padding:14px;min-height:140px}
+  .takelist .empty{color:var(--muted);font-weight:700;font-size:14px;text-align:center;padding:30px 10px;line-height:1.5}
+  .take{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1.5px solid var(--line)}
+  .take:last-child{border-bottom:none}
+  .take .ts{font-size:30px;font-weight:900;color:var(--accent);min-width:48px;text-align:center;line-height:1}
+  .take .ts.miss{color:var(--bad)}
+  .take .tv{flex:1;font-size:13px;font-weight:700;color:var(--ink);line-height:1.4}
+  .take .td{font-size:11px;color:var(--muted);font-weight:700;margin-top:3px;text-transform:uppercase;letter-spacing:.3px}
 </style>
 </head>
 <body>
@@ -89,6 +110,12 @@
   <div class="tcard" onclick="pickPartner('friend')"><div class="ic">😎</div><div><div class="tt">A friend</div><div class="ts">banter, timing, being funnier</div></div><div class="arr">›</div></div>
   <div class="tcard" onclick="pickPartner('date')"><div class="ic">💘</div><div><div class="tt">A date</div><div class="ts">flirting, curiosity, not being needy</div></div><div class="arr">›</div></div>
   <div class="tcard" onclick="pickPartner('boss')"><div class="ic">💼</div><div><div class="tt">Your boss</div><div class="ts">negotiating, confidence, holding your number</div></div><div class="arr">›</div></div>
+  <div style="flex:1"></div>
+  <nav class="nav">
+    <button class="nav-item active" onclick="go('home')"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7h-6v7H4a1 1 0 0 1-1-1V11z"/></svg>HOME</button>
+    <button class="nav-item" onclick="go('home')"><svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="4"/><path d="M12 13v8M9 20h6"/></svg>PRACTICE</button>
+    <button class="nav-item" onclick="openProgress()"><svg viewBox="0 0 24 24"><path d="M3 17l5-5 4 4 8-9"/><path d="M14 7h6v6"/></svg>PROGRESS</button>
+  </nav>
 </section>
 
 <section class="screen" id="s-goal">
@@ -126,6 +153,24 @@
   <div id="debriefBody"><div class="loading">⟳ Scoring your scene…</div></div>
 </section>
 
+<section class="screen" id="s-progress">
+  <div class="logo">Pro<span>gress</span></div>
+  <p class="sub">Same prompt, tracked over takes — the loop that actually moves the needle.</p>
+  <div class="stats">
+    <div class="stat"><div class="v dash" id="pTakes">—</div><div class="k">Takes</div></div>
+    <div class="stat"><div class="v dash" id="pBest">—</div><div class="k">Best score</div></div>
+    <div class="stat"><div class="v dash" id="pGain">—</div><div class="k">Gain</div></div>
+  </div>
+  <div class="scope" id="pScope">This prompt</div>
+  <div class="takelist" id="pList"><div class="empty">No takes yet. Run a scene and your runs show up here.</div></div>
+  <div style="flex:1"></div>
+  <nav class="nav">
+    <button class="nav-item" onclick="go('home')"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7h-6v7H4a1 1 0 0 1-1-1V11z"/></svg>HOME</button>
+    <button class="nav-item" onclick="go('home')"><svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="4"/><path d="M12 13v8M9 20h6"/></svg>PRACTICE</button>
+    <button class="nav-item active" onclick="openProgress()"><svg viewBox="0 0 24 24"><path d="M3 17l5-5 4 4 8-9"/><path d="M14 7h6v6"/></svg>PROGRESS</button>
+  </nav>
+</section>
+
 <script type="module">
 import { PARTNERS } from "./personas.js";
 
@@ -133,6 +178,18 @@ let cur=null,curGoal=null,history=[],won=false,nudgeCount=0;
 let mediaRecorder=null,chunks=[],recording=false,busy=false,useText=false;
 const SESSION_CAP_MS=5*60*1000, MAX_TURNS=30, MAX_REC_MS=30*1000;
 let sessionEndAt=0,timerHandle=null,recHardStop=null,ended=false;
+
+function deviceId(){
+  let id=localStorage.getItem('rehearse_device_id');
+  if(!id){id=(crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random().toString(36).slice(2));localStorage.setItem('rehearse_device_id',id);}
+  return id;
+}
+function lastPrompt(){
+  try{return JSON.parse(localStorage.getItem('rehearse_last_prompt')||'null');}catch{return null;}
+}
+function setLastPrompt(partner,goal_index){
+  localStorage.setItem('rehearse_last_prompt',JSON.stringify({partner,goal_index}));
+}
 const $=id=>document.getElementById(id);
 const go=s=>{document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));$('s-'+s).classList.add('active');};
 window.go=go;
@@ -148,6 +205,7 @@ function pickGoal(i){curGoal=i;$('goalList').querySelectorAll('.goal').forEach((
 
 window.startScene=async()=>{
   const p=PARTNERS[cur];history=[];won=false;nudgeCount=0;ended=false;
+  setLastPrompt(cur,curGoal);
   $('chatAv').textContent=p.av;$('chatNm').textContent=p.full;$('chatGl').textContent="Goal: "+p.goals[curGoal].t;
   $('feed').innerHTML='';$('chatErr').classList.add('hidden');
   startTimer();
@@ -277,8 +335,55 @@ window.endScene=async()=>{
     const d=await r.json();
     if(d.error){throw new Error(d.error);}
     renderDebrief(d);
+    saveTake(d).catch(()=>{});
   }catch(e){$('debriefBody').innerHTML='<div class="err">Could not score the scene.</div><button class="btn btn-go" style="margin-top:14px" onclick="go(\'home\')">Back home</button>';}
 };
+async function saveTake(d){
+  await fetch('/api/save-take',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      device_id:deviceId(),partner:cur,goal_index:curGoal,
+      score:d.score,hit_goal:!!d.hit_goal,nudge_count:nudgeCount,
+      turn_count:history.filter(h=>h.role==='me').length,verdict:d.verdict||''
+    })});
+}
+window.openProgress=async()=>{
+  go('progress');
+  const lp=lastPrompt();
+  const scopeEl=$('pScope');
+  let qs='device_id='+encodeURIComponent(deviceId());
+  if(lp){
+    qs+='&partner='+encodeURIComponent(lp.partner)+'&goal_index='+lp.goal_index;
+    const p=PARTNERS[lp.partner];const g=p&&p.goals[lp.goal_index];
+    scopeEl.innerHTML='This prompt: <b>'+esc(p?p.name:lp.partner)+'</b> — '+esc(g?g.t:'');
+  }else{
+    scopeEl.textContent='All takes';
+  }
+  try{
+    const r=await fetch('/api/progress?'+qs);
+    const d=await r.json();
+    renderProgress(d);
+  }catch(e){renderProgress({takes:0,best_score:null,gain:null,recent:[]});}
+};
+function renderProgress(d){
+  const set=(id,v,suffix='')=>{const el=$(id);if(v==null){el.textContent='—';el.classList.add('dash');}else{el.textContent=(v>0&&suffix==='+'?'+':'')+v+suffix;el.classList.remove('dash');}};
+  set('pTakes',d.takes||0);
+  set('pBest',d.best_score);
+  if(d.gain==null)set('pGain',null);else $('pGain').textContent=(d.gain>0?'+':'')+d.gain;
+  if(d.gain!=null)$('pGain').classList.remove('dash');
+  const list=$('pList');
+  if(!d.recent||!d.recent.length){
+    list.innerHTML='<div class="empty">No takes yet. Run a scene and your runs show up here.</div>';
+    return;
+  }
+  list.innerHTML=d.recent.map(t=>{
+    const when=new Date(t.created_at).toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+    const p=PARTNERS[t.partner];const g=p&&p.goals[t.goal_index];
+    return `<div class="take">
+      <div class="ts ${t.hit_goal?'':'miss'}">${t.score}</div>
+      <div><div class="tv">${esc((p?p.name:t.partner)+' — '+(g?g.t:''))}</div><div class="td">${esc(when)}${t.hit_goal?' · 🎯':''}</div></div>
+    </div>`;
+  }).join('');
+}
 function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function renderDebrief(d){
   $('debriefBody').innerHTML=`
