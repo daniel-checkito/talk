@@ -53,6 +53,21 @@
   .msg{max-width:82%;padding:11px 14px;border-radius:18px;font-size:15px;font-weight:700;line-height:1.4}
   .msg.them{background:var(--panel2);align-self:flex-start;border-bottom-left-radius:5px}
   .msg.me{background:var(--blue);color:#fff;align-self:flex-end;border-bottom-right-radius:5px}
+  /* per-turn rating chip + feedback */
+  .me-wrap{align-self:flex-end;display:flex;flex-direction:column;align-items:flex-end;gap:3px;max-width:90%}
+  .me-wrap .msg.me{max-width:100%}
+  .me-row{display:flex;align-items:flex-end;gap:6px}
+  .rchip{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;color:#fff;flex-shrink:0;box-shadow:0 2px 0 rgba(0,0,0,.08);animation:pop .35s cubic-bezier(.34,1.56,.64,1)}
+  .rchip.great{background:var(--accent)}
+  .rchip.good{background:#8fd66c}
+  .rchip.ok{background:#c8c8c8}
+  .rchip.miss{background:var(--warn);color:#5a4400}
+  @keyframes pop{0%{transform:scale(0);opacity:0}100%{transform:scale(1);opacity:1}}
+  .fb{font-size:11.5px;font-weight:800;line-height:1.3;padding:0 4px;max-width:100%;animation:slideIn .35s ease}
+  .fb.great,.fb.good{color:var(--accent2)}
+  .fb.ok{color:var(--muted)}
+  .fb.miss{color:#a87600}
+  @keyframes slideIn{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:translateY(0)}}
   .nudge{align-self:center;background:#fff7d6;border:2px solid var(--warn);color:#9a7400;font-size:12px;font-weight:800;padding:6px 12px;border-radius:20px;max-width:90%;text-align:center}
   .winbanner{align-self:center;background:#f0fbe6;border:2px solid var(--accent);color:var(--accent2);font-weight:900;font-size:14px;padding:10px 16px;border-radius:16px;text-align:center}
   .status{align-self:center;color:var(--muted);font-size:13px;font-weight:800;padding:4px}
@@ -79,12 +94,29 @@
   .rewrite .old{color:var(--muted);text-decoration:line-through;margin-bottom:6px}.rewrite .new{color:var(--accent2)}
   .err{background:rgba(255,75,75,.1);border:2px solid var(--bad);color:#c93030;padding:11px 13px;border-radius:14px;font-size:13px;font-weight:800;margin-top:12px}
   .loading{color:var(--accent2);font-weight:800;font-size:14px;padding:20px 0;text-align:center}
+  /* scoring animation */
+  .scoring{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;gap:24px;min-height:50vh}
+  .scoring-dots{display:flex;gap:10px}
+  .scoring-dots span{width:14px;height:14px;border-radius:50%;background:var(--accent);animation:bounce 1.2s infinite ease-in-out}
+  .scoring-dots span:nth-child(2){animation-delay:.18s;background:#8fd66c}
+  .scoring-dots span:nth-child(3){animation-delay:.36s;background:var(--blue)}
+  @keyframes bounce{0%,80%,100%{transform:scale(.5);opacity:.5}40%{transform:scale(1.2);opacity:1}}
+  .scoring-title{font-weight:900;font-size:22px;color:var(--ink)}
+  .scoring-step{font-weight:800;font-size:14px;color:var(--muted);min-height:20px;transition:opacity .3s;text-align:center;line-height:1.4;max-width:280px}
+  .scoring-bar{width:200px;height:8px;background:var(--panel2);border-radius:6px;overflow:hidden;border:1.5px solid var(--line)}
+  .scoring-bar i{display:block;height:100%;width:30%;background:linear-gradient(90deg,var(--accent),var(--blue));border-radius:6px;animation:slide 1.8s infinite ease-in-out}
+  @keyframes slide{0%{margin-left:-30%}100%{margin-left:100%}}
   .hidden{display:none!important}
   /* bottom nav */
   .nav{position:sticky;bottom:0;left:0;right:0;display:flex;background:#fff;border-top:2px solid var(--line);padding:8px 0 max(8px,env(safe-area-inset-bottom));z-index:20;margin-top:auto}
-  .nav-item{flex:1;background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 4px;cursor:pointer;color:var(--muted);font-family:var(--font);font-weight:800;font-size:11px;letter-spacing:.5px;text-transform:uppercase}
-  .nav-item svg{width:26px;height:26px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+  .nav-item{flex:1;background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px 6px;cursor:pointer;color:var(--muted);font-family:var(--font);font-weight:800;font-size:11px;letter-spacing:.5px;text-transform:uppercase;transition:transform .08s ease, color .2s ease;position:relative}
+  .nav-item svg{width:26px;height:26px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;transition:transform .2s cubic-bezier(.34,1.56,.64,1)}
+  .nav-item:active{transform:scale(.92)}
+  .nav-item:active svg{transform:scale(.88)}
   .nav-item.active{color:var(--accent)}
+  .nav-item.active svg{transform:scale(1.1)}
+  .nav-item.active::before{content:"";position:absolute;top:0;left:50%;transform:translateX(-50%);width:30px;height:3px;background:var(--accent);border-radius:0 0 3px 3px;animation:dropIn .25s ease}
+  @keyframes dropIn{from{width:0;opacity:0}to{width:30px;opacity:1}}
   /* progress page */
   .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px}
   .stat{background:#fff;border:2px solid var(--line);border-bottom-width:4px;border-radius:14px;padding:14px 6px;text-align:center}
@@ -119,10 +151,10 @@
   <div class="tcard" onclick="pickPartner('date')"><div class="ic">💘</div><div><div class="tt">A date</div><div class="ts">flirting, curiosity, not being needy</div></div><div class="arr">›</div></div>
   <div class="tcard" onclick="pickPartner('boss')"><div class="ic">💼</div><div><div class="tt">Your boss</div><div class="ts">negotiating, confidence, holding your number</div></div><div class="arr">›</div></div>
   <div style="flex:1"></div>
-  <nav class="nav">
-    <button class="nav-item active" onclick="go('home')"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7h-6v7H4a1 1 0 0 1-1-1V11z"/></svg>HOME</button>
-    <button class="nav-item" onclick="go('home')"><svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="4"/><path d="M12 13v8M9 20h6"/></svg>PRACTICE</button>
-    <button class="nav-item" onclick="openProgress()"><svg viewBox="0 0 24 24"><path d="M3 17l5-5 4 4 8-9"/><path d="M14 7h6v6"/></svg>PROGRESS</button>
+  <nav class="nav" data-tab="home">
+    <button class="nav-item" data-nav="home" onclick="navTo('home')"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7h-6v7H4a1 1 0 0 1-1-1V11z"/></svg>HOME</button>
+    <button class="nav-item" data-nav="practice" onclick="navTo('practice')"><svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="4"/><path d="M12 13v8M9 20h6"/></svg>PRACTICE</button>
+    <button class="nav-item" data-nav="progress" onclick="navTo('progress')"><svg viewBox="0 0 24 24"><path d="M3 17l5-5 4 4 8-9"/><path d="M14 7h6v6"/></svg>PROGRESS</button>
   </nav>
 </section>
 
@@ -173,10 +205,10 @@
   <div class="scope" id="pScope">This prompt</div>
   <div class="takelist" id="pList"><div class="empty">No takes yet. Run a scene and your runs show up here.</div></div>
   <div style="flex:1"></div>
-  <nav class="nav">
-    <button class="nav-item" onclick="go('home')"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7h-6v7H4a1 1 0 0 1-1-1V11z"/></svg>HOME</button>
-    <button class="nav-item" onclick="go('home')"><svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="4"/><path d="M12 13v8M9 20h6"/></svg>PRACTICE</button>
-    <button class="nav-item active" onclick="openProgress()"><svg viewBox="0 0 24 24"><path d="M3 17l5-5 4 4 8-9"/><path d="M14 7h6v6"/></svg>PROGRESS</button>
+  <nav class="nav" data-tab="progress">
+    <button class="nav-item" data-nav="home" onclick="navTo('home')"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7h-6v7H4a1 1 0 0 1-1-1V11z"/></svg>HOME</button>
+    <button class="nav-item" data-nav="practice" onclick="navTo('practice')"><svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="4"/><path d="M12 13v8M9 20h6"/></svg>PRACTICE</button>
+    <button class="nav-item" data-nav="progress" onclick="navTo('progress')"><svg viewBox="0 0 24 24"><path d="M3 17l5-5 4 4 8-9"/><path d="M14 7h6v6"/></svg>PROGRESS</button>
   </nav>
 </section>
 
@@ -202,8 +234,27 @@ function setLastPrompt(partner,goal_index){
   localStorage.setItem('rehearse_last_prompt',JSON.stringify({partner,goal_index}));
 }
 const $=id=>document.getElementById(id);
-const go=s=>{document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));$('s-'+s).classList.add('active');};
+const go=s=>{document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));$('s-'+s).classList.add('active');setNavActive(s);};
 window.go=go;
+function setNavActive(screen){
+  // Map any screen to its bottom-nav tab.
+  const tab=screen==='progress'?'progress':(screen==='goal'?'practice':'home');
+  document.querySelectorAll('.nav-item').forEach(el=>el.classList.toggle('active',el.dataset.nav===tab));
+}
+window.navTo=key=>{
+  if(key==='home'){go('home');return;}
+  if(key==='progress'){openProgress();return;}
+  if(key==='practice'){
+    const lp=lastPrompt();
+    if(lp&&PARTNERS[lp.partner]){
+      window.pickPartner(lp.partner);
+      pickGoal(lp.goal_index||0);
+      setNavActive('practice');
+    }else{
+      go('home');
+    }
+  }
+};
 
 window.pickPartner=k=>{
   cur=k;curGoal=null;const p=PARTNERS[k];
@@ -256,7 +307,38 @@ function startTimer(){
 function stopTimer(){if(timerHandle){clearInterval(timerHandle);timerHandle=null;}}
 
 function addThem(t){t=stripDashes(t);const d=el('msg them',t);$('feed').appendChild(d);history.push({role:'them',text:t});scroll();}
-function addMe(t){t=stripDashes(t);const d=el('msg me',t);$('feed').appendChild(d);history.push({role:'me',text:t});scroll();}
+function addMe(t){
+  t=stripDashes(t);
+  const wrap=document.createElement('div');wrap.className='me-wrap';
+  const row=document.createElement('div');row.className='me-row';
+  const msg=el('msg me',t);
+  const chip=document.createElement('div');chip.className='rchip pending';chip.textContent='...';
+  row.appendChild(msg);row.appendChild(chip);
+  const fb=document.createElement('div');fb.className='fb';fb.style.display='none';
+  wrap.appendChild(row);wrap.appendChild(fb);
+  $('feed').appendChild(wrap);
+  history.push({role:'me',text:t,_chip:chip,_fb:fb});
+  scroll();
+  return {chip,fb};
+}
+function rateLastMe(rating,feedback){
+  // Apply rating + feedback to the most recent user message bubble.
+  for(let i=history.length-1;i>=0;i--){
+    if(history[i].role==='me'&&history[i]._chip){
+      const icon={great:'✓',good:'✓',ok:'·',miss:'!'}[rating]||'·';
+      history[i]._chip.className='rchip '+rating;
+      history[i]._chip.textContent=icon;
+      if(feedback){
+        history[i]._fb.className='fb '+rating;
+        history[i]._fb.textContent=feedback;
+        history[i]._fb.style.display='block';
+      }
+      if(rating==='miss')nudgeCount++;
+      scroll();
+      return;
+    }
+  }
+}
 function addNudge(t){t=stripDashes(t);if(!t)return;const d=el('nudge','💡 '+t);$('feed').appendChild(d);nudgeCount++;scroll();}
 function addWin(){won=true;const d=el('winbanner','🎉 Goal hit. Keep going or tap End');$('feed').appendChild(d);scroll();}
 function status(t){let s=$('liveStatus');if(!s){s=el('status','');s.id='liveStatus';$('feed').appendChild(s);}s.textContent=t;scroll();}
@@ -322,13 +404,13 @@ async function handleUserTurn(text){
   status(PARTNERS[cur].name+' is thinking…');
   try{
     const r=await fetch('/api/reply',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({partner:cur,goalIndex:curGoal,history,variant:curVariant})});
+      body:JSON.stringify({partner:cur,goalIndex:curGoal,history:history.map(h=>({role:h.role,text:h.text})),variant:curVariant})});
     const d=await r.json();
     clearStatus();
     if(d.error){err(d.error);setBusy(false);return;}
+    rateLastMe(d.rating||'ok',d.feedback||'');
     const cleanReply=stripDashes(d.reply);
     addThem(cleanReply);
-    if(d.nudge)addNudge(d.nudge);
     if(d.goal_hit&&!won)addWin();
     await speak(cleanReply,PARTNERS[cur].voice_id);
   }catch(e){clearStatus();err('Reply failed.');}
@@ -354,17 +436,45 @@ async function speak(text,voice_id){
 function setBusy(b){busy=b;$('mic').disabled=b;}
 
 /* ---------- debrief ---------- */
+let scoringStepHandle=null;
+function startScoringAnim(){
+  $('debriefBody').innerHTML=`
+    <div class="scoring">
+      <div class="scoring-title">Scoring your scene</div>
+      <div class="scoring-dots"><span></span><span></span><span></span></div>
+      <div class="scoring-bar"><i></i></div>
+      <div class="scoring-step" id="scoringStep">Reading the transcript...</div>
+    </div>`;
+  const steps=[
+    "Reading the transcript...",
+    "Checking your goal...",
+    "Looking for callbacks...",
+    "Finding your weakest line...",
+    "Drafting an upgrade...",
+    "Putting it all together...",
+  ];
+  let i=0;
+  if(scoringStepHandle)clearInterval(scoringStepHandle);
+  scoringStepHandle=setInterval(()=>{
+    i=(i+1)%steps.length;
+    const el=$('scoringStep');if(!el){clearInterval(scoringStepHandle);return;}
+    el.style.opacity='0';
+    setTimeout(()=>{el.textContent=steps[i];el.style.opacity='1';},150);
+  },1400);
+}
+function stopScoringAnim(){if(scoringStepHandle){clearInterval(scoringStepHandle);scoringStepHandle=null;}}
 window.endScene=async()=>{
   stopTimer();ended=true;
-  go('debrief');$('debriefBody').innerHTML='<div class="loading">⟳ Scoring your scene…</div>';
+  go('debrief');startScoringAnim();
   try{
     const r=await fetch('/api/debrief',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({partner:cur,goalIndex:curGoal,history,nudgeCount})});
+      body:JSON.stringify({partner:cur,goalIndex:curGoal,history:history.map(h=>({role:h.role,text:h.text})),nudgeCount})});
     const d=await r.json();
     if(d.error){throw new Error(d.error);}
+    stopScoringAnim();
     renderDebrief(d);
     saveTake(d).catch(()=>{});
-  }catch(e){$('debriefBody').innerHTML='<div class="err">Could not score the scene.</div><button class="btn btn-go" style="margin-top:14px" onclick="go(\'home\')">Back home</button>';}
+  }catch(e){stopScoringAnim();$('debriefBody').innerHTML='<div class="err">Could not score the scene.</div><button class="btn btn-go" style="margin-top:14px" onclick="go(\'home\')">Back home</button>';}
 };
 async function saveTake(d){
   await fetch('/api/save-take',{method:'POST',headers:{'Content-Type':'application/json'},

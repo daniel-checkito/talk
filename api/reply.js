@@ -30,9 +30,16 @@ ${variantLine ? "MOOD FOR THIS SCENE: " + variantLine : ""}
 You are in a live spoken conversation. Reply in 1-3 short, natural, interruptible sentences, it will be read aloud, so write the way people actually talk. Stay 100% in character. Never mention being an AI.
 STYLE RULES: Do NOT use em-dashes or en-dashes. Use commas, periods, or simple words instead. Do not use ellipses for dramatic pauses; just write the sentence. No emojis.
 PRIVATE GOAL LOGIC: The user is secretly trying to: "${g.t}". Only behave as if they've succeeded when: ${g.win}
-HIDDEN COACHING: You also silently coach the user. Judging ONLY their most recent message, if they clearly slipped (rambling, needy, arrogant, weak joke, missed an obvious opening, folded on their position), give a MAX 6-word nudge. Otherwise leave it empty. The user sees the nudge privately; your character does not. The nudge must also follow the no-dash rule.
+HIDDEN COACHING: You also silently coach the user, judging ONLY their most recent message against the goal "${g.t}" and rubric: ${g.rubric.join(", ")}.
+Rate it as one of:
+  "great" = nailed it, used the rubric well, real progress toward the goal
+  "good"  = solid, on track
+  "ok"    = neutral, neither helping nor hurting
+  "miss"  = clearly slipped (rambling, needy, arrogant, weak joke, missed an obvious opening, folded on their position)
+Then write a MAX 8-word feedback line that ALWAYS describes what was good or what to fix. Be specific, not generic.
+The user sees the rating and feedback privately; your character does not. Feedback must follow the no-dash rule.
 Return ONLY valid JSON, no markdown, no preamble:
-{"reply":"<in-character reply>","nudge":"<max 6 words, or empty string>","goal_hit":<true ONLY if the win condition was genuinely met this turn, else false>}`;
+{"reply":"<in-character reply>","rating":"great|good|ok|miss","feedback":"<max 8 words>","goal_hit":<true ONLY if the win condition was genuinely met this turn, else false>}`;
 
     const convo = (history || []).map((h) => `${h.role === "me" ? "USER" : "YOU"}: ${h.text}`).join("\n");
 
@@ -55,9 +62,11 @@ Return ONLY valid JSON, no markdown, no preamble:
     let txt = (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("").replace(/```json|```/g, "").trim();
     let parsed;
     try { parsed = JSON.parse(txt); }
-    catch { parsed = { reply: txt || "…", nudge: "", goal_hit: false }; }
+    catch { parsed = { reply: txt || "...", rating: "ok", feedback: "", goal_hit: false }; }
+    const validRatings = ["great", "good", "ok", "miss"];
     parsed.reply = stripDashes(parsed.reply || "");
-    parsed.nudge = stripDashes((parsed.nudge || "").trim());
+    parsed.feedback = stripDashes((parsed.feedback || "").trim());
+    parsed.rating = validRatings.includes(parsed.rating) ? parsed.rating : "ok";
     parsed.goal_hit = !!parsed.goal_hit;
     return res.status(200).json(parsed);
   } catch (e) {
