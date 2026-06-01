@@ -105,6 +105,7 @@
   <div class="chathead">
     <div class="av" id="chatAv">😎</div>
     <div style="flex:1"><div class="nm" id="chatNm">—</div><div class="gl" id="chatGl">—</div></div>
+    <div id="timer" style="font-weight:900;font-size:14px;color:var(--muted);margin-right:8px;font-variant-numeric:tabular-nums">5:00</div>
     <button class="back" style="margin:0" onclick="endScene()">End ▸</button>
   </div>
   <div class="feed" id="feed"></div>
@@ -130,6 +131,8 @@ import { PARTNERS } from "./personas.js";
 
 let cur=null,curGoal=null,history=[],won=false,nudgeCount=0;
 let mediaRecorder=null,chunks=[],recording=false,busy=false,useText=false;
+const SESSION_CAP_MS=5*60*1000, MAX_TURNS=30, MAX_REC_MS=30*1000;
+let sessionEndAt=0,timerHandle=null,recHardStop=null,ended=false;
 const $=id=>document.getElementById(id);
 const go=s=>{document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));$('s-'+s).classList.add('active');};
 window.go=go;
@@ -144,13 +147,28 @@ window.pickPartner=k=>{
 function pickGoal(i){curGoal=i;$('goalList').querySelectorAll('.goal').forEach((el,j)=>el.classList.toggle('sel',j===i));$('startBtn').disabled=false;}
 
 window.startScene=async()=>{
-  const p=PARTNERS[cur];history=[];won=false;nudgeCount=0;
+  const p=PARTNERS[cur];history=[];won=false;nudgeCount=0;ended=false;
   $('chatAv').textContent=p.av;$('chatNm').textContent=p.full;$('chatGl').textContent="Goal: "+p.goals[curGoal].t;
   $('feed').innerHTML='';$('chatErr').classList.add('hidden');
+  startTimer();
   go('chat');
   addThem(p.opening);
   speak(p.opening,p.voice_id);
 };
+function startTimer(){
+  sessionEndAt=Date.now()+SESSION_CAP_MS;
+  if(timerHandle)clearInterval(timerHandle);
+  const tick=()=>{
+    const left=Math.max(0,sessionEndAt-Date.now());
+    const m=Math.floor(left/60000),s=Math.floor((left%60000)/1000);
+    const t=$('timer');if(!t)return;
+    t.textContent=m+':'+String(s).padStart(2,'0');
+    t.style.color=left<60000?'var(--bad)':(left<120000?'var(--warn)':'var(--muted)');
+    if(left<=0&&!ended){ended=true;clearInterval(timerHandle);if(recording)stopRec();status("Time's up — scoring…");setTimeout(endScene,300);}
+  };
+  tick();timerHandle=setInterval(tick,1000);
+}
+function stopTimer(){if(timerHandle){clearInterval(timerHandle);timerHandle=null;}}
 
 function addThem(t){const d=el('msg them',t);$('feed').appendChild(d);history.push({role:'them',text:t});scroll();}
 function addMe(t){const d=el('msg me',t);$('feed').appendChild(d);history.push({role:'me',text:t});scroll();}
@@ -192,16 +210,19 @@ async function startRec(){
     };
     mediaRecorder.start();recording=true;
     $('mic').classList.add('rec');$('mic').textContent='■';$('michint').textContent='Tap to stop';
+    if(recHardStop)clearTimeout(recHardStop);
+    recHardStop=setTimeout(()=>{if(recording)stopRec();},MAX_REC_MS);
   }catch(e){err('Mic blocked. Allow access or use Type instead.');}
 }
-function stopRec(){if(mediaRecorder&&recording){recording=false;$('mic').classList.remove('rec');$('mic').textContent='🎤';$('michint').textContent='Transcribing…';mediaRecorder.stop();}}
+function stopRec(){if(mediaRecorder&&recording){recording=false;if(recHardStop){clearTimeout(recHardStop);recHardStop=null;}$('mic').classList.remove('rec');$('mic').textContent='🎤';$('michint').textContent='Transcribing…';mediaRecorder.stop();}}
 
 async function transcribeAndTurn(blob){
   setBusy(true);status('Transcribing…');
   try{
     const r=await fetch('/api/stt',{method:'POST',headers:{'Content-Type':blob.type},body:blob});
-    const d=await r.json();
+    const d=await r.json().catch(()=>({}));
     clearStatus();
+    if(r.status===429){err(d.error||'Daily limit reached.');setBusy(false);$('michint').textContent='Tap to speak';return;}
     if(!d.text){err('Did not catch that — try again.');setBusy(false);$('michint').textContent='Tap to speak';return;}
     handleUserTurn(d.text);
   }catch(e){clearStatus();err('Transcription failed.');setBusy(false);$('michint').textContent='Tap to speak';}
@@ -209,6 +230,9 @@ async function transcribeAndTurn(blob){
 
 /* ---------- the turn loop ---------- */
 async function handleUserTurn(text){
+  if(ended)return;
+  const userTurns=history.filter(h=>h.role==='me').length;
+  if(userTurns>=MAX_TURNS){err('Turn limit reached — ending scene.');ended=true;setTimeout(endScene,500);return;}
   addMe(text);setBusy(true);
   status(PARTNERS[cur].name+' is thinking…');
   try{
@@ -245,6 +269,7 @@ function setBusy(b){busy=b;$('mic').disabled=b;}
 
 /* ---------- debrief ---------- */
 window.endScene=async()=>{
+  stopTimer();ended=true;
   go('debrief');$('debriefBody').innerHTML='<div class="loading">⟳ Scoring your scene…</div>';
   try{
     const r=await fetch('/api/debrief',{method:'POST',headers:{'Content-Type':'application/json'},
