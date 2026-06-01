@@ -25,7 +25,7 @@ Be specific and reference what the user ACTUALLY said. Return ONLY valid JSON, n
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514", // quality matters for the debrief
+        model: "claude-sonnet-4-6", // quality matters for the debrief
         max_tokens: 1500,
         system: sys,
         messages: [{ role: "user", content: "Transcript:\n" + convo + `\n\n(Live nudges shown during scene: ${nudgeCount || 0})` }],
