@@ -3,12 +3,14 @@
 //         rating?, feedback?, goal_hit? }
 // Persists one conversation turn. Fire-and-forget from the client.
 const { ready, rest } = require("./_db");
+const { requireAuth } = require("./_auth");
 
 const VALID_ROLES = new Set(["me", "them"]);
 const VALID_RATINGS = new Set(["great", "good", "ok", "miss"]);
 
 module.exports = async (req, res) => {
   if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
+  if (!requireAuth(req, res)) return;
   if (!ready()) return res.status(200).json({ ok: false, skipped: "supabase not configured" });
   try {
     const b = req.body || {};

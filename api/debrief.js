@@ -1,6 +1,7 @@
 // POST /api/debrief -> { score, hit_goal, verdict, worked[], fix[], weak_line, better_line }
 // Body: { partner, goalIndex, history, nudgeCount }
 const { PARTNERS } = require("./_personas");
+const { requireAuth } = require("./_auth");
 
 function stripDashes(s) {
   if (!s) return s;
@@ -15,6 +16,7 @@ function stripDashes(s) {
 
 module.exports = async (req, res) => {
   if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
+  if (!requireAuth(req, res)) return;
   try {
     const { partner, goalIndex, history, nudgeCount } = req.body || {};
     const p = PARTNERS[partner];

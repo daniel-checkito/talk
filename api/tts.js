@@ -1,11 +1,13 @@
 // POST /api/tts -> audio/mpeg bytes
 // Body: { text, voice_id }
 const { check } = require("./_ratelimit");
+const { requireAuth } = require("./_auth");
 const MAX_CHARS = 600;
 const DAILY_LIMIT = 200;
 
 module.exports = async (req, res) => {
   if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
+  if (!requireAuth(req, res)) return;
   try {
     const rl = check(req, "tts", DAILY_LIMIT);
     if (!rl.ok) return res.status(429).json({ error: "Daily voice limit reached. Try again tomorrow." });

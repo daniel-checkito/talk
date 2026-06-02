@@ -3,6 +3,16 @@
 // We disable Vercel's body parser so we can read the raw audio buffer.
 export const config = { api: { bodyParser: false } };
 
+import crypto from "crypto";
+function authed(req) {
+  const pw = process.env.APP_PASSWORD || "";
+  if (!pw) return false;
+  const t = crypto.createHmac("sha256", pw).update("rehearse-v1").digest("hex");
+  const raw = req.headers.cookie || "";
+  for (const part of raw.split(/;\s*/)) if (part.startsWith("rehearse_auth=")) return part.slice(14) === t;
+  return false;
+}
+
 const DAILY_LIMIT = 200;
 const MAX_AUDIO_BYTES = 4 * 1024 * 1024; // ~30s of opus is well under this
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -28,6 +38,7 @@ function readRaw(req) {
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
+  if (!authed(req)) return res.status(401).json({ error: "unauthorized" });
   try {
     if (!rateCheck(req)) return res.status(429).json({ error: "Daily voice limit reached. Try again tomorrow." });
     const audio = await readRaw(req);

@@ -2,9 +2,11 @@
 //   partner+goal_index optional: if provided, returns stats scoped to that prompt
 // -> { takes, best_score, gain, recent: [{score, hit_goal, partner, goal_index, created_at, verdict}] }
 const { ready, rest } = require("./_db");
+const { requireAuth } = require("./_auth");
 
 module.exports = async (req, res) => {
   if (req.method !== "GET") return res.status(405).json({ error: "GET only" });
+  if (!requireAuth(req, res)) return;
   if (!ready()) return res.status(200).json({ takes: 0, best_score: null, gain: null, recent: [], skipped: true });
   try {
     const device_id = String(req.query.device_id || "").slice(0, 64);

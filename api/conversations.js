@@ -1,9 +1,11 @@
 // GET /api/conversations?device_id=...                -> session list (recent 30)
 // GET /api/conversations?device_id=...&session_id=Y    -> full transcript of one session
 const { ready, rest } = require("./_db");
+const { requireAuth } = require("./_auth");
 
 module.exports = async (req, res) => {
   if (req.method !== "GET") return res.status(405).json({ error: "GET only" });
+  if (!requireAuth(req, res)) return;
   if (!ready()) return res.status(200).json({ sessions: [], skipped: true });
   try {
     const device_id = String(req.query.device_id || "").slice(0, 64);

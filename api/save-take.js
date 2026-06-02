@@ -1,9 +1,11 @@
 // POST /api/save-take -> { ok: true }
 // Body: { device_id, partner, goal_index, score, hit_goal, nudge_count, turn_count, verdict }
 const { ready, rest } = require("./_db");
+const { requireAuth } = require("./_auth");
 
 module.exports = async (req, res) => {
   if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
+  if (!requireAuth(req, res)) return;
   if (!ready()) return res.status(200).json({ ok: false, skipped: "supabase not configured" });
   try {
     const b = req.body || {};

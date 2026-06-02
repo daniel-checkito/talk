@@ -6,6 +6,12 @@
 <title>Rehearse - talk it out</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="apple-touch-icon" href="/favicon.svg">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#58cc02">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Rehearse">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
@@ -173,6 +179,15 @@
   .talk-head .score{font-size:26px;font-weight:900;color:var(--accent2);min-width:56px;text-align:center;line-height:1}
   .talk-head .score small{font-size:11px;color:var(--muted);font-weight:800}
   .talk-head .score.miss{color:var(--bad)}
+  /* login */
+  .login{display:none;flex-direction:column;align-items:stretch;justify-content:center;flex:1;padding:40px 18px;gap:14px;text-align:center}
+  .login.active{display:flex}
+  .login .lg{font-size:34px;font-weight:900;color:var(--accent);letter-spacing:-.5px}
+  .login .lg span{color:var(--ink)}
+  .login p{color:var(--muted);font-weight:700;font-size:14px;line-height:1.45;margin-bottom:8px}
+  .login input{background:var(--panel2);border:2px solid var(--line);border-radius:14px;padding:14px 16px;font-family:var(--font);font-weight:800;font-size:16px;text-align:center;letter-spacing:.5px}
+  .login input:focus{outline:none;border-color:var(--blue)}
+  .login .lerr{color:var(--bad);font-weight:800;font-size:13px;min-height:18px}
   .transcript{display:flex;flex-direction:column;gap:10px;padding-bottom:12px}
   .transcript .msg{max-width:85%;padding:10px 13px;border-radius:18px;font-size:14px;font-weight:700;line-height:1.4}
   .transcript .msg.them{background:var(--panel2);align-self:flex-start;border-bottom-left-radius:5px}
@@ -197,7 +212,15 @@
 </head>
 <body>
 
-<section class="screen active" id="s-home">
+<section class="login" id="s-login">
+  <div class="lg">Re<span>hearse</span></div>
+  <p>Locked. Enter the access password to continue.</p>
+  <input id="lpw" type="password" placeholder="Password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+  <button class="btn btn-go" onclick="doLogin()">Unlock</button>
+  <div class="lerr" id="lerr"></div>
+</section>
+
+<section class="screen" id="s-home">
   <div class="top">
     <div class="logo">Re<span>hearse</span></div>
     <div class="streak cold" id="streak">🔥 0</div>
@@ -754,7 +777,31 @@ function renderDebrief(d){
     <button class="btn btn-go" style="margin-top:8px" onclick="startScene()">↻ Run it again</button>
     <button class="btn btn-grey" style="margin-top:10px" onclick="go('home')">New scenario</button>`;
 }
-renderHomeWidgets();
+
+/* ---------- auth gate ---------- */
+async function checkAuth(){
+  try{
+    const r=await fetch('/api/login',{method:'GET'});
+    const d=await r.json();
+    return !!d.authed;
+  }catch{return false;}
+}
+window.doLogin=async()=>{
+  const pw=$('lpw').value;
+  if(!pw)return;
+  $('lerr').textContent='';
+  try{
+    const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pw})});
+    if(r.ok){enterApp();}
+    else{const d=await r.json().catch(()=>({}));$('lerr').textContent=d.error||'Wrong password.';}
+  }catch{$('lerr').textContent='Network error.';}
+};
+function showLogin(){$('s-login').classList.add('active');document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));setTimeout(()=>$('lpw').focus(),100);}
+function enterApp(){$('s-login').classList.remove('active');go('home');}
+(async()=>{
+  const ok=await checkAuth();
+  if(ok)enterApp(); else showLogin();
+})();
 </script>
 </body>
 </html>
