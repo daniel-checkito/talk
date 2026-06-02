@@ -143,21 +143,22 @@ function wordCount(text) {
 }
 
 // Tag a feedback string to a coaching theme. First match wins; order matters.
+// Each theme has a localized label per language.
 const FEEDBACK_THEMES = [
-  { key: "fillers", label: "Cutting filler words", pat: /\b(filler|fillers|um|uh|like\b|you know)\b/i },
-  { key: "ramble", label: "Staying concise", pat: /\b(ramble|rambl|too long|wordy|cut|trim|shorten|concise|tighten)\b/i },
-  { key: "vague", label: "Being specific", pat: /\b(vague|generic|specific|concrete|name|numbers|detail)\b/i },
-  { key: "needy", label: "Showing confidence", pat: /\b(needy|desper|insecure|seeking|apolog|sorry|fold|folded|cav|backed down)\b/i },
-  { key: "curious", label: "Asking better questions", pat: /\b(curio|question|interview|listen|ask|probe)\b/i },
-  { key: "timing", label: "Comedic timing", pat: /\b(timing|punchline|joke|laugh|funny|pace|too fast|too slow|land)\b/i },
-  { key: "hedging", label: "Speaking with conviction", pat: /\b(hedge|hedging|maybe|might|sort of|kind of|i think)\b/i },
-  { key: "callback", label: "Using callbacks", pat: /\b(callback|earlier|reference|tie back|connect)\b/i },
-  { key: "energy", label: "Matching energy", pat: /\b(energy|flat|monoton|dull|push|spark|warmth)\b/i },
-  { key: "hold", label: "Holding your position", pat: /\b(hold|holding|stand|defend|number|stuck to|conviction)\b/i },
+  { key: "fillers", label: { en: "Cutting filler words", de: "Füllwörter rauskürzen" }, pat: /\b(filler|fillers|um|uh|like\b|you know|füllwort|füll|äh|ähm)\b/i },
+  { key: "ramble", label: { en: "Staying concise", de: "Knapp bleiben" }, pat: /\b(ramble|rambl|too long|wordy|cut|trim|shorten|concise|tighten|abschweif|schweif|zu lang|knapper|kürzer)\b/i },
+  { key: "vague", label: { en: "Being specific", de: "Konkret werden" }, pat: /\b(vague|generic|specific|concrete|name|numbers|detail|vage|allgemein|konkret|zahl|detail)\b/i },
+  { key: "needy", label: { en: "Showing confidence", de: "Selbstsicher auftreten" }, pat: /\b(needy|desper|insecure|seeking|apolog|sorry|fold|folded|cav|backed down|klammer|unsicher|entschuld|eingeknick|einknicken)\b/i },
+  { key: "curious", label: { en: "Asking better questions", de: "Bessere Fragen stellen" }, pat: /\b(curio|question|interview|listen|ask|probe|neugier|frage|fragen|zuhör)\b/i },
+  { key: "timing", label: { en: "Comedic timing", de: "Comedy-Timing" }, pat: /\b(timing|punchline|joke|laugh|funny|pace|too fast|too slow|land|witz|pointe|tempo|landen)\b/i },
+  { key: "hedging", label: { en: "Speaking with conviction", de: "Mit Überzeugung sprechen" }, pat: /\b(hedge|hedging|maybe|might|sort of|kind of|i think|vielleicht|irgendwie|ich glaube|hedg)\b/i },
+  { key: "callback", label: { en: "Using callbacks", de: "Rückbezüge nutzen" }, pat: /\b(callback|earlier|reference|tie back|connect|rückbezug|vorher|aufgreifen|verbinden)\b/i },
+  { key: "energy", label: { en: "Matching energy", de: "Energie spiegeln" }, pat: /\b(energy|flat|monoton|dull|push|spark|warmth|energie|monoton|flach|funke|wärme)\b/i },
+  { key: "hold", label: { en: "Holding your position", de: "Position halten" }, pat: /\b(hold|holding|stand|defend|number|stuck to|conviction|halten|verteidig|standhaft|zahl)\b/i },
 ];
-function classifyFeedback(s) {
+function classifyFeedback(s, lang) {
   if (!s) return null;
-  for (const t of FEEDBACK_THEMES) if (t.pat.test(s)) return t;
+  for (const t of FEEDBACK_THEMES) if (t.pat.test(s)) return { key: t.key, label: t.label[lang === "de" ? "de" : "en"] };
   return null;
 }
 
@@ -329,69 +330,69 @@ module.exports = async (req, res) => {
 
     // --- Per-dimension scores ---
     // Categories: 'delivery' (how it sounds), 'language' (the words), 'performance' (outcomes).
+    // Bilingual labels/targets/tips. The L() helper picks the active language.
+    const L = (en, de) => (lang === "de" ? de : en);
     const dims = [
-      { key: "pace", category: "delivery", label: "Pace", value: avgWpm != null ? Math.round(avgWpm) + " wpm" : null, score: paceScore(avgWpm), target: "140-160 wpm",
-        tip: avgWpm == null ? "" : avgWpm < 130 ? "You're slow. Push energy on key sentences." :
-             avgWpm > 175 ? "You're rushing. Land each beat, breathe between sentences." :
-             "Pace is in the keynote pocket." },
-      { key: "tempo", category: "delivery", label: "Tempo control", value: tempoStd != null ? "±" + Math.round(tempoStd) + " wpm" : null, score: tempoScore(tempoStd), target: "Tight, intentional variance",
-        tip: tempoStd == null ? "" : tempoStd < 15 ? "Steady rhythm. Watch you don't go flat." :
-             tempoStd < 30 ? "Healthy variation across turns." :
-             "Rhythm is erratic. Anchor pace to the moment, not your nerves." },
-      { key: "variety", category: "delivery", label: "Vocal variety", value: avgPitchStd != null ? Math.round(avgPitchStd) + " Hz" : null, score: varietyScore(avgPitchStd), target: "25+ Hz pitch range",
-        tip: avgPitchStd == null ? "" : avgPitchStd < 12 ? "Monotone. Drop your pitch on key words; raise it for surprise." :
-             avgPitchStd < 25 ? "Some variation. Push contrast on the most important phrase." :
-             "Strong prosody. Keep using pitch to mark what matters." },
-      { key: "pauses", category: "delivery", label: "Pause control", value: pausesPerMin != null ? pausesPerMin.toFixed(1) + "/min" : null, score: pauseScore(pausesPerMin), target: "4-8 strategic pauses/min",
-        tip: pausesPerMin == null ? "" : pausesPerMin < 2 ? "Almost no pauses. Silence is a tool, use it after key lines." :
-             pausesPerMin > 12 ? "A lot of dead air. Tighten transitions; one beat, then move." :
-             "Pauses are well placed." },
-      { key: "fillers", category: "language", label: "Filler words", value: fillerRate != null ? fillerRate.toFixed(1) + "%" : null, score: fillerRateScore(fillerRate), target: "<2% of words",
-        tip: fillerRate == null ? "" : fillerRate < 2 ? "Crisp. Top-speaker territory." :
-             fillerRate < 4 ? "A few slipping in. Replace with a half-second silence." :
-             "Heavy filler use. Record a take and pause instead of saying 'um'." },
-      { key: "hedging", category: "language", label: "Conviction", value: hedgeRate != null ? hedgeRate.toFixed(1) + " hedges/100w" : null, score: hedgeRateScore(hedgeRate), target: "<1.5 per 100 words",
-        tip: hedgeRate == null ? "" : hedgeRate < 1.5 ? "Direct. You say what you mean." :
-             hedgeRate < 3 ? "Watch 'kind of', 'I think', 'just'. Drop them and the line lands harder." :
-             "Lots of hedging. Reread your transcripts and strike every 'maybe', 'sort of', 'I guess'." },
-      { key: "confidence", category: "performance", label: "Confidence", value: avgConfidence != null ? Math.round(avgConfidence) + "%" : null, score: confidenceScore(avgConfidence), target: "75% or higher",
-        tip: avgConfidence == null ? "" : avgConfidence >= 75 ? "You sound like you mean it." :
-             avgConfidence >= 60 ? "Solid. Tighten pace and fillers to push higher." :
-             "Composite is low. Focus on pace + fillers; conviction follows." },
-      { key: "goalhit", category: "performance", label: "Goal hit rate", value: goalHitPct != null ? Math.round(goalHitPct) + "%" : null, score: rateScore(goalHitPct), target: "70%+",
-        tip: goalHitPct == null ? "" : goalHitPct >= 70 ? "You're closing scenes." :
-             goalHitPct >= 40 ? "Half-and-half. Pick one goal and run it three times." :
-             "Most scenes don't land the win. Re-read the goal hint before each take." },
-      { key: "greats", category: "performance", label: "'Great' turn rate", value: greatPct != null ? Math.round(greatPct) + "%" : null, score: rateScore(greatPct ? greatPct * 1.6 : null), target: "30%+ of turns",
-        tip: greatPct == null ? "" : greatPct >= 25 ? "You land strong lines regularly." :
-             greatPct >= 12 ? "A few sharp moments per scene. Build more around them." :
-             "Few standout lines. Study which feedback notes say 'great' and lean in." },
-      // Language additions
-      { key: "sentence", category: "language", label: "Sentence rhythm", value: avgSentenceLen != null ? avgSentenceLen.toFixed(1) + " words avg" : null, score: sentenceLenScore(avgSentenceLen), target: "12-18 words avg",
-        tip: avgSentenceLen == null ? "" : avgSentenceLen < 9 ? "Short and choppy. Mix in longer thoughts." :
-             avgSentenceLen > 22 ? "Sentences run long. Cut them in half on key beats." :
-             "Solid length. Mix short and long to land emphasis." },
-      { key: "vocab", category: "language", label: "Vocabulary diversity", value: ttr != null ? Math.round(ttr * 100) + "%" : null, score: vocabScore(ttr), target: "55%+ unique words",
-        tip: ttr == null ? "" : ttr >= 0.55 ? "Rich, varied language." :
-             ttr >= 0.4 ? "Decent range. Try not to recycle the same five verbs." :
-             "Repetitive. Stretch into adjacent words; same idea, fresh phrasing." },
-      { key: "power", category: "language", label: "Power words", value: powerPer100 != null ? powerPer100.toFixed(1) + "/100w" : null, score: powerScore(powerPer100), target: "2-5 per 100 words",
-        tip: powerPer100 == null ? "" : powerPer100 < 1 ? "Few conviction markers. 'Definitely', 'will', 'clearly' carry weight." :
-             powerPer100 > 6 ? "Heavy on absolutes. Backs you into a corner under pushback." :
-             "Conviction reads strong." },
-      // New 'engagement' category - how the conversation lands with the other side.
-      { key: "questions", category: "engagement", label: "Question rate", value: questionPct != null ? Math.round(questionPct) + "%" : null, score: questionScore(questionPct), target: "25-50% of turns",
-        tip: questionPct == null ? "" : questionPct < 15 ? "You barely ask. Curiosity is a tool, use it." :
-             questionPct > 60 ? "Every other line is a question. Make some statements." :
-             "Healthy curiosity." },
-      { key: "youi", category: "engagement", label: "Self vs other focus", value: youIRatio != null ? Math.round(youIRatio * 100) + "% you-words" : null, score: youIScore(youIRatio), target: "50%+ other-focused",
-        tip: youIRatio == null ? "" : youIRatio >= 0.5 ? "Other-focused. People feel heard." :
-             youIRatio >= 0.35 ? "Slightly self-centered. Flip one 'I' to 'you' per turn." :
-             "Heavy 'I' talk. Top persuaders use 'you' twice as often as 'I'." },
-      { key: "turnlen", category: "engagement", label: "Turn length", value: avgTurnWords != null ? avgTurnWords.toFixed(1) + " words/turn" : null, score: turnLenScore(avgTurnWords), target: "12-40 words/turn",
-        tip: avgTurnWords == null ? "" : avgTurnWords < 6 ? "Monosyllabic. Add one specific detail per turn." :
-             avgTurnWords > 60 ? "You're lecturing. Cut your turns in half." :
-             "Balanced back-and-forth." },
+      { key: "pace", category: "delivery", label: L("Pace","Tempo"), value: avgWpm != null ? Math.round(avgWpm) + L(" wpm"," WpM") : null, score: paceScore(avgWpm), target: L("140-160 wpm","140-160 WpM"),
+        tip: avgWpm == null ? "" : avgWpm < 130 ? L("You're slow. Push energy on key sentences.","Du bist langsam. Mehr Energie auf den Schlüsselsätzen.") :
+             avgWpm > 175 ? L("You're rushing. Land each beat, breathe between sentences.","Du rast. Setz die Beats, atme zwischen den Sätzen.") :
+             L("Pace is in the keynote pocket.","Tempo liegt im Keynote-Bereich.") },
+      { key: "tempo", category: "delivery", label: L("Tempo control","Tempo-Kontrolle"), value: tempoStd != null ? "±" + Math.round(tempoStd) + L(" wpm"," WpM") : null, score: tempoScore(tempoStd), target: L("Tight, intentional variance","Eng, bewusste Varianz"),
+        tip: tempoStd == null ? "" : tempoStd < 15 ? L("Steady rhythm. Watch you don't go flat.","Stabiler Rhythmus. Pass auf, dass du nicht flach wirst.") :
+             tempoStd < 30 ? L("Healthy variation across turns.","Gesunde Variation über die Beiträge.") :
+             L("Rhythm is erratic. Anchor pace to the moment, not your nerves.","Rhythmus ist sprunghaft. Tempo am Moment ausrichten, nicht an den Nerven.") },
+      { key: "variety", category: "delivery", label: L("Vocal variety","Stimmliche Vielfalt"), value: avgPitchStd != null ? Math.round(avgPitchStd) + " Hz" : null, score: varietyScore(avgPitchStd), target: L("25+ Hz pitch range","25+ Hz Tonhöhen-Range"),
+        tip: avgPitchStd == null ? "" : avgPitchStd < 12 ? L("Monotone. Drop your pitch on key words; raise it for surprise.","Monoton. Senke die Tonhöhe auf Schlüsselwörtern, heb sie für Überraschung.") :
+             avgPitchStd < 25 ? L("Some variation. Push contrast on the most important phrase.","Etwas Variation. Mehr Kontrast auf dem wichtigsten Satz.") :
+             L("Strong prosody. Keep using pitch to mark what matters.","Starke Prosodie. Nutze die Tonhöhe weiter, um Wichtiges zu markieren.") },
+      { key: "pauses", category: "delivery", label: L("Pause control","Pausen-Kontrolle"), value: pausesPerMin != null ? pausesPerMin.toFixed(1) + L("/min","/Min") : null, score: pauseScore(pausesPerMin), target: L("4-8 strategic pauses/min","4-8 gezielte Pausen/Min"),
+        tip: pausesPerMin == null ? "" : pausesPerMin < 2 ? L("Almost no pauses. Silence is a tool, use it after key lines.","Fast keine Pausen. Stille ist ein Werkzeug, nutze sie nach Schlüsselsätzen.") :
+             pausesPerMin > 12 ? L("A lot of dead air. Tighten transitions; one beat, then move.","Viel Leerlauf. Übergänge straffen, ein Beat, dann weiter.") :
+             L("Pauses are well placed.","Pausen sitzen gut.") },
+      { key: "fillers", category: "language", label: L("Filler words","Füllwörter"), value: fillerRate != null ? fillerRate.toFixed(1) + "%" : null, score: fillerRateScore(fillerRate), target: L("<2% of words","<2% der Wörter"),
+        tip: fillerRate == null ? "" : fillerRate < 2 ? L("Crisp. Top-speaker territory.","Sauber. Top-Speaker-Niveau.") :
+             fillerRate < 4 ? L("A few slipping in. Replace with a half-second silence.","Ein paar schleichen sich rein. Ersetz sie durch eine halbe Sekunde Stille.") :
+             L("Heavy filler use. Record a take and pause instead of saying 'um'.","Viele Füllwörter. Nimm eine Runde auf und mach eine Pause statt 'äh' zu sagen.") },
+      { key: "hedging", category: "language", label: L("Conviction","Überzeugung"), value: hedgeRate != null ? hedgeRate.toFixed(1) + L(" hedges/100w"," Abschwächer/100W") : null, score: hedgeRateScore(hedgeRate), target: L("<1.5 per 100 words","<1,5 pro 100 Wörter"),
+        tip: hedgeRate == null ? "" : hedgeRate < 1.5 ? L("Direct. You say what you mean.","Direkt. Du sagst, was du meinst.") :
+             hedgeRate < 3 ? L("Watch 'kind of', 'I think', 'just'. Drop them and the line lands harder.","Achte auf 'irgendwie', 'ich glaube', 'halt'. Weg damit, dann landet der Satz härter.") :
+             L("Lots of hedging. Reread your transcripts and strike every 'maybe', 'sort of', 'I guess'.","Viele Abschwächer. Lies deine Transkripte und streich jedes 'vielleicht', 'irgendwie', 'ich glaub'.") },
+      { key: "confidence", category: "performance", label: L("Confidence","Selbstsicherheit"), value: avgConfidence != null ? Math.round(avgConfidence) + "%" : null, score: confidenceScore(avgConfidence), target: L("75% or higher","75% oder höher"),
+        tip: avgConfidence == null ? "" : avgConfidence >= 75 ? L("You sound like you mean it.","Du klingst, als meinst du es ernst.") :
+             avgConfidence >= 60 ? L("Solid. Tighten pace and fillers to push higher.","Solide. Tempo und Füllwörter verschärfen, dann geht's hoch.") :
+             L("Composite is low. Focus on pace + fillers; conviction follows.","Gesamt-Score ist niedrig. Fokus auf Tempo + Füllwörter, Überzeugung folgt.") },
+      { key: "goalhit", category: "performance", label: L("Goal hit rate","Ziel-Trefferquote"), value: goalHitPct != null ? Math.round(goalHitPct) + "%" : null, score: rateScore(goalHitPct), target: "70%+",
+        tip: goalHitPct == null ? "" : goalHitPct >= 70 ? L("You're closing scenes.","Du schließt deine Szenen.") :
+             goalHitPct >= 40 ? L("Half-and-half. Pick one goal and run it three times.","Halbe/halbe. Nimm ein Ziel und spiel es dreimal durch.") :
+             L("Most scenes don't land the win. Re-read the goal hint before each take.","Die meisten Szenen landen nicht. Lies den Tipp zum Ziel vor jedem Versuch.") },
+      { key: "greats", category: "performance", label: L("'Great' turn rate","Quote 'Super'-Beiträge"), value: greatPct != null ? Math.round(greatPct) + "%" : null, score: rateScore(greatPct ? greatPct * 1.6 : null), target: L("30%+ of turns","30%+ der Beiträge"),
+        tip: greatPct == null ? "" : greatPct >= 25 ? L("You land strong lines regularly.","Du landest regelmäßig starke Sätze.") :
+             greatPct >= 12 ? L("A few sharp moments per scene. Build more around them.","Ein paar scharfe Momente pro Szene. Bau drumherum auf.") :
+             L("Few standout lines. Study which feedback notes say 'great' and lean in.","Wenig Highlights. Schau welche Hinweise mit 'super' bewertet wurden und lehne dich rein.") },
+      { key: "sentence", category: "language", label: L("Sentence rhythm","Satz-Rhythmus"), value: avgSentenceLen != null ? avgSentenceLen.toFixed(1) + L(" words avg"," Wörter Ø") : null, score: sentenceLenScore(avgSentenceLen), target: L("12-18 words avg","12-18 Wörter Ø"),
+        tip: avgSentenceLen == null ? "" : avgSentenceLen < 9 ? L("Short and choppy. Mix in longer thoughts.","Kurz und abgehackt. Mische längere Gedanken rein.") :
+             avgSentenceLen > 22 ? L("Sentences run long. Cut them in half on key beats.","Sätze werden lang. Halbier sie an Schlüsselstellen.") :
+             L("Solid length. Mix short and long to land emphasis.","Solide Länge. Mix aus kurz und lang setzt den Akzent.") },
+      { key: "vocab", category: "language", label: L("Vocabulary diversity","Wortschatz-Vielfalt"), value: ttr != null ? Math.round(ttr * 100) + "%" : null, score: vocabScore(ttr), target: L("55%+ unique words","55%+ einzigartige Wörter"),
+        tip: ttr == null ? "" : ttr >= 0.55 ? L("Rich, varied language.","Reiche, abwechslungsreiche Sprache.") :
+             ttr >= 0.4 ? L("Decent range. Try not to recycle the same five verbs.","Ordentliche Bandbreite. Versuch nicht dieselben fünf Verben zu wiederholen.") :
+             L("Repetitive. Stretch into adjacent words; same idea, fresh phrasing.","Repetitiv. Weiche auf verwandte Wörter aus, gleiche Idee, frische Formulierung.") },
+      { key: "power", category: "language", label: L("Power words","Power-Wörter"), value: powerPer100 != null ? powerPer100.toFixed(1) + L("/100w","/100W") : null, score: powerScore(powerPer100), target: L("2-5 per 100 words","2-5 pro 100 Wörter"),
+        tip: powerPer100 == null ? "" : powerPer100 < 1 ? L("Few conviction markers. 'Definitely', 'will', 'clearly' carry weight.","Wenig Überzeugungs-Marker. 'Definitiv', 'werde', 'klar' tragen Gewicht.") :
+             powerPer100 > 6 ? L("Heavy on absolutes. Backs you into a corner under pushback.","Zu viele Absolutismen. Treibt dich beim Pushback in die Ecke.") :
+             L("Conviction reads strong.","Überzeugung kommt stark rüber.") },
+      { key: "questions", category: "engagement", label: L("Question rate","Frage-Quote"), value: questionPct != null ? Math.round(questionPct) + "%" : null, score: questionScore(questionPct), target: L("25-50% of turns","25-50% der Beiträge"),
+        tip: questionPct == null ? "" : questionPct < 15 ? L("You barely ask. Curiosity is a tool, use it.","Du fragst kaum. Neugier ist ein Werkzeug, nutze es.") :
+             questionPct > 60 ? L("Every other line is a question. Make some statements.","Jeder zweite Satz ist eine Frage. Triff auch Aussagen.") :
+             L("Healthy curiosity.","Gesunde Neugier.") },
+      { key: "youi", category: "engagement", label: L("Self vs other focus","Selbst- vs. Du-Fokus"), value: youIRatio != null ? Math.round(youIRatio * 100) + L("% you-words","% Du-Wörter") : null, score: youIScore(youIRatio), target: L("50%+ other-focused","50%+ andere-fokussiert"),
+        tip: youIRatio == null ? "" : youIRatio >= 0.5 ? L("Other-focused. People feel heard.","Andere-fokussiert. Menschen fühlen sich gehört.") :
+             youIRatio >= 0.35 ? L("Slightly self-centered. Flip one 'I' to 'you' per turn.","Etwas selbstbezogen. Tausch ein 'ich' pro Beitrag gegen 'du'.") :
+             L("Heavy 'I' talk. Top persuaders use 'you' twice as often as 'I'.","Viel 'ich'. Top-Überzeuger nutzen 'du' doppelt so oft wie 'ich'.") },
+      { key: "turnlen", category: "engagement", label: L("Turn length","Beitragslänge"), value: avgTurnWords != null ? avgTurnWords.toFixed(1) + L(" words/turn"," Wörter/Beitrag") : null, score: turnLenScore(avgTurnWords), target: L("12-40 words/turn","12-40 Wörter/Beitrag"),
+        tip: avgTurnWords == null ? "" : avgTurnWords < 6 ? L("Monosyllabic. Add one specific detail per turn.","Einsilbig. Pack ein konkretes Detail pro Beitrag rein.") :
+             avgTurnWords > 60 ? L("You're lecturing. Cut your turns in half.","Du dozierst. Halbiere deine Beiträge.") :
+             L("Balanced back-and-forth.","Ausgewogenes Hin und Her.") },
     ];
 
     const measured = dims.filter(d => d.score != null);
@@ -441,13 +442,13 @@ module.exports = async (req, res) => {
     // --- Most common coaching theme ---
     const themeCounts = {};
     for (const m of ratedMsgs) {
-      const t = classifyFeedback(m.feedback);
+      const t = classifyFeedback(m.feedback, lang);
       if (t) themeCounts[t.key] = (themeCounts[t.key] || 0) + 1;
     }
     const sortedThemes = Object.entries(themeCounts).sort((a, b) => b[1] - a[1]).slice(0, 3)
       .map(([k, count]) => {
         const t = FEEDBACK_THEMES.find(x => x.key === k);
-        return { key: k, label: t.label, count };
+        return { key: k, label: t.label[lang === "de" ? "de" : "en"], count };
       });
 
     // --- Per-partner score breakdown ---

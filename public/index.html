@@ -459,10 +459,10 @@
 </section>
 
 <section class="screen" id="s-speech">
-  <button class="back" onclick="go('home')">‹ Back</button>
-  <div class="logo">Tele<span>prompter</span></div>
-  <p class="sub">Read a script aloud. We score pace, fillers, vocal variety, and how faithfully you tracked the words.</p>
-  <div class="label">Context (sets your pace target)</div>
+  <button class="back" id="speechBack" onclick="go('home')">‹ Back</button>
+  <div class="logo"><span id="teleTitleQ">Tele</span><span id="teleTitleD">prompter</span></div>
+  <p class="sub" id="teleSub">Read a script aloud. We score pace, fillers, vocal variety, and how faithfully you tracked the words.</p>
+  <div class="label" id="teleLabelContext">Context (sets your pace target)</div>
   <select class="ctx" id="speechCtx">
     <option value="keynote">Keynote / talk · 130-150 wpm</option>
     <option value="interview">Interview answer · 150-170 wpm</option>
@@ -470,24 +470,24 @@
     <option value="technical">Technical explainer · 110-130 wpm</option>
     <option value="toast">Wedding / ceremonial · 120-140 wpm</option>
   </select>
-  <div class="label">Pick a script</div>
+  <div class="label" id="teleLabelPick">Pick a script</div>
   <div id="speechTemplates"></div>
-  <div class="label" style="margin-top:14px">Or paste your own</div>
+  <div class="label" id="teleLabelOwn" style="margin-top:14px">Or paste your own</div>
   <textarea class="script" id="speechCustom" placeholder="Paste your script here..."></textarea>
-  <button class="speech-rec" onclick="useCustomSpeech()">Use this script</button>
+  <button class="speech-rec" id="teleUseBtn" onclick="useCustomSpeech()">Use this script</button>
 </section>
 
 <section class="screen" id="s-speech-stage">
-  <button class="back" onclick="openSpeech()">‹ Pick another</button>
-  <div class="audience-strip"><span class="lbl">Audience</span><span class="face">🧐</span><span class="face">😐</span><span class="face">🙂</span><span class="face">🤨</span><span class="face">😶</span><span class="face">😊</span></div>
+  <button class="back" id="teleBackBtn" onclick="openSpeech()">‹ Pick another</button>
+  <div class="audience-strip"><span class="lbl" id="teleAudienceLbl">Audience</span><span class="face">🧐</span><span class="face">😐</span><span class="face">🙂</span><span class="face">🤨</span><span class="face">😶</span><span class="face">😊</span></div>
   <div class="prompter"><div class="focusline"></div><div id="scroller"></div></div>
   <button class="speech-rec" id="speechBtn" onclick="toggleSpeechRec()">● Start speaking</button>
   <div class="livebar">
-    <span>time <b id="sTime">0.0s</b></span>
-    <span>pace <b id="sWpm">-</b></span>
-    <span>fillers <b id="sFillers">0</b></span>
-    <span>target <b id="sCtxLabel">-</b></span>
-    <span style="display:flex;align-items:center;gap:7px;flex:1;min-width:110px">vol<span class="meter"><i id="sVol"></i></span></span>
+    <span><span id="teleLiveTime">time</span> <b id="sTime">0.0s</b></span>
+    <span><span id="teleLivePace">pace</span> <b id="sWpm">-</b></span>
+    <span><span id="teleLiveFillers">fillers</span> <b id="sFillers">0</b></span>
+    <span><span id="teleLiveTarget">target</span> <b id="sCtxLabel">-</b></span>
+    <span style="display:flex;align-items:center;gap:7px;flex:1;min-width:110px"><span id="teleLiveVol">vol</span><span class="meter"><i id="sVol"></i></span></span>
   </div>
   <div id="speechScore" class="hidden" style="margin-top:18px"></div>
 </section>
@@ -524,7 +524,7 @@
     <div class="av" id="chatAv">😎</div>
     <div style="flex:1"><div class="nm" id="chatNm"></div><div class="gl" id="chatGl"></div></div>
     <div id="timer" style="font-weight:900;font-size:14px;color:var(--muted);margin-right:8px;font-variant-numeric:tabular-nums">5:00</div>
-    <button class="back" style="margin:0" onclick="endScene()">End ▸</button>
+    <button class="back" id="chatEndBtn" style="margin:0" onclick="endScene()">End ▸</button>
   </div>
   <div class="livestrip hidden" id="liveStrip"></div>
   <div class="feed" id="feed"></div>
@@ -691,8 +691,21 @@ window.applyI18n=function(){
     'coachTitle':'coach.title','coachSub':'coach.sub','coachSend':'coach.send',
     'loginLockedText':'login.locked','loginUnlockBtn':'login.unlock','loginTip':'login.tip',
     'startBtn':'goal.start',
+    'chatEndBtn':'chat.end',
+    'teleTitleQ':'tele.title.q','teleTitleD':'tele.title.d',
+    'teleSub':'tele.sub','teleLabelContext':'tele.label.context','teleLabelPick':'tele.label.pick','teleLabelOwn':'tele.label.own',
+    'teleUseBtn':'tele.useScript','teleBackBtn':'tele.pickAnother','teleAudienceLbl':'tele.live.audience',
+    'teleLiveTime':'tele.live.time','teleLivePace':'tele.live.pace','teleLiveFillers':'tele.live.fillers','teleLiveTarget':'tele.live.target','teleLiveVol':'tele.live.vol',
   };
   for(const id of Object.keys(map)){const el=$(id);if(el)el.textContent=t(map[id]);}
+  // Teleprompter context dropdown options.
+  const ctxSel=$('speechCtx');
+  if(ctxSel){const order=['keynote','interview','sales','technical','toast'];
+    for(let i=0;i<ctxSel.options.length&&i<order.length;i++){ctxSel.options[i].textContent=t('tele.ctx.'+order[i]);}
+  }
+  const tex=$('speechCustom');if(tex)tex.placeholder=t('tele.placeholder');
+  // Back button on speech setup screen.
+  const sb=$('speechBack');if(sb)sb.textContent=t('back');
   // Placeholders / titles.
   const pwInp=$('lpw');if(pwInp)pwInp.placeholder=t('login.placeholder');
   const inp=$('inp');if(inp)inp.placeholder=t('chat.placeholder');
@@ -829,7 +842,7 @@ window.startScene=async()=>{
     av.innerHTML='';av.textContent=(scenario&&scenario.av)||p.av;
   }
   $('chatNm').textContent=(scenario&&scenario.name)||p.full;
-  $('chatGl').textContent=(drillMode?"⚡ Quick Drill · ":"Goal: ")+p.goals[curGoal].t;
+  $('chatGl').textContent=(drillMode?t('chat.drill.label'):t('chat.goal.label'))+p.goals[curGoal].t;
   $('feed').innerHTML='';$('chatErr').classList.add('hidden');
   $('liveStrip').classList.add('hidden');$('liveStrip').innerHTML='';
   startTimer();
@@ -839,18 +852,18 @@ window.startScene=async()=>{
   const goalDef=p.goals[curGoal];
   const info=document.createElement('div');
   info.className='infocard';
-  info.innerHTML=`<h5><span>How this works</span><button class="dismiss" onclick="this.closest('.infocard').remove()">✕</button></h5>
-    <div class="row"><b>Who:</b><span>${esc(p.full)}. ${esc(p.sub)}</span></div>
-    <div class="row"><b>Win:</b><span>${esc(goalDef.t)}.</span></div>
-    ${goalDef.hint?`<div class="row"><b>Tip:</b><span>${esc(goalDef.hint)}</span></div>`:''}
-    <div class="row"><b>How:</b><span>Speak out loud or type. Scenes cap at ${drillMode?'90 seconds':'5 minutes'}. Coached debrief at the end.</span></div>`;
+  info.innerHTML=`<h5><span>${esc(t('chat.howThisWorks'))}</span><button class="dismiss" onclick="this.closest('.infocard').remove()">✕</button></h5>
+    <div class="row"><b>${esc(t('chat.howRow.who'))}</b><span>${esc(p.full)}. ${esc(p.sub)}</span></div>
+    <div class="row"><b>${esc(t('chat.howRow.win'))}</b><span>${esc(goalDef.t)}.</span></div>
+    ${goalDef.hint?`<div class="row"><b>${esc(t('chat.howRow.tip'))}</b><span>${esc(goalDef.hint)}</span></div>`:''}
+    <div class="row"><b>${esc(t('chat.howRow.how'))}</b><span>${esc(t('chat.howRow.howText',{cap:drillMode?t('chat.cap.drill'):t('chat.cap.normal')}))}</span></div>`;
   $('feed').appendChild(info);
   // If we have a scenario, show the scene-setting "stage direction" first so the user knows
   // where they are and what they're walking into before the stranger speaks.
   if(scenario){
     const stageDiv=document.createElement('div');
     stageDiv.className='stage';
-    stageDiv.innerHTML='<b>Scene</b>'+esc(scenario.setting)+'<br><br>Your move. Walk up and say something.';
+    stageDiv.innerHTML='<b>'+esc(t('chat.scene.label'))+'</b>'+esc(scenario.setting)+'<br><br>'+esc(t('chat.scene.move'));
     $('feed').appendChild(stageDiv);
     scroll();
   }
@@ -872,7 +885,7 @@ function startTimer(){
     const t=$('timer');if(!t)return;
     t.textContent=m+':'+String(s).padStart(2,'0');
     t.style.color=left<60000?'var(--bad)':(left<120000?'var(--warn)':'var(--muted)');
-    if(left<=0&&!ended){clearInterval(timerHandle);if(recording)stopRec();status("Time's up. Scoring...");setTimeout(()=>{if(sceneHasContent())runScoreEnd();else runCancelDiscard();},300);}
+    if(left<=0&&!ended){clearInterval(timerHandle);if(recording)stopRec();status(t('chat.timeup'));setTimeout(()=>{if(sceneHasContent())runScoreEnd();else runCancelDiscard();},300);}
   };
   tick();timerHandle=setInterval(tick,1000);
 }
@@ -965,26 +978,26 @@ function updateLiveStrip(){
     else if(t._chip.classList.contains('miss'))misses++;
   }
   const chips=[];
-  chips.push(`<div class="chip">turns <b>${meTurns.length}</b></div>`);
+  chips.push(`<div class="chip">${esc(t('live.turns'))} <b>${meTurns.length}</b></div>`);
   if(wpm!=null){
     const cls=wpm>=140&&wpm<=160?'g':wpm>=120&&wpm<=180?'':'w';
-    chips.push(`<div class="chip ${cls}"><b>${wpm}</b> wpm</div>`);
+    chips.push(`<div class="chip ${cls}"><b>${wpm}</b> ${esc(t('live.wpm'))}</div>`);
   }
   if(dlvs.length){
     const fillerCls=fillers===0?'g':fillers<3?'':'w';
-    chips.push(`<div class="chip ${fillerCls}"><b>${fillers}</b> filler${fillers===1?'':'s'}</div>`);
+    chips.push(`<div class="chip ${fillerCls}"><b>${fillers}</b> ${esc(fillers===1?t('live.filler'):t('live.fillers'))}</div>`);
   }
   if(conf!=null){
     const cls=conf>=70?'g':conf>=50?'':'w';
-    chips.push(`<div class="chip ${cls}"><b>${conf}%</b> confidence</div>`);
+    chips.push(`<div class="chip ${cls}"><b>${conf}%</b> ${esc(t('live.confidence'))}</div>`);
   }
-  if(greats)chips.push(`<div class="chip g"><b>${greats}</b> ✓ great</div>`);
-  if(misses)chips.push(`<div class="chip r"><b>${misses}</b> miss</div>`);
+  if(greats)chips.push(`<div class="chip g"><b>${greats}</b> ${esc(t('live.great'))}</div>`);
+  if(misses)chips.push(`<div class="chip r"><b>${misses}</b> ${esc(t('live.miss'))}</div>`);
   strip.innerHTML=chips.join('');
   strip.classList.remove('hidden');
 }
 function addNudge(t){t=stripDashes(t);if(!t)return;const d=el('nudge','💡 '+t);$('feed').appendChild(d);nudgeCount++;scroll();}
-function addWin(){won=true;const d=el('winbanner','🎉 Goal hit. Keep going or tap End');$('feed').appendChild(d);scroll();}
+function addWin(){won=true;const d=el('winbanner',t('chat.win'));$('feed').appendChild(d);scroll();}
 function status(t){let s=$('liveStatus');if(!s){s=el('status','');s.id='liveStatus';$('feed').appendChild(s);}s.textContent=t;scroll();}
 function clearStatus(){const s=$('liveStatus');if(s)s.remove();}
 function el(c,t){const d=document.createElement('div');d.className=c;d.textContent=t;return d;}
@@ -1009,7 +1022,7 @@ window.toggleInputMode=()=>{
   $('textrow').classList.toggle('hidden',!useText);
   $('mic').classList.toggle('hidden',useText);
   $('michint').classList.toggle('hidden',useText);
-  $('modeToggle').textContent=useText?'🎤 Speak instead':'⌨ Type instead';
+  $('modeToggle').textContent=useText?t('chat.toggle.speak'):t('chat.toggle.type');
   if(useText)$('inp').focus();
 };
 window.sendText=()=>{const v=$('inp').value.trim();if(!v||busy)return;$('inp').value='';handleUserTurn(v);};
@@ -1040,7 +1053,7 @@ function startConvoSR(){
       }
       convoSRText=(final+' '+interim).trim();
       // Live preview in the mic hint so the user sees their words appear instantly.
-      const hint=$('michint');if(hint&&recording)hint.textContent=convoSRText?'"'+convoSRText.slice(0,40)+(convoSRText.length>40?'…':'')+'"':'Listening…';
+      const hint=$('michint');if(hint&&recording)hint.textContent=convoSRText?'"'+convoSRText.slice(0,40)+(convoSRText.length>40?'…':'')+'"':t('chat.mic.listening');
     };
     convoSR.onend=()=>{if(recording){try{convoSR.start();}catch{}}};
     convoSR.start();
@@ -1073,12 +1086,12 @@ async function startRec(){
       await transcribeAndTurn(blob,delivery);
     };
     mediaRecorder.start();recording=true;
-    $('mic').classList.add('rec');$('mic').textContent='■';$('michint').textContent='Listening…';
+    $('mic').classList.add('rec');$('mic').textContent='■';$('michint').textContent=t('chat.mic.listening');
     if(recHardStop)clearTimeout(recHardStop);
     recHardStop=setTimeout(()=>{if(recording)stopRec();},MAX_REC_MS);
   }catch(e){err('Mic blocked. Allow access or use Type instead.');}
 }
-function stopRec(){if(mediaRecorder&&recording){recording=false;if(recHardStop){clearTimeout(recHardStop);recHardStop=null;}$('mic').classList.remove('rec');$('mic').textContent='🎤';$('michint').textContent='Transcribing…';mediaRecorder.stop();}}
+function stopRec(){if(mediaRecorder&&recording){recording=false;if(recHardStop){clearTimeout(recHardStop);recHardStop=null;}$('mic').classList.remove('rec');$('mic').textContent='🎤';$('michint').textContent=t('chat.mic.transcribing');mediaRecorder.stop();}}
 
 /* ---------- delivery scoring (voice mode only) ---------- */
 // Common filler tokens, lowercased; matched as whole words.
@@ -1209,7 +1222,7 @@ async function handleUserTurn(text,delivery){
   // check can tell a 1-second voice grunt from a typed message.
   const meta={isVoice:!!delivery,spokenSec:(delivery&&delivery.duration)||0};
   addMe(text,dlv,meta);setBusy(true);
-  status(PARTNERS[cur].name+' is thinking…');
+  status(PARTNERS[cur].name+t('chat.thinking'));
   try{
     const r=await fetch('/api/reply',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({partner:cur,goalIndex:curGoal,history:history.map(h=>({role:h.role,text:h.text})),variant:curVariant,scenarioIndex:curScenarioIndex,device_id:deviceId(),lang:getLang()})});
@@ -1229,7 +1242,7 @@ async function handleUserTurn(text,delivery){
     if(d.goal_hit&&!won)addWin();
     await speak(cleanReply,curVoiceOverride||PARTNERS[cur].voice_id);
   }catch(e){clearStatus();err('Reply failed.');}
-  setBusy(false);$('michint').textContent='Tap to speak';
+  setBusy(false);$('michint').textContent=t('chat.mic.tap');
 }
 
 /* ---------- voice playback ---------- */
@@ -1262,19 +1275,12 @@ let scoringStepHandle=null;
 function startScoringAnim(){
   $('debriefBody').innerHTML=`
     <div class="scoring">
-      <div class="scoring-title">Scoring your scene</div>
+      <div class="scoring-title">${esc(t('scoring.title'))}</div>
       <div class="scoring-dots"><span></span><span></span><span></span></div>
       <div class="scoring-bar"><i></i></div>
-      <div class="scoring-step" id="scoringStep">Reading the transcript...</div>
+      <div class="scoring-step" id="scoringStep">${esc(t('scoring.step.1'))}</div>
     </div>`;
-  const steps=[
-    "Reading the transcript...",
-    "Checking your goal...",
-    "Looking for callbacks...",
-    "Finding your weakest line...",
-    "Drafting an upgrade...",
-    "Putting it all together...",
-  ];
+  const steps=[t('scoring.step.1'),t('scoring.step.2'),t('scoring.step.3'),t('scoring.step.4'),t('scoring.step.5'),t('scoring.step.6')];
   let i=0;
   if(scoringStepHandle)clearInterval(scoringStepHandle);
   scoringStepHandle=setInterval(()=>{
@@ -1348,7 +1354,7 @@ async function runScoreEnd(){
     d._wasDrill=wasDrill;
     renderDebrief(d);
     saveTake(d,wasDrill).catch(()=>{});
-  }catch(e){stopScoringAnim();$('debriefBody').innerHTML='<div class="err">Could not score the scene.</div><button class="btn btn-go" style="margin-top:14px" onclick="go(\'home\')">Back home</button>';}
+  }catch(e){stopScoringAnim();$('debriefBody').innerHTML=`<div class="err">${esc(t('debrief.error'))}</div><button class="btn btn-go" style="margin-top:14px" onclick="go('home')">${esc(t('debrief.backHome'))}</button>`;}
 };
 async function saveTake(d,wasDrill){
   // Local first (fast paint for next Home visit), then server.
@@ -1461,12 +1467,16 @@ async function loadCosts(){
   }catch{slot.innerHTML='';}
 }
 // Service display names. Anything else falls through to the raw service key.
-const SERVICE_LABEL={
-  reply:{label:"Replies",prov:"Claude Haiku"},
-  debrief:{label:"Scene debrief",prov:"Claude Sonnet"},
-  tts:{label:"Partner voice",prov:"ElevenLabs TTS"},
-  stt:{label:"Your speech",prov:"ElevenLabs Scribe"},
-};
+function serviceLabel(key){
+  const map={
+    reply:{label:t('progress.svc.reply'),prov:t('progress.svc.reply.prov')},
+    debrief:{label:t('progress.svc.debrief'),prov:t('progress.svc.debrief.prov')},
+    tts:{label:t('progress.svc.tts'),prov:t('progress.svc.tts.prov')},
+    stt:{label:t('progress.svc.stt'),prov:t('progress.svc.stt.prov')},
+    coach:{label:t('coach.title'),prov:t('progress.svc.debrief.prov')},
+  };
+  return map[key]||{label:key,prov:''};
+}
 function fmtUsd(usd){
   if(usd==null)return '—';
   if(usd<0.01)return '<$0.01';
@@ -1479,11 +1489,11 @@ function renderCosts(d){
   if(!d||d.skipped||(d.calls||0)===0){
     slot.innerHTML=`<div class="cost-card">
       <div class="cost-head">
-        <div><div class="hero-tag" style="margin-bottom:2px">API costs · estimated</div>
-          <div class="cost-total">$0.00<small>so far</small></div></div>
-        <div class="cost-window"><b>$0.00</b>last 7 days</div>
+        <div><div class="hero-tag" style="margin-bottom:2px">${esc(t('progress.cost.tag'))}</div>
+          <div class="cost-total">$0.00<small>${esc(t('progress.cost.so_far'))}</small></div></div>
+        <div class="cost-window"><b>$0.00</b>${esc(t('progress.cost.7d'))}</div>
       </div>
-      <div class="cost-note">Each conversation hits ElevenLabs (your voice + the partner's voice) and Claude (their reply + the end-of-scene debrief). Run a scene and your spend lands here.</div>
+      <div class="cost-note">${esc(t('progress.cost.empty'))}</div>
     </div>`;
     return;
   }
@@ -1494,32 +1504,32 @@ function renderCosts(d){
     return `<div class="b ${(s.cost_usd||0)===0?'zero':''}" style="height:${Math.max(2,h)}px" title="${s.day}: ${fmtUsd(s.cost_usd)}"></div>`;
   }).join('');
   const rows=(d.services||[]).map(s=>{
-    const info=SERVICE_LABEL[s.service]||{label:s.service,prov:s.provider};
+    const info=serviceLabel(s.service);
     return `<div class="cost-row">
       <div class="cs">${esc(info.label)}<span class="pv">${esc(info.prov||'')}</span></div>
-      <div class="cn">${s.calls} call${s.calls===1?'':'s'}</div>
+      <div class="cn">${esc(t(s.calls===1?'progress.cost.call':'progress.cost.calls'))}: ${s.calls}</div>
       <div class="cv">${fmtUsd(s.cost_usd)}</div>
     </div>`;
   }).join('');
   slot.innerHTML=`<div class="cost-card">
     <div class="cost-head">
       <div>
-        <div class="hero-tag" style="margin-bottom:2px">API costs · estimated</div>
-        <div class="cost-total">${fmtUsd(d.total_usd)}<small>${d.calls} call${d.calls===1?'':'s'}, last ${d.window_days||90} days</small></div>
+        <div class="hero-tag" style="margin-bottom:2px">${esc(t('progress.cost.tag'))}</div>
+        <div class="cost-total">${fmtUsd(d.total_usd)}<small>${d.calls} ${esc(t(d.calls===1?'progress.cost.call':'progress.cost.calls'))}, ${esc(t('progress.cost.lastDays',{days:d.window_days||90}))}</small></div>
       </div>
-      <div class="cost-window"><b>${fmtUsd(d.total_7d_usd)}</b>last 7 days</div>
+      <div class="cost-window"><b>${fmtUsd(d.total_7d_usd)}</b>${esc(t('progress.cost.7d'))}</div>
     </div>
-    <div class="cost-spark" aria-label="Daily spend, last 30 days">${sparkHtml}</div>
+    <div class="cost-spark">${sparkHtml}</div>
     ${rows}
-    <div class="cost-note">Estimates from list prices. ElevenLabs is ~95% of per-session cost (voice in + voice out). Claude Haiku and Sonnet are token-priced and tiny by comparison.</div>
+    <div class="cost-note">${esc(t('progress.cost.note'))}</div>
   </div>`;
 }
 function dimColor(score){return score>=75?'g':score>=55?'y':'r';}
-function trendChip(t){
-  if(!t)return '';
-  if(t.dir==='up')return '<span class="dim-trend up">↗ improving</span>';
-  if(t.dir==='down')return '<span class="dim-trend down">↘ slipping</span>';
-  return '<span class="dim-trend flat">→ steady</span>';
+function trendChip(tr){
+  if(!tr)return '';
+  if(tr.dir==='up')return `<span class="dim-trend up">${esc(t('trend.up'))}</span>`;
+  if(tr.dir==='down')return `<span class="dim-trend down">${esc(t('trend.down'))}</span>`;
+  return `<span class="dim-trend flat">${esc(t('trend.flat'))}</span>`;
 }
 function ringSvg(score){
   // Composite ring. 0-100 mapped to a circular sweep; color shifts by band.
@@ -1542,26 +1552,25 @@ function renderDashboard(d){
   const body=$('dashBody');
   if(!d||d.empty){
     body.innerHTML=`<div class="empty-dash">
-      <b>No data yet</b>Run a few scenes or a teleprompter take and your speaker dashboard fills in.<br>
-      You'll get strengths, weaknesses, and a research-backed score against the patterns top speakers actually use.
+      <b>${esc(t('progress.empty.dash.t'))}</b>${esc(t('progress.empty.dash.b'))}
     </div>`;
     return;
   }
   const p=d.practice||{};
-  const verdict=d.composite==null?"Just getting started.":
-    d.composite>=80?"Sharp. You're in top-speaker territory on most dimensions.":
-    d.composite>=65?"Solid foundation. A couple of fixable habits between you and great.":
-    d.composite>=50?"Mixed bag. One dimension at a time, you'll move fast.":
-    "Early days. Pick the lowest-scoring dimension and run three takes on it.";
+  const verdict=d.composite==null?t('verdict.start'):
+    d.composite>=80?t('verdict.sharp'):
+    d.composite>=65?t('verdict.solid'):
+    d.composite>=50?t('verdict.mixed'):
+    t('verdict.early');
 
   const practiceHtml=`<div class="dash-sec">
-    <h3>Practice</h3>
+    <h3>${esc(t('progress.sec.practice'))}</h3>
     <div class="practice-row">
-      <div class="pr-cell"><div class="v ${p.streak?'warm':''}">${p.streak||0}</div><div class="k">Day streak</div></div>
-      <div class="pr-cell"><div class="v ${p.days_active_7d>=3?'good':''}">${p.days_active_7d||0}<span style="font-size:13px;color:var(--muted)">/7</span></div><div class="k">Active days · 7d</div></div>
-      <div class="pr-cell"><div class="v">${p.sessions_30d||0}</div><div class="k">Sessions · 30d</div></div>
+      <div class="pr-cell"><div class="v ${p.streak?'warm':''}">${p.streak||0}</div><div class="k">${esc(t('progress.practice.streak'))}</div></div>
+      <div class="pr-cell"><div class="v ${p.days_active_7d>=3?'good':''}">${p.days_active_7d||0}<span style="font-size:13px;color:var(--muted)">/7</span></div><div class="k">${esc(t('progress.practice.days7'))}</div></div>
+      <div class="pr-cell"><div class="v">${p.sessions_30d||0}</div><div class="k">${esc(t('progress.practice.sessions30'))}</div></div>
     </div>
-    <div class="hero-sub" style="font-size:11px;padding:0 2px">${p.sessions_total||0} total sessions tracked${p.days_active_30d?` · active ${p.days_active_30d} of last 30 days`:''}.</div>
+    <div class="hero-sub" style="font-size:11px;padding:0 2px">${esc(t('rendered.totalTracked',{n:p.sessions_total||0}))}${p.days_active_30d?esc(t('rendered.activeDays',{n:p.days_active_30d})):''}.</div>
   </div>`;
 
   // Group ALL dimensions by category. Unscored ones render as locked cards
@@ -1569,10 +1578,10 @@ function renderDashboard(d){
   const allDims=(d.dimensions||[]);
   const measured=allDims.filter(x=>x.score!=null);
   const CATS=[
-    {key:"delivery",   label:"Delivery",    sub:"How it sounds"},
-    {key:"language",   label:"Language",    sub:"The words you use"},
-    {key:"engagement", label:"Engagement",  sub:"How it lands with them"},
-    {key:"performance",label:"Performance", sub:"Outcomes"},
+    {key:"delivery",   label:t('progress.cat.delivery'),   sub:t('progress.cat.delivery.sub')},
+    {key:"language",   label:t('progress.cat.language'),   sub:t('progress.cat.language.sub')},
+    {key:"engagement", label:t('progress.cat.engagement'), sub:t('progress.cat.engagement.sub')},
+    {key:"performance",label:t('progress.cat.performance'),sub:t('progress.cat.performance.sub')},
   ];
   const dimsHtml=CATS.map(cat=>{
     const groupAll=allDims.filter(x=>x.category===cat.key);
@@ -1591,31 +1600,31 @@ function renderDashboard(d){
   const top=d.strengths&&d.strengths[0];
   const bottom=d.weaknesses&&d.weaknesses[0];
   const highlightsHtml=(top||bottom)?`<div class="dash-sec">
-    <h3>Highlights</h3>
+    <h3>${esc(t('progress.sec.highlights'))}</h3>
     ${top?`<div class="highlight-card good">
       <div class="hl-icon">✓</div>
-      <div class="hl-body"><div class="hl-tag">Strength</div><div class="hl-title">${esc(top.label)} · ${top.score}/100</div>
+      <div class="hl-body"><div class="hl-tag">${esc(t('progress.hl.strength'))}</div><div class="hl-title">${esc(top.label)} · ${top.score}/100</div>
       <div class="hl-sub">${esc(top.tip||'')}</div></div>
     </div>`:''}
     ${bottom?`<div class="highlight-card bad">
       <div class="hl-icon">!</div>
-      <div class="hl-body"><div class="hl-tag">Work on this${bottom.trend&&bottom.trend.dir==='up'?' · improving':''}</div>
+      <div class="hl-body"><div class="hl-tag">${esc(t('progress.hl.workon'))}${bottom.trend&&bottom.trend.dir==='up'?esc(t('progress.hl.improving')):''}</div>
       <div class="hl-title">${esc(bottom.label)} · ${bottom.score}/100</div>
       <div class="hl-sub">${esc(bottom.tip||'')}</div></div>
     </div>`:''}
   </div>`:'';
 
   const themesHtml=d.themes&&d.themes.length?`<div class="dash-sec">
-    <h3>Most common notes</h3>
-    ${d.themes.map(t=>`<div class="theme-card"><span class="ti">${THEME_EMOJI[t.key]||'•'}</span><div class="tt">${esc(t.label)}</div><div class="tc">${t.count}×</div></div>`).join('')}
+    <h3>${esc(t('progress.sec.notes'))}</h3>
+    ${d.themes.map(th=>`<div class="theme-card"><span class="ti">${THEME_EMOJI[th.key]||'•'}</span><div class="tt">${esc(th.label)}</div><div class="tc">${th.count}×</div></div>`).join('')}
   </div>`:'';
 
   const partnersHtml=d.partners&&d.partners.length?`<div class="dash-sec">
-    <h3>By scenario</h3>
+    <h3>${esc(t('progress.sec.scenario'))}</h3>
     ${d.partners.map(pa=>`<div class="partner-row">
       <span class="pav">${PARTNER_AV[pa.partner]||'💬'}</span>
-      <div class="pnm">${esc(PARTNER_NAME[pa.partner]||pa.partner)}</div>
-      <div class="pst">${pa.takes} take${pa.takes===1?'':'s'} · ${pa.hit_pct}% hit</div>
+      <div class="pnm">${esc(t('partner.'+pa.partner+'.name'))}</div>
+      <div class="pst">${esc(t(pa.takes===1?'rendered.take':'rendered.takes',{n:pa.takes}))} · ${pa.hit_pct}${esc(t('rendered.hit'))}</div>
       <div class="psc ${pa.avg_score<50?'miss':''}">${pa.avg_score}</div>
     </div>`).join('')}
   </div>`:'';
@@ -1623,24 +1632,24 @@ function renderDashboard(d){
   // Practice volume + top fillers - concrete numbers, not scored dimensions.
   const pv=d.practice_volume||{};
   const volHtml=(pv.total_minutes||pv.words_spoken)?`<div class="dash-sec">
-    <h3>Practice volume</h3>
+    <h3>${esc(t('progress.sec.volume'))}</h3>
     <div class="practice-row">
-      <div class="pr-cell"><div class="v ${pv.minutes_7d>=10?'good':''}">${pv.minutes_7d||0}<span style="font-size:13px;color:var(--muted)">m</span></div><div class="k">Spoken · 7d</div></div>
-      <div class="pr-cell"><div class="v">${pv.total_minutes||0}<span style="font-size:13px;color:var(--muted)">m</span></div><div class="k">Spoken · total</div></div>
-      <div class="pr-cell"><div class="v">${(pv.words_spoken||0).toLocaleString()}</div><div class="k">Words said</div></div>
+      <div class="pr-cell"><div class="v ${pv.minutes_7d>=10?'good':''}">${pv.minutes_7d||0}<span style="font-size:13px;color:var(--muted)">m</span></div><div class="k">${esc(t('progress.volume.7d'))}</div></div>
+      <div class="pr-cell"><div class="v">${pv.total_minutes||0}<span style="font-size:13px;color:var(--muted)">m</span></div><div class="k">${esc(t('progress.volume.total'))}</div></div>
+      <div class="pr-cell"><div class="v">${(pv.words_spoken||0).toLocaleString(getLang()==='de'?'de-DE':'en-US')}</div><div class="k">${esc(t('progress.volume.words'))}</div></div>
     </div>
   </div>`:'';
   const fillers=d.top_fillers||[];
   const fillerMax=fillers.length?Math.max(...fillers.map(f=>f.count)):0;
   const fillersHtml=fillers.length?`<div class="dash-sec">
-    <h3>Your top fillers</h3>
+    <h3>${esc(t('progress.sec.fillers'))}</h3>
     <div class="filler-card">
       ${fillers.map(f=>`<div class="fbar-row">
         <div class="fbar-w">"${esc(f.word)}"</div>
         <div class="fbar"><i style="width:${Math.max(8,(f.count/fillerMax)*100)}%"></i></div>
         <div class="fbar-c">${f.count}×</div>
       </div>`).join('')}
-      <div class="fbar-foot">Drop the worst one and your filler rate moves overnight.</div>
+      <div class="fbar-foot">${esc(t('progress.fillers.foot'))}</div>
     </div>
   </div>`:'';
   const trendHtml=renderScoreTrend(d.score_trend||[]);
@@ -1648,9 +1657,9 @@ function renderDashboard(d){
     <div class="dash-hero">
       ${ringSvg(d.composite)}
       <div class="hero-info">
-        <div class="hero-tag">Speaker Score</div>
-        <div class="hero-title">${verdict}</div>
-        <div class="hero-sub">Scored against the patterns of top speakers, your delivery + conversation outcomes combined.</div>
+        <div class="hero-tag">${esc(t('progress.hero.tag'))}</div>
+        <div class="hero-title">${esc(verdict)}</div>
+        <div class="hero-sub">${esc(t('progress.hero.sub'))}</div>
       </div>
     </div>
     ${trendHtml}
@@ -1671,8 +1680,8 @@ function renderLockedDim(dim){
       <div class="dim-name">${esc(dim.label)}</div>
       <div class="dim-score">—</div>
     </div>
-    <div class="dim-tgt">Target: ${esc(dim.target||'')}</div>
-    <div class="dim-locked-tip">Run a voice scene to unlock this metric.</div>
+    <div class="dim-tgt">${esc(getLang()==='de'?'Ziel: ':'Target: ')}${esc(dim.target||'')}</div>
+    <div class="dim-locked-tip">${esc(t('progress.dim.locked'))}</div>
   </div>`;
 }
 // Score-over-time chart. Renders an inline SVG line chart from per-take score points.
@@ -1680,8 +1689,8 @@ function renderLockedDim(dim){
 function renderScoreTrend(points){
   if(!points||points.length<2){
     return `<div class="trend-card">
-      <div class="trend-head"><div class="l">Speaker score over time</div></div>
-      <div class="trend-empty">Run at least two scenes to start a trend line.</div>
+      <div class="trend-head"><div class="l">${esc(t('progress.trend.title'))}</div></div>
+      <div class="trend-empty">${esc(t('progress.trend.empty'))}</div>
     </div>`;
   }
   const W=320,H=110,padL=24,padR=8,padT=10,padB=18;
@@ -1707,10 +1716,10 @@ function renderScoreTrend(points){
   const dots=points.map((p,i)=>`<circle cx="${x(xs[i]).toFixed(1)}" cy="${y(p.score).toFixed(1)}" r="3" fill="${p.kind==='speech'?'var(--blue)':'var(--accent)'}"/>`).join('');
   return `<div class="trend-card">
     <div class="trend-head">
-      <div><div class="l">Speaker score over time</div>
-        <div style="font-size:20px;font-weight:900;color:var(--ink);margin-top:2px">${last}<span style="font-size:12px;color:${dirCol};font-weight:800;margin-left:6px">${delta>=0?'+':''}${delta} since first</span></div>
+      <div><div class="l">${esc(t('progress.trend.title'))}</div>
+        <div style="font-size:20px;font-weight:900;color:var(--ink);margin-top:2px">${last}<span style="font-size:12px;color:${dirCol};font-weight:800;margin-left:6px">${delta>=0?'+':''}${delta} ${esc(t('progress.trend.since'))}</span></div>
       </div>
-      <div class="d">${points.length} take${points.length===1?'':'s'}</div>
+      <div class="d">${esc(t(points.length===1?'rendered.take':'rendered.takes',{n:points.length}))}</div>
     </div>
     <svg class="trend-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
       <line x1="${padL}" y1="${y(100)}" x2="${W-padR}" y2="${y(100)}" stroke="var(--line)" stroke-dasharray="3 3"/>
@@ -1814,7 +1823,7 @@ async function loadTalksInline(){
 function renderTalksList(sessions){
   const slot=$('talksFoldBody');if(!slot)return;
   if(!sessions.length){
-    slot.innerHTML='<div class="empty" style="font-weight:700;color:var(--muted);padding:18px 6px;text-align:center;line-height:1.5">No talks yet. Start a scene and your past conversations will show up here.</div>';
+    slot.innerHTML='<div class="empty" style="font-weight:700;color:var(--muted);padding:18px 6px;text-align:center;line-height:1.5">'+esc(t('progress.empty.talks'))+'</div>';
     return;
   }
   slot.innerHTML=sessions.map(s=>{
@@ -1911,24 +1920,26 @@ function renderTalk(d){
 
 function renderDebrief(d){
   const agg=d._aggDelivery;
-  const aggHtml=agg?`<div class="dsec"><h4>Your delivery${d._wasDrill?' · ⚡ Quick Drill':''}</h4>
+  // Localize the tone label we get from the delivery analyzer.
+  const toneI18n={flat:t('debrief.tone.flat'),steady:t('debrief.tone.steady'),dynamic:t('debrief.tone.dynamic')};
+  const aggHtml=agg?`<div class="dsec"><h4>${esc(t('debrief.delivery'))}${d._wasDrill?esc(t('debrief.delivery.drill')):''}</h4>
     <div class="dlv-grid">
-      <div class="dlv-cell"><div class="dv">${agg.wpm}</div><div class="dk">wpm avg</div></div>
-      <div class="dlv-cell"><div class="dv">${agg.fillers}</div><div class="dk">total fillers</div></div>
-      <div class="dlv-cell"><div class="dv">${agg.tone}</div><div class="dk">tone</div></div>
-      <div class="dlv-cell"><div class="dv ${agg.confidence>=70?'g':agg.confidence>=50?'w':'b'}">${agg.confidence}%</div><div class="dk">confidence</div></div>
+      <div class="dlv-cell"><div class="dv">${agg.wpm}</div><div class="dk">${esc(t('debrief.cell.wpm'))}</div></div>
+      <div class="dlv-cell"><div class="dv">${agg.fillers}</div><div class="dk">${esc(t('debrief.cell.fillers'))}</div></div>
+      <div class="dlv-cell"><div class="dv">${esc(toneI18n[agg.tone]||agg.tone)}</div><div class="dk">${esc(t('debrief.cell.tone'))}</div></div>
+      <div class="dlv-cell"><div class="dv ${agg.confidence>=70?'g':agg.confidence>=50?'w':'b'}">${agg.confidence}%</div><div class="dk">${esc(t('debrief.cell.confidence'))}</div></div>
     </div></div>`:'';
   $('debriefBody').innerHTML=`
-    <div class="logo" style="margin-bottom:14px">Debrief</div>
+    <div class="logo" style="margin-bottom:14px">${esc(t('debrief.title'))}</div>
     <div class="bigscore">${d.score}<small>/100</small></div>
-    <div style="font-weight:900;font-size:15px;margin:8px 0 2px;color:${d.hit_goal?'var(--accent2)':'var(--bad)'}">${d.hit_goal?'🎯 Goal hit':'✕ Goal missed'}</div>
+    <div style="font-weight:900;font-size:15px;margin:8px 0 2px;color:${d.hit_goal?'var(--accent2)':'var(--bad)'}">${esc(d.hit_goal?t('debrief.goalHit'):t('debrief.goalMissed'))}</div>
     <div class="verdict">${esc(d.verdict)}</div>
-    <div class="dsec"><h4>What worked</h4>${(d.worked||[]).map(w=>`<div class="ditem"><span class="d g">✓</span><span>${esc(w)}</span></div>`).join('')}</div>
-    <div class="dsec"><h4>Fix next time</h4>${(d.fix||[]).map(f=>`<div class="ditem"><span class="d b">→</span><span>${esc(f)}</span></div>`).join('')}</div>
+    <div class="dsec"><h4>${esc(t('debrief.worked'))}</h4>${(d.worked||[]).map(w=>`<div class="ditem"><span class="d g">✓</span><span>${esc(w)}</span></div>`).join('')}</div>
+    <div class="dsec"><h4>${esc(t('debrief.fix'))}</h4>${(d.fix||[]).map(f=>`<div class="ditem"><span class="d b">→</span><span>${esc(f)}</span></div>`).join('')}</div>
     ${aggHtml}
-    ${d.weak_line?`<div class="dsec"><h4>Your weakest line, upgraded</h4><div class="rewrite"><div class="old">${esc(d.weak_line)}</div><div class="new">${esc(d.better_line)}</div></div></div>`:''}
-    <button class="btn btn-go" style="margin-top:8px" onclick="startScene()">↻ Run it again</button>
-    <button class="btn btn-grey" style="margin-top:10px" onclick="go('home')">New scenario</button>`;
+    ${d.weak_line?`<div class="dsec"><h4>${esc(t('debrief.weakLine'))}</h4><div class="rewrite"><div class="old">${esc(d.weak_line)}</div><div class="new">${esc(d.better_line)}</div></div></div>`:''}
+    <button class="btn btn-go" style="margin-top:8px" onclick="startScene()">${esc(t('debrief.runAgain'))}</button>
+    <button class="btn btn-grey" style="margin-top:10px" onclick="go('home')">${esc(t('debrief.newScenario'))}</button>`;
 }
 
 /* ---------- teleprompter ---------- */
@@ -1955,7 +1966,7 @@ window.pickSpeechTemplate=i=>{
 };
 window.useCustomSpeech=()=>{
   const v=$('speechCustom').value.trim();
-  if(!v){err("Paste a script first.");return;}
+  if(!v){err(t('tele.err.paste'));return;}
   speechScript=v;speechTemplate="custom";speechCtx=$('speechCtx').value;
   enterSpeechStage();
 };
@@ -1989,7 +2000,7 @@ window.enterSpeechStage=function enterSpeechStage(){
   const band=CTX_BANDS[speechCtx];
   $('sCtxLabel').textContent=band.lo+'-'+band.hi+' wpm';
   $('sTime').textContent='0.0s';$('sVol').style.width='0%';$('sWpm').textContent='-';$('sFillers').textContent='0';
-  $('speechBtn').textContent='● Start speaking';$('speechBtn').classList.remove('live');
+  $('speechBtn').textContent=t('tele.start');$('speechBtn').classList.remove('live');
   go('speech-stage');
   setTeleCrowdMood('ok');
 }
@@ -2048,11 +2059,9 @@ async function startSpeechRec(){
   // total scroll distance: scroller height varies, approximate by line height * lines
   speechRec.start();
   startPromptScroll(expectedSec);
-  $('speechBtn').textContent='■ Stop & score';$('speechBtn').classList.add('live');
-  // Hard ceiling: a 3-minute speech is plenty. Without this the volume/pitch arrays
-  // grow unbounded and ElevenLabs would reject the upload anyway.
+  $('speechBtn').textContent=t('tele.stop');$('speechBtn').classList.add('live');
   if(speechHardStop)clearTimeout(speechHardStop);
-  speechHardStop=setTimeout(()=>{if(speechRecording){err("Max 3 minutes per take. Stopping.");stopSpeechRec();}},MAX_SPEECH_REC_MS);
+  speechHardStop=setTimeout(()=>{if(speechRecording){err(t('tele.err.max'));stopSpeechRec();}},MAX_SPEECH_REC_MS);
 }
 function startPromptScroll(expectedSec){
   const sc=$('scroller');
@@ -2078,7 +2087,7 @@ function stopSpeechRec(){
   try{speechRec&&speechRec.stop();}catch{}
   try{speechStream&&speechStream.getTracks().forEach(t=>t.stop());}catch{}
   try{speechAudioCtx&&speechAudioCtx.close();}catch{}
-  $('speechBtn').textContent='Scoring...';$('speechBtn').disabled=true;
+  $('speechBtn').textContent=t('tele.scoring');$('speechBtn').disabled=true;
 }
 function startLiveCounter(){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
@@ -2114,7 +2123,7 @@ async function scoreSpeechTake(blob){
   }catch{err("Couldn't transcribe. Try again.");$('speechBtn').textContent='● Start speaking';$('speechBtn').classList.remove('live');$('speechBtn').disabled=false;return;}
   const cleanw=s=>s.toLowerCase().replace(/[^a-z0-9']/g,'');
   const words=transcript.trim().toLowerCase().split(/\s+/).filter(Boolean);
-  if(words.length<3){err("Too short to score. Speak for a few seconds.");$('speechBtn').textContent='● Start speaking';$('speechBtn').classList.remove('live');$('speechBtn').disabled=false;return;}
+  if(words.length<3){err(t('tele.err.short'));$('speechBtn').textContent=t('tele.start');$('speechBtn').classList.remove('live');$('speechBtn').disabled=false;return;}
   const scriptW=speechScript.split(/\s+/).map(cleanw);
   const spokenW=words.map(cleanw);
   const faithfulness=Math.round(100*lcsRatio(scriptW,spokenW));
@@ -2143,7 +2152,7 @@ async function scoreSpeechTake(blob){
   fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({kind:'speech',device_id:deviceId(),template:speechTemplate,context:speechCtx,script_excerpt:speechScript.slice(0,500),score:total,wpm,fillers,pause_count:speechPauseFrames,pitch_std:Math.round(pitchStd),faithfulness,duration_s:Math.round(dur)})}).catch(()=>{});
   bumpStreak();
-  $('speechBtn').textContent='● Start speaking';$('speechBtn').classList.remove('live');$('speechBtn').disabled=false;
+  $('speechBtn').textContent=t('tele.start');$('speechBtn').classList.remove('live');$('speechBtn').disabled=false;
 }
 function lcsRatio(a,b){
   if(!a.length)return 0;
@@ -2155,21 +2164,27 @@ function lcsRatio(a,b){
 function bandScore(v,lo,hi,tol){if(v>=lo&&v<=hi)return 100;const d=v<lo?lo-v:v-hi;return Math.max(0,Math.round(100-(d/tol)*100));}
 function cls(v){return v>=75?'good':v>=50?'warn':'bad';}
 function renderSpeechScore(r){
-  const verdict=r.total>=80?"Sharp. You'd hold a room.":r.total>=60?"Solid, a few fixable habits.":r.total>=40?"Rough edges. Run it again.":"Early days, that's the point.";
-  const paceNote=r.wpm<r.band.lo?`Slow. Target ${r.band.lo}-${r.band.hi}.`:r.wpm>r.band.hi?`Rushing. Ease to ${r.band.lo}-${r.band.hi}.`:`In the ${r.band.name.toLowerCase()} pocket.`;
+  const verdict=r.total>=80?t('speech.verdict.sharp'):r.total>=60?t('speech.verdict.solid'):r.total>=40?t('speech.verdict.rough'):t('speech.verdict.early');
+  const bandKey=Object.keys({keynote:1,interview:1,sales:1,technical:1,toast:1}).find(k=>(t('tele.band.'+k).toLowerCase()===r.band.name.toLowerCase())||k===speechCtx)||speechCtx;
+  const bandLabel=t('tele.band.'+bandKey);
+  const paceNote=r.wpm<r.band.lo?t('speech.note.pace.slow',{lo:r.band.lo,hi:r.band.hi}):r.wpm>r.band.hi?t('speech.note.pace.fast',{lo:r.band.lo,hi:r.band.hi}):t('speech.note.pace.in',{band:bandLabel.toLowerCase()});
+  const fillerNote=r.fillers<3?t('speech.note.fillers.crisp'):r.fillers<8?t('speech.note.fillers.few'):t('speech.note.fillers.many');
+  const toneI18n={flat:t('debrief.tone.flat'),steady:t('debrief.tone.steady'),dynamic:t('debrief.tone.dynamic')};
+  const varietyNote=r.tone==='flat'?t('speech.note.variety.flat'):r.tone==='steady'?t('speech.note.variety.steady'):t('speech.note.variety.dynamic');
+  const faithNote=r.faithfulness>85?t('speech.note.faith.close'):r.faithfulness>60?t('speech.note.faith.drift'):t('speech.note.faith.diverge');
   $('speechScore').classList.remove('hidden');
   $('speechScore').innerHTML=`
     <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px">
       <div class="bigscore">${r.total}<small>/100</small></div>
-      <div style="font-weight:800;color:var(--accent2);font-size:15px;text-align:right;max-width:55%;line-height:1.35">${verdict}</div>
+      <div style="font-weight:800;color:var(--accent2);font-size:15px;text-align:right;max-width:55%;line-height:1.35">${esc(verdict)}</div>
     </div>
     <div class="metric-grid">
-      <div class="m"><div class="mn">Pace</div><div class="mv ${cls(r.paceScore)}">${r.wpm} wpm</div><div class="mnote">${esc(paceNote)}</div></div>
-      <div class="m"><div class="mn">Fillers</div><div class="mv ${cls(r.fillerScore)}">${r.fillers}</div><div class="mnote">${r.fillers<3?"Crisp.":r.fillers<8?"A few slipping in.":"Heavy filler use."}</div></div>
-      <div class="m"><div class="mn">Vocal variety</div><div class="mv ${cls(r.monoScore)}">${r.tone}</div><div class="mnote">${r.tone==='flat'?"Monotone. Vary pitch on key words.":r.tone==='steady'?"Decent range; push emphasis.":"Lively delivery."}</div></div>
-      <div class="m"><div class="mn">Faithfulness</div><div class="mv ${cls(r.faithfulness)}">${r.faithfulness}%</div><div class="mnote">${r.faithfulness>85?"Tracked the script closely.":r.faithfulness>60?"Drifted in places.":"Diverged a lot from the script."}</div></div>
+      <div class="m"><div class="mn">${esc(t('speech.metric.pace'))}</div><div class="mv ${cls(r.paceScore)}">${r.wpm} ${esc(t('live.wpm'))}</div><div class="mnote">${esc(paceNote)}</div></div>
+      <div class="m"><div class="mn">${esc(t('speech.metric.fillers'))}</div><div class="mv ${cls(r.fillerScore)}">${r.fillers}</div><div class="mnote">${esc(fillerNote)}</div></div>
+      <div class="m"><div class="mn">${esc(t('speech.metric.variety'))}</div><div class="mv ${cls(r.monoScore)}">${esc(toneI18n[r.tone]||r.tone)}</div><div class="mnote">${esc(varietyNote)}</div></div>
+      <div class="m"><div class="mn">${esc(t('speech.metric.faith'))}</div><div class="mv ${cls(r.faithfulness)}">${r.faithfulness}%</div><div class="mnote">${esc(faithNote)}</div></div>
     </div>
-    <button class="speech-rec" style="margin-top:14px" onclick="enterSpeechStage()">↻ Run it again</button>
+    <button class="speech-rec" style="margin-top:14px" onclick="enterSpeechStage()">${esc(t('tele.runAgain'))}</button>
   `;
   $('speechScore').scrollIntoView({behavior:'smooth',block:'start'});
 }
@@ -2207,8 +2222,8 @@ window.doLogin=async()=>{
   try{
     const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pw})});
     if(r.ok){enterApp();}
-    else{const d=await r.json().catch(()=>({}));$('lerr').textContent=d.error||'Wrong password.';}
-  }catch{$('lerr').textContent='Network error.';}
+    else{const d=await r.json().catch(()=>({}));$('lerr').textContent=d.error||t('login.wrong');}
+  }catch{$('lerr').textContent=t('login.network');}
 };
 function showLogin(){
   $('s-login').classList.add('active');document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));
