@@ -17,6 +17,7 @@ module.exports = async (req, res) => {
       nudge_count: Math.max(0, Math.round(b.nudge_count || 0)),
       turn_count: Math.max(0, Math.round(b.turn_count || 0)),
       verdict: b.verdict ? String(b.verdict).slice(0, 500) : null,
+      session_id: b.session_id ? String(b.session_id).slice(0, 64) : null,
     };
     await rest("/rehearse_takes", { method: "POST", body: JSON.stringify(row) });
     return res.status(200).json({ ok: true });

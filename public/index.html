@@ -246,7 +246,13 @@
 <script type="module">
 import { PARTNERS } from "./personas.js";
 
-let cur=null,curGoal=null,curVariant=0,history=[],won=false,nudgeCount=0;
+let cur=null,curGoal=null,curVariant=0,curSession=null,history=[],won=false,nudgeCount=0;
+function logTurn(role,text,extra={}){
+  // Fire-and-forget persistence of one conversation turn.
+  if(!curSession||!text)return;
+  fetch('/api/save-message',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({session_id:curSession,device_id:deviceId(),partner:cur,goal_index:curGoal,variant:curVariant,role,text,...extra})}).catch(()=>{});
+}
 let mediaRecorder=null,chunks=[],recording=false,busy=false,useText=false;
 const SESSION_CAP_MS=5*60*1000, MAX_TURNS=30, MAX_REC_MS=30*1000;
 const VARIANT_COUNT=5; // matches api/_personas.js variants length
@@ -357,6 +363,7 @@ function pickGoal(i){
 window.startScene=async()=>{
   const p=PARTNERS[cur];history=[];won=false;nudgeCount=0;ended=false;
   curVariant=Math.floor(Math.random()*VARIANT_COUNT);
+  curSession=(crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random().toString(36).slice(2));
   setLastPrompt(cur,curGoal);
   $('chatAv').textContent=p.av;$('chatNm').textContent=p.full;$('chatGl').textContent="Goal: "+p.goals[curGoal].t;
   $('feed').innerHTML='';$('chatErr').classList.add('hidden');
@@ -364,6 +371,7 @@ window.startScene=async()=>{
   go('chat');
   const opening=stripDashes(p.opening);
   addThem(opening);
+  logTurn('them',opening);
   speak(opening,p.voice_id);
 };
 function startTimer(){
@@ -484,8 +492,12 @@ async function handleUserTurn(text){
     clearStatus();
     if(d.error){err(d.error);setBusy(false);return;}
     rateLastMe(d.rating||'ok',d.feedback||'');
+    // Persist the user's most recent turn with its rating/feedback.
+    const lastMe=[...history].reverse().find(h=>h.role==='me');
+    if(lastMe)logTurn('me',lastMe.text,{rating:d.rating||'ok',feedback:d.feedback||''});
     const cleanReply=stripDashes(d.reply);
     addThem(cleanReply);
+    logTurn('them',cleanReply,{goal_hit:!!d.goal_hit});
     if(d.goal_hit&&!won)addWin();
     await speak(cleanReply,PARTNERS[cur].voice_id);
   }catch(e){clearStatus();err('Reply failed.');}
@@ -557,7 +569,7 @@ async function saveTake(d){
   bumpStreak();
   await fetch('/api/save-take',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({
-      device_id:deviceId(),partner:cur,goal_index:curGoal,
+      device_id:deviceId(),partner:cur,goal_index:curGoal,session_id:curSession,
       score:d.score,hit_goal:!!d.hit_goal,nudge_count:nudgeCount,
       turn_count:history.filter(h=>h.role==='me').length,verdict:d.verdict||''
     })});
