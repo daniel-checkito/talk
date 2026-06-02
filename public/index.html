@@ -277,6 +277,14 @@
   .dim-trend.up{background:#f0fbe6;color:var(--accent2)}
   .dim-trend.down{background:rgba(255,75,75,.12);color:var(--bad)}
   .dim-trend.flat{background:var(--panel2);color:var(--muted)}
+  .filler-card{background:#fff;border:2px solid var(--line);border-radius:14px;padding:12px 14px}
+  .fbar-row{display:flex;align-items:center;gap:10px;margin-bottom:7px}
+  .fbar-row:last-of-type{margin-bottom:0}
+  .fbar-w{font-size:13px;font-weight:900;color:var(--ink);min-width:78px;letter-spacing:.2px}
+  .fbar{flex:1;height:8px;background:var(--panel2);border-radius:5px;overflow:hidden}
+  .fbar i{display:block;height:100%;background:linear-gradient(90deg,var(--warn),var(--bad));border-radius:5px;transition:width .6s}
+  .fbar-c{font-size:12px;font-weight:800;color:var(--muted);min-width:34px;text-align:right;font-variant-numeric:tabular-nums}
+  .fbar-foot{font-size:11px;color:var(--muted);font-weight:700;line-height:1.4;margin-top:10px;padding-top:8px;border-top:1.5px solid var(--panel2)}
   .theme-card{display:flex;align-items:center;gap:10px;background:#fff7d6;border:2px solid var(--warn);border-radius:14px;padding:11px 14px;margin-bottom:8px}
   .theme-card .ti{font-size:20px;flex-shrink:0}
   .theme-card .tt{font-size:14px;font-weight:900;color:#8a6500;flex:1}
@@ -463,6 +471,23 @@
   <button class="btn btn-go" id="startBtn" disabled onclick="startScene()">Start scene</button>
 </section>
 
+<section class="screen" id="s-practice">
+  <div class="logo">Quick <span>Drill</span></div>
+  <p class="sub">A random partner, a random goal, a 90-second timer. Built to train thinking on your feet.</p>
+  <div style="background:#f0fbe6;border:2px solid var(--accent);border-radius:14px;padding:14px;color:var(--accent2);font-weight:700;font-size:13.5px;line-height:1.55;margin-bottom:14px">
+    <div style="font-weight:900;font-size:11px;letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px;opacity:.85">What you'll do</div>
+    You won't know what you're walking into. The opening line is your only context. Land a clean response under pressure, then keep the rhythm for 90 seconds.
+  </div>
+  <div class="label">Tips before you start</div>
+  <div style="font-size:13.5px;font-weight:700;color:var(--muted);line-height:1.6;margin-bottom:14px;padding-left:6px">
+    · Don't apologize for not knowing the topic, react to it.<br>
+    · Mirror their energy and match it back.<br>
+    · End on a question if you want them to keep going.
+  </div>
+  <div style="flex:1"></div>
+  <button class="btn btn-go" onclick="startDrill()">⚡ Start Quick Drill</button>
+</section>
+
 <section class="screen" id="s-chat">
   <div class="chathead">
     <div class="av" id="chatAv">😎</div>
@@ -594,7 +619,7 @@ const NAV_HTML=`
   <button class="nav-item" data-nav="practice" onclick="navTo('practice')"><svg viewBox="0 0 24 24"><path d="M4 9v6M7 6v12M17 6v12M20 9v6M7 12h10"/></svg>PRACTICE</button>
   <button class="nav-item" data-nav="progress" onclick="navTo('progress')"><svg viewBox="0 0 24 24"><path d="M3 17l5-5 4 4 8-9"/><path d="M14 7h6v6"/></svg>PROGRESS</button>`;
 $('appNav').innerHTML=NAV_HTML;
-const TABS=new Set(['home','progress']);
+const TABS=new Set(['home','progress','practice']);
 const go=s=>{
   document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));
   $('s-'+s).classList.add('active');
@@ -635,15 +660,18 @@ window.replayLast=()=>{
 };
 function setNavActive(screen){
   // Past talks now live inside Progress, so talks + talk detail map to the progress tab.
-  const map={progress:'progress',goal:'practice',talks:'progress',talk:'progress'};
+  const map={progress:'progress',goal:'practice',talks:'progress',talk:'progress',practice:'practice'};
   const tab=map[screen]||'home';
   document.querySelectorAll('.nav-item').forEach(el=>el.classList.toggle('active',el.dataset.nav===tab));
 }
 window.navTo=key=>{
   if(key==='home'){go('home');return;}
   if(key==='progress'){openProgress();return;}
-  if(key==='practice'){quickDrill();return;}
+  if(key==='practice'){go('practice');setNavActive('practice');return;}
 };
+// Start Quick Drill from the Practice landing screen. Behavior identical to the
+// old auto-start; only the entry point changed.
+window.startDrill=()=>quickDrill();
 // Quick Drill: random partner + random goal + random mood, 90-second timer.
 // One tap and you're in. Built to drill 'thinking on your feet'.
 function quickDrill(){
@@ -1347,7 +1375,8 @@ function renderDashboard(d){
   const CATS=[
     {key:"delivery",   label:"Delivery",    sub:"How it sounds"},
     {key:"language",   label:"Language",    sub:"The words you use"},
-    {key:"performance",label:"Performance", sub:"Whether it lands"},
+    {key:"engagement", label:"Engagement",  sub:"How it lands with them"},
+    {key:"performance",label:"Performance", sub:"Outcomes"},
   ];
   const dimsHtml=CATS.map(cat=>{
     const group=measured.filter(x=>x.category===cat.key);
@@ -1392,6 +1421,29 @@ function renderDashboard(d){
     </div>`).join('')}
   </div>`:'';
 
+  // Practice volume + top fillers - concrete numbers, not scored dimensions.
+  const pv=d.practice_volume||{};
+  const volHtml=(pv.total_minutes||pv.words_spoken)?`<div class="dash-sec">
+    <h3>Practice volume</h3>
+    <div class="practice-row">
+      <div class="pr-cell"><div class="v ${pv.minutes_7d>=10?'good':''}">${pv.minutes_7d||0}<span style="font-size:13px;color:var(--muted)">m</span></div><div class="k">Spoken · 7d</div></div>
+      <div class="pr-cell"><div class="v">${pv.total_minutes||0}<span style="font-size:13px;color:var(--muted)">m</span></div><div class="k">Spoken · total</div></div>
+      <div class="pr-cell"><div class="v">${(pv.words_spoken||0).toLocaleString()}</div><div class="k">Words said</div></div>
+    </div>
+  </div>`:'';
+  const fillers=d.top_fillers||[];
+  const fillerMax=fillers.length?Math.max(...fillers.map(f=>f.count)):0;
+  const fillersHtml=fillers.length?`<div class="dash-sec">
+    <h3>Your top fillers</h3>
+    <div class="filler-card">
+      ${fillers.map(f=>`<div class="fbar-row">
+        <div class="fbar-w">"${esc(f.word)}"</div>
+        <div class="fbar"><i style="width:${Math.max(8,(f.count/fillerMax)*100)}%"></i></div>
+        <div class="fbar-c">${f.count}×</div>
+      </div>`).join('')}
+      <div class="fbar-foot">Drop the worst one and your filler rate moves overnight.</div>
+    </div>
+  </div>`:'';
   body.innerHTML=`
     <div class="dash-hero">
       ${ringSvg(d.composite)}
@@ -1402,8 +1454,10 @@ function renderDashboard(d){
       </div>
     </div>
     ${practiceHtml}
+    ${volHtml}
     ${highlightsHtml}
     ${dimsHtml}
+    ${fillersHtml}
     ${themesHtml}
     ${partnersHtml}
   `;

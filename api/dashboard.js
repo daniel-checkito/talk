@@ -45,6 +45,58 @@ function hedgeRateScore(rate) {
   return Math.max(15, Math.round(55 - (rate - 5) * 6));
 }
 function confidenceScore(c) { return c == null ? null : Math.round(c); }
+// Sentence length sweet spot: 12-18 words avg. Research on prose readability
+// (Flesch) + speech corpora put short-form rhetoric around 14-16. Too short = clipped,
+// too long = audience falls off.
+function sentenceLenScore(avg) {
+  if (avg == null) return null;
+  if (avg >= 12 && avg <= 18) return 100;
+  if (avg >= 9 && avg <= 22) return 80;
+  if (avg >= 7 && avg <= 28) return 60;
+  return Math.max(20, Math.round(60 - Math.abs(avg - 15) * 1.5));
+}
+// Type-token ratio. Casual conversation ~0.4, polished talks ~0.55+.
+function vocabScore(ttr) {
+  if (ttr == null) return null;
+  if (ttr >= 0.55) return 100;
+  if (ttr >= 0.45) return 85;
+  if (ttr >= 0.35) return 65;
+  return Math.max(20, Math.round(ttr * 180));
+}
+// Question rate: % of user turns ending in / containing a question.
+// 25-45% of turns means you're driving curiosity rather than monologuing.
+function questionScore(pct) {
+  if (pct == null) return null;
+  if (pct >= 25 && pct <= 50) return 100;
+  if (pct >= 15 && pct <= 60) return 75;
+  if (pct < 15) return Math.max(20, Math.round(pct * 4));
+  return Math.max(35, Math.round(75 - (pct - 60)));
+}
+// you-words / (you-words + i-words). 0.5+ is balanced/other-focused.
+function youIScore(ratio) {
+  if (ratio == null) return null;
+  if (ratio >= 0.5) return 100;
+  if (ratio >= 0.4) return 85;
+  if (ratio >= 0.3) return 65;
+  return Math.max(20, Math.round(ratio * 180));
+}
+// Power words per 100 words. ~2-4 is the engaged-confident zone.
+function powerScore(per100) {
+  if (per100 == null) return null;
+  if (per100 >= 2 && per100 <= 5) return 100;
+  if (per100 >= 1 && per100 <= 7) return 80;
+  if (per100 < 1) return Math.max(25, Math.round(per100 * 60));
+  return Math.max(35, Math.round(80 - (per100 - 7) * 5));
+}
+// Conversation turn length: 12-40 words is a healthy back-and-forth.
+// Very short = stonewalling/monosyllabic; very long = lecturing.
+function turnLenScore(avgWords) {
+  if (avgWords == null) return null;
+  if (avgWords >= 12 && avgWords <= 40) return 100;
+  if (avgWords >= 6 && avgWords <= 70) return 75;
+  if (avgWords < 6) return Math.max(25, Math.round(avgWords * 12));
+  return Math.max(30, Math.round(75 - (avgWords - 70) * 0.8));
+}
 function rateScore(pct) {
   if (pct == null) return null;
   if (pct >= 70) return 100;
@@ -59,6 +111,17 @@ const HEDGES = [
   "just","like","probably","might","could be","i feel like","honestly",
   "i'm not sure","not really","a little bit","somewhat","perhaps","i suppose",
 ];
+// Conviction markers - the inverse of hedges. From persuasion research +
+// rhetoric textbooks. Used at ~2-4 per 100 words by confident speakers.
+const POWER_WORDS = [
+  "definitely","absolutely","certainly","clearly","precisely","specifically",
+  "obviously","exactly","entirely","completely","fundamentally","essentially",
+  "will","must","know","proven","decided","commit","guarantee","ensure",
+];
+// First-person vs second-person pronoun sets. Carnegie/Cialdini show that
+// other-focused language tends to land better in persuasive contexts.
+const I_WORDS = new Set(["i","i'm","i'll","i've","i'd","me","my","mine","myself"]);
+const YOU_WORDS = new Set(["you","your","yours","you're","you've","you'd","you'll"]);
 function countHedges(text) {
   if (!text) return 0;
   const t = " " + text.toLowerCase().replace(/[^a-z' ]/g, " ").replace(/\s+/g, " ") + " ";
@@ -167,6 +230,59 @@ module.exports = async (req, res) => {
     const totalHedges = msgs.reduce((a, m) => a + countHedges(m.text), 0);
     const hedgeRate = totalWords > 0 ? (totalHedges / totalWords) * 100 : null;
 
+    // --- Deep text analysis across user turns ---
+    // One pass over the saved messages to compute sentence rhythm, vocab diversity,
+    // question rate, self/other balance, conviction markers, top fillers.
+    const sentenceLens = [];
+    const turnWordCounts = [];
+    const uniqueWords = new Set();
+    const fillerByType = {};
+    let questionTurns = 0, iCount = 0, youCount = 0, powerCount = 0;
+    for (const m of msgs) {
+      const raw = m.text || "";
+      const lower = raw.toLowerCase();
+      const wordList = lower.replace(/[^a-z' ]/g, " ").split(/\s+/).filter(Boolean);
+      turnWordCounts.push(wordList.length);
+      for (const w of wordList) {
+        uniqueWords.add(w);
+        if (I_WORDS.has(w)) iCount++;
+        else if (YOU_WORDS.has(w)) youCount++;
+      }
+      // Sentences via terminal punctuation. Filter out junk fragments (<2 words).
+      const sentences = raw.split(/[.!?]+/).map(s => s.trim()).filter(s => s.split(/\s+/).filter(Boolean).length >= 2);
+      for (const s of sentences) sentenceLens.push(s.split(/\s+/).filter(Boolean).length);
+      if (/\?/.test(raw)) questionTurns++;
+      for (const pw of POWER_WORDS) {
+        const re = new RegExp("\\b" + pw + "\\b", "g");
+        const matches = lower.match(re);
+        if (matches) powerCount += matches.length;
+      }
+      // Filler breakdown - count each known filler phrase separately so we can
+      // surface the top offender, not just a rate.
+      for (const f of ["um","uh","like","you know","sort of","kind of","basically","actually","literally","right","i mean","er","ah"]) {
+        const re = new RegExp("\\b" + f.replace(/ /g, "\\s+") + "\\b", "g");
+        const matches = lower.match(re);
+        if (matches) fillerByType[f] = (fillerByType[f] || 0) + matches.length;
+      }
+    }
+    const avgSentenceLen = sentenceLens.length ? sentenceLens.reduce((a, b) => a + b, 0) / sentenceLens.length : null;
+    const avgTurnWords = turnWordCounts.length ? turnWordCounts.reduce((a, b) => a + b, 0) / turnWordCounts.length : null;
+    const ttr = totalWords > 0 ? uniqueWords.size / totalWords : null;
+    const questionPct = msgs.length ? (questionTurns / msgs.length) * 100 : null;
+    const youIRatio = (youCount + iCount) > 0 ? youCount / (youCount + iCount) : null;
+    const powerPer100 = totalWords > 0 ? (powerCount / totalWords) * 100 : null;
+    const topFillers = Object.entries(fillerByType).sort((a, b) => b[1] - a[1]).slice(0, 5)
+      .map(([word, count]) => ({ word, count }));
+    // Total speaking time across all logged voice turns + speech takes.
+    const totalSpokenSec = deliveries.reduce((a, d) => a + (d.duration || 0), 0) +
+                           speechTakes.reduce((a, t) => a + (t.duration_s || 0), 0);
+    const minutes7 = Math.round(
+      (msgs.filter(m => new Date(m.created_at) >= new Date(Date.now() - 7 * 86400000))
+           .reduce((a, m) => a + ((m.delivery && m.delivery.duration) || 0), 0) +
+       speechTakes.filter(t => new Date(t.created_at) >= new Date(Date.now() - 7 * 86400000))
+           .reduce((a, t) => a + (t.duration_s || 0), 0)) / 60
+    );
+
     // --- Conversation quality ---
     const ratedMsgs = msgs.filter(m => m.rating);
     const ratingCounts = { great: 0, good: 0, ok: 0, miss: 0 };
@@ -246,6 +362,32 @@ module.exports = async (req, res) => {
         tip: greatPct == null ? "" : greatPct >= 25 ? "You land strong lines regularly." :
              greatPct >= 12 ? "A few sharp moments per scene. Build more around them." :
              "Few standout lines. Study which feedback notes say 'great' and lean in." },
+      // Language additions
+      { key: "sentence", category: "language", label: "Sentence rhythm", value: avgSentenceLen != null ? avgSentenceLen.toFixed(1) + " words avg" : null, score: sentenceLenScore(avgSentenceLen), target: "12-18 words avg",
+        tip: avgSentenceLen == null ? "" : avgSentenceLen < 9 ? "Short and choppy. Mix in longer thoughts." :
+             avgSentenceLen > 22 ? "Sentences run long. Cut them in half on key beats." :
+             "Solid length. Mix short and long to land emphasis." },
+      { key: "vocab", category: "language", label: "Vocabulary diversity", value: ttr != null ? Math.round(ttr * 100) + "%" : null, score: vocabScore(ttr), target: "55%+ unique words",
+        tip: ttr == null ? "" : ttr >= 0.55 ? "Rich, varied language." :
+             ttr >= 0.4 ? "Decent range. Try not to recycle the same five verbs." :
+             "Repetitive. Stretch into adjacent words; same idea, fresh phrasing." },
+      { key: "power", category: "language", label: "Power words", value: powerPer100 != null ? powerPer100.toFixed(1) + "/100w" : null, score: powerScore(powerPer100), target: "2-5 per 100 words",
+        tip: powerPer100 == null ? "" : powerPer100 < 1 ? "Few conviction markers. 'Definitely', 'will', 'clearly' carry weight." :
+             powerPer100 > 6 ? "Heavy on absolutes. Backs you into a corner under pushback." :
+             "Conviction reads strong." },
+      // New 'engagement' category - how the conversation lands with the other side.
+      { key: "questions", category: "engagement", label: "Question rate", value: questionPct != null ? Math.round(questionPct) + "%" : null, score: questionScore(questionPct), target: "25-50% of turns",
+        tip: questionPct == null ? "" : questionPct < 15 ? "You barely ask. Curiosity is a tool, use it." :
+             questionPct > 60 ? "Every other line is a question. Make some statements." :
+             "Healthy curiosity." },
+      { key: "youi", category: "engagement", label: "Self vs other focus", value: youIRatio != null ? Math.round(youIRatio * 100) + "% you-words" : null, score: youIScore(youIRatio), target: "50%+ other-focused",
+        tip: youIRatio == null ? "" : youIRatio >= 0.5 ? "Other-focused. People feel heard." :
+             youIRatio >= 0.35 ? "Slightly self-centered. Flip one 'I' to 'you' per turn." :
+             "Heavy 'I' talk. Top persuaders use 'you' twice as often as 'I'." },
+      { key: "turnlen", category: "engagement", label: "Turn length", value: avgTurnWords != null ? avgTurnWords.toFixed(1) + " words/turn" : null, score: turnLenScore(avgTurnWords), target: "12-40 words/turn",
+        tip: avgTurnWords == null ? "" : avgTurnWords < 6 ? "Monosyllabic. Add one specific detail per turn." :
+             avgTurnWords > 60 ? "You're lecturing. Cut your turns in half." :
+             "Balanced back-and-forth." },
     ];
 
     const measured = dims.filter(d => d.score != null);
@@ -342,6 +484,12 @@ module.exports = async (req, res) => {
         speech_takes: speechTakes.length,
         turns: msgs.length,
       },
+      practice_volume: {
+        total_minutes: Math.round(totalSpokenSec / 60),
+        minutes_7d: minutes7,
+        words_spoken: totalWords,
+      },
+      top_fillers: topFillers,
     });
   } catch (e) {
     return res.status(500).json({ error: String(e.message || e) });
