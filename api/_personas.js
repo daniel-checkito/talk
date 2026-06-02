@@ -277,6 +277,41 @@ PARTNERS.stranger = {
       win: "Alex agrees to a specific follow-up (number, social, a concrete plan with a day), or proposes one themselves.",
       rubric: ["being specific not vague", "low-pressure ask", "earned by interest first", "graceful if they hesitate"],
     },
+    {
+      t: "Approach a stranger cold",
+      win: "After your cold approach, the stranger drops their guard and engages with a real reply (a question back, a story, a genuine reaction), not just a polite brush-off.",
+      rubric: ["a specific observation tied to where you are", "no pickup-line energy", "low-stakes opener that doesn't demand much", "reading their body language fast"],
+      // Per-scenario context. Voice + opening change every run; the client picks one at random
+      // and sends scenarioIndex back so reply.js injects the SCENE: line into the system prompt.
+      // Voice IDs are from the ElevenLabs public library and chosen to fit the scene.
+      scenarios: [
+        {
+          setting: "You're in a quiet coffee shop on a weekday afternoon. They're at a corner table, reading a paperback, half a latte left. You just sat down two tables over.",
+          voice_id: "21m00Tcm4TlvDq8ikWAM",
+          opening: "(Glances up from the book, polite half-smile, waits to see what you want.)",
+        },
+        {
+          setting: "You're at the dog park. Their golden retriever just dropped a tennis ball at your feet. They're walking over to grab it back, mildly apologetic.",
+          voice_id: "ErXwobaYiN019PkySvjV",
+          opening: "Oh, sorry, he does this to everyone. Hope he didn't slime you.",
+        },
+        {
+          setting: "You're in a bookstore, in the small philosophy aisle. They're crouched down reading the back of a book you've been thinking about buying.",
+          voice_id: "AZnzlk1HygsiSFalpV0g",
+          opening: "(Looks up briefly, slight nod, goes back to the book.)",
+        },
+        {
+          setting: "You're at a hotel bar around 9pm, alone-ish crowd. They're two stools down, scrolling their phone, half a drink, no one with them.",
+          voice_id: "TxGEqnHWrfWFTfGW9XjX",
+          opening: "(Puts the phone face-down, neutral look, waits.)",
+        },
+        {
+          setting: "You're at a small gallery opening, holding a plastic cup of wine. They're standing in front of a painting you also stopped at, looking puzzled.",
+          voice_id: "MF3mGyEYCl7XYWbV9V6O",
+          opening: "Hm. I genuinely cannot tell if this one is brilliant or a joke.",
+        },
+      ],
+    },
   ],
 };
 

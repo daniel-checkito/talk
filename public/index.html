@@ -87,6 +87,8 @@
   .dlv span.ok{color:var(--warn)}
   .dlv span.low{color:var(--bad)}
   .nudge{align-self:center;background:#fff7d6;border:2px solid var(--warn);color:#9a7400;font-size:12px;font-weight:800;padding:6px 12px;border-radius:20px;max-width:90%;text-align:center}
+  .stage{align-self:center;background:#f5f0ff;border:2px solid #c9b8ff;color:#5b3fb8;font-size:13px;font-weight:700;font-style:italic;padding:10px 14px;border-radius:14px;max-width:94%;text-align:center;line-height:1.45}
+  .stage b{font-style:normal;font-weight:900;letter-spacing:.5px;text-transform:uppercase;font-size:10px;display:block;margin-bottom:4px;color:#7d5fd9}
   .winbanner{align-self:center;background:#f0fbe6;border:2px solid var(--accent);color:var(--accent2);font-weight:900;font-size:14px;padding:10px 16px;border-radius:16px;text-align:center}
   .status{align-self:center;color:var(--muted);font-size:13px;font-weight:800;padding:4px}
   /* mic dock */
@@ -407,6 +409,10 @@
 import { PARTNERS } from "./personas.js";
 
 let cur=null,curGoal=null,curVariant=0,curSession=null,history=[],won=false,nudgeCount=0,drillMode=false;
+// Per-scene scenario (for goals that have a `scenariosByGoal` pool, like the stranger-approach goal).
+let curScenarioIndex=null,curVoiceOverride=null;
+// Currently playing TTS audio element, kept so endScene/back-out can cut it off mid-sentence.
+let currentAudio=null;
 function logTurn(role,text,extra={}){
   // Fire-and-forget persistence of one conversation turn.
   if(!curSession||!text)return;
@@ -414,7 +420,7 @@ function logTurn(role,text,extra={}){
     body:JSON.stringify({session_id:curSession,device_id:deviceId(),partner:cur,goal_index:curGoal,variant:curVariant,role,text,...extra})}).catch(()=>{});
 }
 let mediaRecorder=null,chunks=[],recording=false,busy=false,useText=false;
-const SESSION_CAP_MS=5*60*1000, MAX_TURNS=30, MAX_REC_MS=30*1000;
+const SESSION_CAP_MS=5*60*1000, MAX_TURNS=30, MAX_REC_MS=30*1000, MAX_SPEECH_REC_MS=180*1000;
 const VARIANT_COUNT=5; // matches api/_personas.js variants length
 let sessionEndAt=0,timerHandle=null,recHardStop=null,ended=false;
 function stripDashes(s){if(!s)return s;return String(s).replace(/\s*[—–]\s*/g,', ').replace(/[—–]/g,',').replace(/\s+,/g,',').replace(/,+/g,',').replace(/\s+/g,' ').trim();}
@@ -552,6 +558,15 @@ window.startScene=async()=>{
   curVariant=Math.floor(Math.random()*VARIANT_COUNT);
   curSession=(crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random().toString(36).slice(2));
   setLastPrompt(cur,curGoal);
+  // Pick a scenario if this goal has them. Scenario = {setting, opening, voice_id, av, name}.
+  // Randomized every scene so the voice + setting feel fresh, never the same approach twice.
+  curScenarioIndex=null;curVoiceOverride=null;
+  const scenarioPool=p.scenariosByGoal&&p.scenariosByGoal[curGoal];
+  const scenario=scenarioPool&&scenarioPool.length?scenarioPool[Math.floor(Math.random()*scenarioPool.length)]:null;
+  if(scenario){
+    curScenarioIndex=scenarioPool.indexOf(scenario);
+    curVoiceOverride=scenario.voice_id;
+  }
   // Audience persona gets a 2x3 crowd of stylized faces; everyone else keeps the single emoji.
   const av=$('chatAv');
   if(cur==='audience'){
@@ -561,17 +576,29 @@ window.startScene=async()=>{
     av.innerHTML=CROWD_MOODS.ok.map(f=>`<div class="face">${f}</div>`).join('');
   }else{
     av.classList.remove('crowd');av.classList.add('av');
-    av.innerHTML='';av.textContent=p.av;
+    av.innerHTML='';av.textContent=(scenario&&scenario.av)||p.av;
   }
-  $('chatNm').textContent=p.full;$('chatGl').textContent=(drillMode?"⚡ Quick Drill · ":"Goal: ")+p.goals[curGoal].t;
+  $('chatNm').textContent=(scenario&&scenario.name)||p.full;
+  $('chatGl').textContent=(drillMode?"⚡ Quick Drill · ":"Goal: ")+p.goals[curGoal].t;
   $('feed').innerHTML='';$('chatErr').classList.add('hidden');
   startTimer();
   go('chat');
-  const pool=(p.openingsByGoal&&p.openingsByGoal[curGoal])||[p.opening];
-  const opening=stripDashes(pool[Math.floor(Math.random()*pool.length)]);
+  // If we have a scenario, show the scene-setting "stage direction" first so the user knows
+  // where they are and what they're walking into before the stranger speaks.
+  if(scenario){
+    const stageDiv=document.createElement('div');
+    stageDiv.className='stage';
+    stageDiv.innerHTML='<b>Scene</b>'+esc(scenario.setting)+'<br><br>Your move. Walk up and say something.';
+    $('feed').appendChild(stageDiv);
+    scroll();
+  }
+  const opening=stripDashes(
+    scenario?scenario.opening
+    :(p.openingsByGoal&&p.openingsByGoal[curGoal]||[p.opening])[Math.floor(Math.random()*((p.openingsByGoal&&p.openingsByGoal[curGoal]||[p.opening]).length))]
+  );
   addThem(opening);
   logTurn('them',opening);
-  speak(opening,p.voice_id);
+  speak(opening,curVoiceOverride||p.voice_id);
 };
 function startTimer(){
   const cap=drillMode?90*1000:SESSION_CAP_MS;
@@ -827,7 +854,7 @@ async function handleUserTurn(text,delivery){
   status(PARTNERS[cur].name+' is thinking…');
   try{
     const r=await fetch('/api/reply',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({partner:cur,goalIndex:curGoal,history:history.map(h=>({role:h.role,text:h.text})),variant:curVariant})});
+      body:JSON.stringify({partner:cur,goalIndex:curGoal,history:history.map(h=>({role:h.role,text:h.text})),variant:curVariant,scenarioIndex:curScenarioIndex})});
     const d=await r.json();
     clearStatus();
     if(d.error){err(d.error);setBusy(false);return;}
@@ -839,7 +866,7 @@ async function handleUserTurn(text,delivery){
     addThem(cleanReply);
     logTurn('them',cleanReply,{goal_hit:!!d.goal_hit});
     if(d.goal_hit&&!won)addWin();
-    await speak(cleanReply,PARTNERS[cur].voice_id);
+    await speak(cleanReply,curVoiceOverride||PARTNERS[cur].voice_id);
   }catch(e){clearStatus();err('Reply failed.');}
   setBusy(false);$('michint').textContent='Tap to speak';
 }
@@ -854,9 +881,16 @@ async function speak(text,voice_id){
     const buf=await r.arrayBuffer();
     const url=URL.createObjectURL(new Blob([buf],{type:'audio/mpeg'}));
     const audio=new Audio(url);
+    currentAudio=audio;
     await new Promise(res=>{audio.onended=res;audio.onerror=res;audio.play().catch(res);});
+    if(currentAudio===audio)currentAudio=null;
     URL.revokeObjectURL(url);
   }catch(e){}
+  $('chatAv').classList.remove('speaking');
+}
+// Cut off any TTS audio currently playing. Called on End scene / scene abort.
+function stopActiveAudio(){
+  if(currentAudio){try{currentAudio.pause();currentAudio.src='';}catch{}currentAudio=null;}
   $('chatAv').classList.remove('speaking');
 }
 
@@ -892,6 +926,10 @@ function startScoringAnim(){
 function stopScoringAnim(){if(scoringStepHandle){clearInterval(scoringStepHandle);scoringStepHandle=null;}}
 window.endScene=async()=>{
   stopTimer();ended=true;
+  // Cut anything still running: a live mic recording (would otherwise auto-stop after 30s,
+  // hit STT, and bounce the user back), and any TTS playing through the partner's last line.
+  if(recording)stopRec();
+  stopActiveAudio();
   const wasDrill=drillMode;drillMode=false;
   go('debrief');startScoringAnim();
   try{
@@ -1146,9 +1184,11 @@ const SPEECH_TEMPLATES=[
   {id:"launch",ic:"📣",t:"Product launch",sub:"energetic announcement",ctx:"sales",text:"Today is the day everything changes for how your team works. For two years we listened to one piece of feedback over and over. It's too slow, and it's too complicated. So we rebuilt it from the ground up. It's three times faster. It learns how you work. And starting right now, it's available to everyone in this room. Let me show you what that actually looks like."},
 ];
 const CTX_BANDS={keynote:{lo:130,hi:150,name:"Keynote"},interview:{lo:150,hi:170,name:"Interview"},sales:{lo:150,hi:170,name:"Sales"},technical:{lo:110,hi:130,name:"Technical"},toast:{lo:120,hi:140,name:"Ceremonial"}};
-let speechScript="",speechTemplate="",speechCtx="keynote",speechRec=null,speechRecording=false,speechStartTs=0,speechVolRaf=0,speechAudioCtx=null,speechAnalyser=null,speechBuf=null,speechVolSamples=[],speechPitchSamples=[],speechPauseFrames=0,speechLastSpeechTs=0,speechStream=null,speechScroll=null,speechSR=null,speechLiveText="";
+let speechScript="",speechTemplate="",speechCtx="keynote",speechRec=null,speechRecording=false,speechStartTs=0,speechVolRaf=0,speechAudioCtx=null,speechAnalyser=null,speechBuf=null,speechVolSamples=[],speechPitchSamples=[],speechPauseFrames=0,speechLastSpeechTs=0,speechStream=null,speechScroll=null,speechSR=null,speechLiveText="",speechHardStop=null;
 
 window.openSpeech=()=>{
+  // Back-out from mid-take: kill the mic + audio loops so they don't leak in the background.
+  if(speechRecording)stopSpeechRec();
   $('speechTemplates').innerHTML=SPEECH_TEMPLATES.map((t,i)=>`<div class="tcard" onclick="pickSpeechTemplate(${i})"><div class="ic">${t.ic}</div><div><div class="tt">${t.t}</div><div class="ts">${t.sub}</div></div><div class="arr">›</div></div>`).join('');
   go('speech');
 };
@@ -1253,6 +1293,10 @@ async function startSpeechRec(){
   speechRec.start();
   startPromptScroll(expectedSec);
   $('speechBtn').textContent='■ Stop & score';$('speechBtn').classList.add('live');
+  // Hard ceiling: a 3-minute speech is plenty. Without this the volume/pitch arrays
+  // grow unbounded and ElevenLabs would reject the upload anyway.
+  if(speechHardStop)clearTimeout(speechHardStop);
+  speechHardStop=setTimeout(()=>{if(speechRecording){err("Max 3 minutes per take. Stopping.");stopSpeechRec();}},MAX_SPEECH_REC_MS);
 }
 function startPromptScroll(expectedSec){
   const sc=$('scroller');
@@ -1271,10 +1315,12 @@ function startPromptScroll(expectedSec){
 function stopSpeechRec(){
   if(!speechRecording)return;
   speechRecording=false;
+  if(speechHardStop){clearTimeout(speechHardStop);speechHardStop=null;}
   if(speechVolRaf)cancelAnimationFrame(speechVolRaf);
   if(speechScroll)cancelAnimationFrame(speechScroll);
   if(speechSR){try{speechSR.stop();}catch{}speechSR=null;}
-  try{speechRec.stop();}catch{}
+  try{speechRec&&speechRec.stop();}catch{}
+  try{speechStream&&speechStream.getTracks().forEach(t=>t.stop());}catch{}
   try{speechAudioCtx&&speechAudioCtx.close();}catch{}
   $('speechBtn').textContent='Scoring...';$('speechBtn').disabled=true;
 }

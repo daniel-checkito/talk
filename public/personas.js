@@ -152,7 +152,50 @@ export const PARTNERS = {
       { t: "Get a real conversation going", hint: "Find a shared frame fast. Pull on one specific thread." },
       { t: "Re-engage them after they go monosyllabic", hint: "Don't escalate effort. Pivot once, then let silence work." },
       { t: "Get an opening to meet again", hint: "Be specific. A plan with a day beats 'we should hang out'." },
+      { t: "Approach a stranger cold", hint: "Comment on something real about where you are. Low-stakes opener. No lines." },
     ],
+    // Per-scenario context for the "Approach a stranger cold" goal (last goal).
+    // Voice + opening change every run; index is sent to /api/reply so the server can inject the SCENE.
+    // Keep in sync with api/_personas.js scenarios.
+    scenariosByGoal: {
+      4: [
+        {
+          setting: "You're in a quiet coffee shop on a weekday afternoon. They're at a corner table, reading a paperback, half a latte left. You just sat down two tables over.",
+          voice_id: "21m00Tcm4TlvDq8ikWAM",
+          opening: "(Glances up from the book, polite half-smile, waits to see what you want.)",
+          av: "📖",
+          name: "Stranger at the cafe",
+        },
+        {
+          setting: "You're at the dog park. Their golden retriever just dropped a tennis ball at your feet. They're walking over to grab it back, mildly apologetic.",
+          voice_id: "ErXwobaYiN019PkySvjV",
+          opening: "Oh, sorry, he does this to everyone. Hope he didn't slime you.",
+          av: "🐕",
+          name: "Stranger at the dog park",
+        },
+        {
+          setting: "You're in a bookstore, in the small philosophy aisle. They're crouched down reading the back of a book you've been thinking about buying.",
+          voice_id: "AZnzlk1HygsiSFalpV0g",
+          opening: "(Looks up briefly, slight nod, goes back to the book.)",
+          av: "📚",
+          name: "Stranger at the bookstore",
+        },
+        {
+          setting: "You're at a hotel bar around 9pm, alone-ish crowd. They're two stools down, scrolling their phone, half a drink, no one with them.",
+          voice_id: "TxGEqnHWrfWFTfGW9XjX",
+          opening: "(Puts the phone face-down, neutral look, waits.)",
+          av: "🍸",
+          name: "Stranger at the bar",
+        },
+        {
+          setting: "You're at a small gallery opening, holding a plastic cup of wine. They're standing in front of a painting you also stopped at, looking puzzled.",
+          voice_id: "MF3mGyEYCl7XYWbV9V6O",
+          opening: "Hm. I genuinely cannot tell if this one is brilliant or a joke.",
+          av: "🎨",
+          name: "Stranger at the gallery",
+        },
+      ],
+    },
   },
   audience: {
     av: "🎤", name: "The Room", full: "A skeptical room",

@@ -18,7 +18,7 @@ module.exports = async (req, res) => {
   if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
   if (!requireAuth(req, res)) return;
   try {
-    const { partner, goalIndex, history, variant } = req.body || {};
+    const { partner, goalIndex, history, variant, scenarioIndex } = req.body || {};
     const p = PARTNERS[partner];
     if (!p) return res.status(400).json({ error: "unknown partner" });
     const g = p.goals[goalIndex];
@@ -27,8 +27,18 @@ module.exports = async (req, res) => {
     const vi = Number.isInteger(variant) && variant >= 0 && variant < variants.length ? variant : 0;
     const variantLine = variants[vi] || "";
 
+    // Some goals (e.g. "Approach a stranger cold") have scenarios that set a physical scene.
+    // The client picks one per session and sends its index back here.
+    let sceneLine = "";
+    if (g && Array.isArray(g.scenarios) && Number.isInteger(scenarioIndex)
+        && scenarioIndex >= 0 && scenarioIndex < g.scenarios.length) {
+      sceneLine = "SCENE: " + g.scenarios[scenarioIndex].setting +
+        " The user is approaching you cold. Stay in this exact physical setting.";
+    }
+
     const sys = `${p.persona}
 ${variantLine ? "MOOD FOR THIS SCENE: " + variantLine : ""}
+${sceneLine}
 You are in a live spoken conversation. Reply in 1-3 short, natural, interruptible sentences, it will be read aloud, so write the way people actually talk. Stay 100% in character. Never mention being an AI.
 STYLE RULES: Do NOT use em-dashes or en-dashes. Use commas, periods, or simple words instead. Do not use ellipses for dramatic pauses; just write the sentence. No emojis.
 PRIVATE GOAL LOGIC: The user is secretly trying to: "${g.t}". Only behave as if they've succeeded when: ${g.win}
