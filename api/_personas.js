@@ -366,21 +366,109 @@ PARTNERS.audience = {
       t: "Open with a hook that lands",
       win: "After the user's first line, the room visibly leans in: a follow-up like 'go on', 'okay', or a more open question instead of a challenge.",
       rubric: ["concrete first sentence", "stakes named early", "no apology or warm-up filler", "earning the next 30 seconds"],
+      scenarios: [
+        {
+          setting: "You're at a TEDx event. You walk out to polite applause. Your talk title on the screen behind you: 'Why your brain treats deadlines like furniture'. The room is about 200 people, slightly tired, mid-afternoon slot. You have 12 minutes total. The host has just handed the mic over.",
+          voice_id: "pqHfZKP75CvOlQylNhV4",
+          opening: "Mic's hot. Whenever you're ready.",
+        },
+        {
+          setting: "You're at an industry conference, keynote slot, 400 people in the room. Your title slide: 'Your team's meetings cost more than your office lease'. Lights just came up. You have 8 minutes before Q&A.",
+          voice_id: "JBFqnCBsd6RMkjVDRZzb",
+          opening: "Right then. Take it away.",
+        },
+        {
+          setting: "Company all-hands, 150 employees on Zoom + 80 in the room. You're announcing a major reorganization. People are uneasy. You have the floor for the next five minutes before questions.",
+          voice_id: "nPczCjzI2devNBz1zQrb",
+          opening: "Okay, everyone's here. Floor's yours.",
+        },
+        {
+          setting: "Pitch competition finale. Three judges at a table, audience of 250 behind them. Your startup is one of five finalists. You have exactly 90 seconds. Clock starts on your first word.",
+          voice_id: "IKne3meq5aSn9XLyUdCD",
+          opening: "Ninety seconds. Starting now.",
+        },
+      ],
     },
     {
       t: "Handle a hostile question without folding",
       win: "After at least one sharp pushback, the user answers with composure and the room moves on (no second jab on the same point).",
       rubric: ["acknowledging the question", "reframing without dodging", "one clean answer", "not apologizing twice"],
+      scenarios: [
+        {
+          setting: "You just finished a 10-minute board presentation on Q3 results. Revenue is up 18%, but customer acquisition cost rose 40% and you only mentioned it briefly. The CFO has the deck open in front of her and is tapping page 14.",
+          voice_id: "pqHfZKP75CvOlQylNhV4",
+          opening: "Hold on. Your CAC is up forty percent and you buried it on slide fourteen. Walk us through why I shouldn't be alarmed.",
+        },
+        {
+          setting: "Press conference after your company issued a voluntary product recall this morning. Cameras rolling. A reporter from a major outlet has raised her hand.",
+          voice_id: "EXAVITQu4vr4xnSDxMaL",
+          opening: "Two questions. First: who at your company knew about this issue before the recall, and when? Don't dodge the timeline.",
+        },
+        {
+          setting: "Investor town hall, two weeks after you missed quarterly earnings by 12%. A long-time shareholder at the back microphone, visibly frustrated.",
+          voice_id: "onwK4e9ZLuTAKqWW03F9",
+          opening: "Last year you stood here and told us this exact scenario couldn't happen. So either you were lying then, or you don't actually understand your own business. Which is it?",
+        },
+        {
+          setting: "Engineering review meeting. You just proposed migrating a critical system to a new architecture. The principal engineer who built the current system is in the room, arms crossed.",
+          voice_id: "VR6AwgfvsGCJSGpZemc",
+          opening: "Your migration plan assumes a clean cutover. We tried that in 2019 and lost three days of revenue. What's different this time, specifically?",
+        },
+      ],
     },
     {
       t: "Win over a skeptical board with one ask",
       win: "The room (or the moderator on their behalf) says they would back the ask, or asks an implementation question instead of a credibility one.",
       rubric: ["lead with outcome not method", "one specific ask with a number", "address the obvious objection first", "calm conviction under push"],
+      scenarios: [
+        {
+          setting: "Board meeting. You're asking for $2M to pivot your product into a new vertical. The lead investor leans toward 'no' going in. You have 6 minutes before they vote.",
+          voice_id: "pqHfZKP75CvOlQylNhV4",
+          opening: "We've read the memo. I'll be direct: I'm leaning no. The current line is finally working. Tell me why we should bet two million on a pivot now.",
+        },
+        {
+          setting: "You're asking the CFO to approve 8 new headcount on your team. The company just announced a hiring freeze last month. She agreed to hear you out for ten minutes.",
+          voice_id: "EXAVITQu4vr4xnSDxMaL",
+          opening: "I have ten minutes. We're in a freeze. I assume you know that. So what's so urgent it can't wait two quarters?",
+        },
+        {
+          setting: "Leadership offsite. You're proposing to sunset a profitable but stagnant product line so the team can focus on a riskier bet. The product's GM is in the room.",
+          voice_id: "JBFqnCBsd6RMkjVDRZzb",
+          opening: "Right, so you want us to shut down a line that still pays the bills. Convince the room. Start with the math.",
+        },
+        {
+          setting: "Promotion committee. You're advocating for a direct report's promotion to senior. Two of the four reviewers don't know them well. You have 4 minutes.",
+          voice_id: "nPczCjzI2devNBz1zQrb",
+          opening: "Okay. We've got four minutes and two of us haven't worked with this person. Make the case.",
+        },
+      ],
     },
     {
       t: "Land a memorable closing line",
       win: "The room reacts to the closing line (a nod, a 'well said', a beat of silence, a question that references it). Not just polite applause.",
       rubric: ["callback to the opener", "one image or sentence to remember", "stop before over-explaining", "earned by everything before it"],
+      scenarios: [
+        {
+          setting: "You're ending a TEDx talk on resilience. You've told the story of rebuilding your life after losing everything in a fire. The audience is quiet. You have one minute left, and one final point to land.",
+          voice_id: "JBFqnCBsd6RMkjVDRZzb",
+          opening: "Bring it home. The room's with you. Don't waste it on a 'thank you for listening'.",
+        },
+        {
+          setting: "Your retirement speech at the company you've been at for 25 years. The whole team is in the room, drinks in hand. You've thanked everyone. There's one thing left to say.",
+          voice_id: "pqHfZKP75CvOlQylNhV4",
+          opening: "Wrap it up. Give us the line we'll be quoting at the bar tonight.",
+        },
+        {
+          setting: "Commencement address at your alma mater. You've talked for 12 minutes about your journey. The graduates have phones half-up, ready to clip the last sentence.",
+          voice_id: "VR6AwgfvsGCJSGpZemc",
+          opening: "Last sentence. Give them something they'll put in a caption.",
+        },
+        {
+          setting: "Closing keynote at an industry conference. You've made your case for the next decade of the industry. The screen behind you is black. The room is yours.",
+          voice_id: "nPczCjzI2devNBz1zQrb",
+          opening: "Mic's still hot. Land it.",
+        },
+      ],
     },
   ],
 };

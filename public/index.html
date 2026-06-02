@@ -49,6 +49,8 @@
   .btn-grey:active{transform:translateY(4px);box-shadow:0 0 0}
   .back{background:var(--panel2);border:2px solid var(--line);border-bottom-width:3px;color:var(--blue);font-family:var(--font);font-weight:800;font-size:13px;letter-spacing:.5px;text-transform:uppercase;cursor:pointer;margin-bottom:14px;align-self:flex-start;display:inline-flex;align-items:center;gap:5px;padding:9px 14px 9px 11px;border-radius:22px;min-height:40px;transition:.1s}
   .back:active{transform:translateY(2px);border-bottom-width:1px;background:var(--line)}
+  .cancel{background:var(--panel2);border:2px solid var(--line);border-bottom-width:3px;color:var(--bad);font-family:var(--font);font-weight:900;font-size:14px;cursor:pointer;padding:7px 11px;border-radius:22px;min-height:40px;min-width:40px;margin-right:6px;transition:.1s;display:inline-flex;align-items:center;justify-content:center;line-height:1}
+  .cancel:active{transform:translateY(2px);border-bottom-width:1px;background:rgba(255,75,75,.08)}
   .chathead{display:flex;align-items:center;gap:12px;padding-bottom:14px;border-bottom:2px solid var(--line);margin-bottom:14px}
   .chathead .av{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;background:var(--panel2);flex-shrink:0}
   /* Audience: a small crowd of stylized faces instead of one avatar */
@@ -409,6 +411,7 @@
     <div class="av" id="chatAv">😎</div>
     <div style="flex:1"><div class="nm" id="chatNm"></div><div class="gl" id="chatGl"></div></div>
     <div id="timer" style="font-weight:900;font-size:14px;color:var(--muted);margin-right:8px;font-variant-numeric:tabular-nums">5:00</div>
+    <button class="cancel" onclick="cancelScene()" title="Cancel without scoring">✕</button>
     <button class="back" style="margin:0" onclick="endScene()">End ▸</button>
   </div>
   <div class="feed" id="feed"></div>
@@ -920,6 +923,9 @@ async function handleUserTurn(text,delivery){
       body:JSON.stringify({partner:cur,goalIndex:curGoal,history:history.map(h=>({role:h.role,text:h.text})),variant:curVariant,scenarioIndex:curScenarioIndex})});
     const d=await r.json();
     clearStatus();
+    // The scene may have been cancelled while /api/reply was in flight.
+    // Drop the response silently: no rating, no log, no voice playback.
+    if(ended){setBusy(false);return;}
     if(d.error){err(d.error);setBusy(false);return;}
     rateLastMe(d.rating||'ok',d.feedback||'');
     // Persist the user's most recent turn with its rating/feedback + delivery.
@@ -987,7 +993,27 @@ function startScoringAnim(){
   },1400);
 }
 function stopScoringAnim(){if(scoringStepHandle){clearInterval(scoringStepHandle);scoringStepHandle=null;}}
+// Cancel: end the scene WITHOUT scoring it, without bumping streak,
+// and delete anything already auto-persisted server-side. Confirms once.
+window.cancelScene=async()=>{
+  if(ended)return;
+  if(!confirm("Cancel this scene? It won't be scored, tracked, or saved."))return;
+  stopTimer();ended=true;drillMode=false;
+  if(recording)stopRec();
+  stopActiveAudio();
+  // Best-effort wipe of any turns already saved by logTurn during the scene.
+  if(curSession){
+    try{
+      await fetch('/api/delete-session',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({session_id:curSession,device_id:deviceId()})});
+    }catch{}
+  }
+  // Clear the in-progress session state so a stray late callback can't re-save anything.
+  curSession=null;history=[];
+  go('home');
+};
 window.endScene=async()=>{
+  if(ended)return;
   stopTimer();ended=true;
   // Cut anything still running: a live mic recording (would otherwise auto-stop after 30s,
   // hit STT, and bounce the user back), and any TTS playing through the partner's last line.
