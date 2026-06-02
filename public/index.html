@@ -605,9 +605,14 @@ function quickDrill(){
   const keys=Object.keys(PARTNERS);
   const rk=keys[Math.floor(Math.random()*keys.length)];
   const p=PARTNERS[rk];
-  const ri=Math.floor(Math.random()*(p.goals.length||1));
+  // Skip goals flagged drillSafe:false. Their openings are deliberately flat
+  // (monosyllabic, mid-farewell, etc.) so they don't prompt the user with a question,
+  // which is exactly what Quick Drill needs.
+  const drillGoals=(p.goals||[]).map((g,i)=>({g,i})).filter(x=>x.g.drillSafe!==false);
+  const pool=drillGoals.length?drillGoals:p.goals.map((g,i)=>({g,i}));
+  const pick=pool[Math.floor(Math.random()*pool.length)];
   window.pickPartner(rk);
-  pickGoal(ri);
+  pickGoal(pick.i);
   setNavActive('practice');
   // Shorter cap for drill mode.
   drillMode=true;
@@ -1030,8 +1035,32 @@ window.cancelScene=async()=>{
   curSession=null;history=[];
   go('home');
 };
+// Decide whether the scene has enough content to be worth scoring.
+// User rule: at least one typed turn, OR at least 5 seconds of spoken audio.
+function sceneHasContent(){
+  const meTurns=history.filter(h=>h.role==='me');
+  if(meTurns.length===0)return false;
+  const hasTextTurn=meTurns.some(t=>!t.delivery);
+  if(hasTextTurn)return true;
+  const spokenSec=meTurns.reduce((a,t)=>a+((t.delivery&&t.delivery.duration)||0),0);
+  return spokenSec>=5;
+}
 window.endScene=async()=>{
   if(ended)return;
+  // If the user effectively didn't participate, treat End as a silent cancel: no debrief,
+  // no take row, no streak bump, no entry in Talks. Wipe anything auto-saved during the scene.
+  if(!sceneHasContent()){
+    stopTimer();ended=true;drillMode=false;
+    if(recording)stopRec();
+    stopActiveAudio();
+    if(curSession){
+      try{await fetch('/api/delete-session',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({session_id:curSession,device_id:deviceId()})});}catch{}
+    }
+    curSession=null;history=[];
+    go('home');
+    return;
+  }
   stopTimer();ended=true;
   // Cut anything still running: a live mic recording (would otherwise auto-stop after 30s,
   // hit STT, and bounce the user back), and any TTS playing through the partner's last line.

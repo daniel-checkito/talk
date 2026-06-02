@@ -74,7 +74,7 @@ export const PARTNERS = {
     goals: [
       { t: "Get a second date", hint: "Curiosity beats self-talk. End on a specific plan." },
       { t: "Make the conversation spark", hint: "Light teasing, real questions, no interview vibes." },
-      { t: "Recover after they go quiet", hint: "Don't panic-fill. Pivot confidently or call back." },
+      { t: "Recover after they go quiet", hint: "Don't panic-fill. Pivot confidently or call back.", drillSafe: false },
       { t: "Get them to ask you a question", hint: "Drop a hook, then stop talking. Mystery, not monologue." },
     ],
   },
@@ -150,8 +150,10 @@ export const PARTNERS = {
     goals: [
       { t: "Get past small talk in 60 seconds", hint: "One real question beats five polite ones. Skip the weather." },
       { t: "Get a real conversation going", hint: "Find a shared frame fast. Pull on one specific thread." },
-      { t: "Re-engage them after they go monosyllabic", hint: "Don't escalate effort. Pivot once, then let silence work." },
-      { t: "Get an opening to meet again", hint: "Be specific. A plan with a day beats 'we should hang out'." },
+      // drillSafe:false means Quick Drill skips this goal — its openings are deliberately
+      // monosyllabic / farewell, which is great for the goal but a terrible cold-start prompt.
+      { t: "Re-engage them after they go monosyllabic", hint: "Don't escalate effort. Pivot once, then let silence work.", drillSafe: false },
+      { t: "Get an opening to meet again", hint: "Be specific. A plan with a day beats 'we should hang out'.", drillSafe: false },
       { t: "Approach a stranger cold", hint: "Comment on something real about where you are. Low-stakes opener. No lines." },
     ],
     // Per-scenario context for the "Approach a stranger cold" goal (last goal).
