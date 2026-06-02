@@ -5,15 +5,15 @@ const crypto = require("crypto");
 const COOKIE_NAME = "rehearse_auth";
 const COOKIE_MAX_AGE = 30 * 24 * 60 * 60; // 30 days
 
+// Default password is "mesh". Set APP_PASSWORD in env to override.
+const PASSWORD = process.env.APP_PASSWORD || "mesh";
 function token() {
-  const pw = process.env.APP_PASSWORD || "";
-  if (!pw) return "";
-  return crypto.createHmac("sha256", pw).update("rehearse-v1").digest("hex");
+  return crypto.createHmac("sha256", PASSWORD).update("rehearse-v1").digest("hex");
 }
+function password() { return PASSWORD; }
 
 function hasCookie(req) {
   const t = token();
-  if (!t) return false; // no password configured = treat as locked
   const raw = req.headers.cookie || "";
   for (const part of raw.split(/;\s*/)) {
     if (part.startsWith(COOKIE_NAME + "=")) return part.slice(COOKIE_NAME.length + 1) === t;
@@ -30,7 +30,6 @@ function requireAuth(req, res) {
 
 function setCookie(res) {
   const t = token();
-  if (!t) return false;
   res.setHeader(
     "Set-Cookie",
     `${COOKIE_NAME}=${t}; Path=/; Max-Age=${COOKIE_MAX_AGE}; HttpOnly; SameSite=Lax; Secure`
@@ -42,4 +41,4 @@ function clearCookie(res) {
   res.setHeader("Set-Cookie", `${COOKIE_NAME}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax; Secure`);
 }
 
-module.exports = { requireAuth, hasCookie, setCookie, clearCookie, token, COOKIE_NAME };
+module.exports = { requireAuth, hasCookie, setCookie, clearCookie, token, password, COOKIE_NAME };

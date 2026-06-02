@@ -29,6 +29,7 @@ module.exports = async (req, res) => {
       rating: VALID_RATINGS.has(b.rating) ? b.rating : null,
       feedback: b.feedback ? String(b.feedback).slice(0, 500) : null,
       goal_hit: b.goal_hit == null ? null : !!b.goal_hit,
+      delivery: b.delivery && typeof b.delivery === "object" ? b.delivery : null,
     };
     await rest("/rehearse_messages", { method: "POST", body: JSON.stringify(row) });
     return res.status(200).json({ ok: true });
