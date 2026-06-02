@@ -140,6 +140,34 @@
   .dlv-cell .dv{font-size:22px;font-weight:900;color:var(--ink);line-height:1.1}
   .dlv-cell .dv.g{color:var(--accent2)}.dlv-cell .dv.w{color:var(--warn)}.dlv-cell .dv.b{color:var(--bad)}
   .dlv-cell .dk{font-size:10px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);font-weight:800;margin-top:3px}
+  /* teleprompter */
+  select.ctx{width:100%;background:var(--panel2);border:2px solid var(--line);color:var(--ink);border-radius:14px;padding:13px;font-family:var(--font);font-weight:800;font-size:14px;margin-bottom:14px}
+  select.ctx:focus{outline:none;border-color:var(--blue)}
+  textarea.script{width:100%;background:var(--panel2);border:2px solid var(--line);color:var(--ink);border-radius:14px;padding:13px;font-family:var(--font);font-weight:700;font-size:15px;line-height:1.5;min-height:120px;resize:none;margin-bottom:12px}
+  textarea.script:focus{outline:none;border-color:var(--blue)}
+  .prompter{background:var(--panel2);border:2px solid var(--line);border-radius:16px;height:300px;overflow:hidden;position:relative;margin-bottom:14px}
+  .prompter::before,.prompter::after{content:"";position:absolute;left:0;right:0;height:70px;z-index:3;pointer-events:none}
+  .prompter::before{top:0;background:linear-gradient(180deg,var(--panel2),transparent)}
+  .prompter::after{bottom:0;background:linear-gradient(0deg,var(--panel2),transparent)}
+  .prompter .focusline{position:absolute;top:50%;left:0;right:0;height:52px;transform:translateY(-50%);background:rgba(88,204,2,.1);border-top:2px solid rgba(88,204,2,.4);border-bottom:2px solid rgba(88,204,2,.4);z-index:2}
+  #scroller{position:absolute;left:0;right:0;padding:0 22px;will-change:transform}
+  #scroller .w{font-size:22px;font-weight:800;line-height:1.7;color:var(--muted);transition:color .2s;display:inline}
+  #scroller .w.read{color:var(--ink)}
+  .livebar{display:flex;gap:14px;margin-top:14px;font-weight:700;font-size:12px;color:var(--muted);flex-wrap:wrap;align-items:center}
+  .livebar b{color:var(--ink);font-weight:800;font-size:16px}
+  .meter{height:8px;background:var(--line);border-radius:6px;overflow:hidden;flex:1;min-width:60px}
+  .meter i{display:block;height:100%;background:var(--accent);width:0%;transition:width .1s}
+  .speech-rec{background:var(--accent);color:#fff;border:none;border-radius:16px;padding:15px 20px;font-weight:800;font-size:15px;letter-spacing:.5px;text-transform:uppercase;cursor:pointer;width:100%;box-shadow:0 4px 0 var(--accent2);transition:.1s}
+  .speech-rec:active{transform:translateY(4px);box-shadow:0 0 0}
+  .speech-rec.live{background:var(--bad);box-shadow:0 4px 0 #d13030;animation:pulse 1.3s infinite}
+  @keyframes pulse{0%,100%{box-shadow:0 4px 0 #d13030}50%{box-shadow:0 4px 0 #d13030,0 0 0 12px rgba(255,75,75,.15)}}
+  .speech-rec:disabled{opacity:.5;cursor:not-allowed}
+  .metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+  .metric-grid .m{background:var(--panel2);border:2px solid var(--line);border-radius:14px;padding:12px}
+  .metric-grid .mn{font-size:10px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);font-weight:800}
+  .metric-grid .mv{font-size:22px;font-weight:900;margin:5px 0 3px;color:var(--ink)}
+  .metric-grid .mv.good{color:var(--accent2)}.metric-grid .mv.warn{color:var(--warn)}.metric-grid .mv.bad{color:var(--bad)}
+  .metric-grid .mnote{font-size:11px;font-weight:700;color:var(--muted);line-height:1.35}
   /* last session card */
   .last{background:#fff;border:2px solid var(--line);border-bottom-width:4px;border-radius:16px;padding:14px 16px;margin-bottom:18px;display:flex;align-items:center;gap:14px}
   .last .ls{font-size:34px;font-weight:900;color:var(--accent2);line-height:1;min-width:64px;text-align:center}
@@ -248,7 +276,40 @@
   <div class="tcard" onclick="pickPartner('boss')"><div class="ic">💼</div><div><div class="tt">Your boss</div><div class="ts">negotiating, confidence, holding your number</div></div><div class="arr">›</div></div>
   <div class="tcard" onclick="pickPartner('stranger')"><div class="ic">👋</div><div><div class="tt">A stranger</div><div class="ts">approaching, small talk, getting past it</div></div><div class="arr">›</div></div>
   <div class="tcard" onclick="pickPartner('audience')"><div class="ic">🎤</div><div><div class="tt">An audience</div><div class="ts">public speaking, hooks, Q&amp;A under pressure</div></div><div class="arr">›</div></div>
+  <div class="label" style="margin-top:18px">Or rehearse a speech</div>
+  <div class="tcard" onclick="openSpeech()"><div class="ic">📖</div><div><div class="tt">Teleprompter</div><div class="ts">read a script, get scored on delivery + faithfulness</div></div><div class="arr">›</div></div>
   <div style="flex:1"></div>
+</section>
+
+<section class="screen" id="s-speech">
+  <button class="back" onclick="go('home')">‹ Back</button>
+  <div class="logo">Tele<span>prompter</span></div>
+  <p class="sub">Read a script aloud. We score pace, fillers, vocal variety, and how faithfully you tracked the words.</p>
+  <div class="label">Context (sets your pace target)</div>
+  <select class="ctx" id="speechCtx">
+    <option value="keynote">Keynote / talk · 130-150 wpm</option>
+    <option value="interview">Interview answer · 150-170 wpm</option>
+    <option value="sales">Sales pitch · 150-170 wpm</option>
+    <option value="technical">Technical explainer · 110-130 wpm</option>
+    <option value="toast">Wedding / ceremonial · 120-140 wpm</option>
+  </select>
+  <div class="label">Pick a script</div>
+  <div id="speechTemplates"></div>
+  <div class="label" style="margin-top:14px">Or paste your own</div>
+  <textarea class="script" id="speechCustom" placeholder="Paste your script here..."></textarea>
+  <button class="speech-rec" onclick="useCustomSpeech()">Use this script</button>
+</section>
+
+<section class="screen" id="s-speech-stage">
+  <button class="back" onclick="openSpeech()">‹ Pick another</button>
+  <div class="prompter"><div class="focusline"></div><div id="scroller"></div></div>
+  <button class="speech-rec" id="speechBtn" onclick="toggleSpeechRec()">● Start speaking</button>
+  <div class="livebar">
+    <span>time <b id="sTime">0.0s</b></span>
+    <span>pace target <b id="sCtxLabel">-</b></span>
+    <span style="display:flex;align-items:center;gap:7px;flex:1;min-width:110px">vol<span class="meter"><i id="sVol"></i></span></span>
+  </div>
+  <div id="speechScore" class="hidden" style="margin-top:18px"></div>
 </section>
 
 <section class="screen" id="s-goal">
@@ -937,6 +998,188 @@ function renderDebrief(d){
     ${d.weak_line?`<div class="dsec"><h4>Your weakest line, upgraded</h4><div class="rewrite"><div class="old">${esc(d.weak_line)}</div><div class="new">${esc(d.better_line)}</div></div></div>`:''}
     <button class="btn btn-go" style="margin-top:8px" onclick="startScene()">↻ Run it again</button>
     <button class="btn btn-grey" style="margin-top:10px" onclick="go('home')">New scenario</button>`;
+}
+
+/* ---------- teleprompter ---------- */
+const SPEECH_TEMPLATES=[
+  {id:"elevator",ic:"🎤",t:"Elevator pitch",sub:"30 sec · who you are",ctx:"sales",text:"Hi, I'm building Rehearse, a tool that helps you become a better speaker in days, not months. Most coaching apps just tell you that you said um too much. We do something different. We hand you a real script, you read it aloud, and we score whether your delivery actually matched the moment. Then we prove you're getting better, take after take."},
+  {id:"ted",ic:"💡",t:"TED-style opener",sub:"hook in 20 seconds",ctx:"keynote",text:"Imagine if the single biggest thing standing between you and the life you want wasn't talent, or money, or luck. Imagine it was something far simpler. The way you say what you already know. Today I want to show you that the gap between a good idea and a great one is almost always the gap between how it's thought and how it's spoken."},
+  {id:"status",ic:"📊",t:"Team update",sub:"crisp weekly status",ctx:"technical",text:"Quick update on where we are this week. We shipped the new onboarding flow on Tuesday, and early numbers look strong. Activation is up roughly fifteen percent. Two things still need attention before Friday. First, the billing edge case we flagged last sprint. Second, the mobile layout on smaller screens. I'll own the first, and I'd like Maya to take the second."},
+  {id:"toast",ic:"🥂",t:"Wedding toast",sub:"warm, paced, ceremonial",ctx:"toast",text:"For those who don't know me, I'm the lucky one who's been Sarah's best friend since we were seven years old. I've watched her fall for exactly the wrong people more times than I can count. And then she met James. The first time she talked about him, she didn't list his job or his car. She just smiled, and said he made the ordinary days feel like something. So please, raise your glass. To Sarah and James."},
+  {id:"launch",ic:"📣",t:"Product launch",sub:"energetic announcement",ctx:"sales",text:"Today is the day everything changes for how your team works. For two years we listened to one piece of feedback over and over. It's too slow, and it's too complicated. So we rebuilt it from the ground up. It's three times faster. It learns how you work. And starting right now, it's available to everyone in this room. Let me show you what that actually looks like."},
+];
+const CTX_BANDS={keynote:{lo:130,hi:150,name:"Keynote"},interview:{lo:150,hi:170,name:"Interview"},sales:{lo:150,hi:170,name:"Sales"},technical:{lo:110,hi:130,name:"Technical"},toast:{lo:120,hi:140,name:"Ceremonial"}};
+let speechScript="",speechTemplate="",speechCtx="keynote",speechRec=null,speechRecording=false,speechStartTs=0,speechVolRaf=0,speechAudioCtx=null,speechAnalyser=null,speechBuf=null,speechVolSamples=[],speechPitchSamples=[],speechPauseFrames=0,speechLastSpeechTs=0,speechStream=null,speechScroll=null;
+
+window.openSpeech=()=>{
+  $('speechTemplates').innerHTML=SPEECH_TEMPLATES.map((t,i)=>`<div class="tcard" onclick="pickSpeechTemplate(${i})"><div class="ic">${t.ic}</div><div><div class="tt">${t.t}</div><div class="ts">${t.sub}</div></div><div class="arr">›</div></div>`).join('');
+  go('speech');
+};
+window.pickSpeechTemplate=i=>{
+  const t=SPEECH_TEMPLATES[i];
+  speechScript=t.text;speechTemplate=t.id;speechCtx=t.ctx;$('speechCtx').value=t.ctx;
+  enterSpeechStage();
+};
+window.useCustomSpeech=()=>{
+  const v=$('speechCustom').value.trim();
+  if(!v){err("Paste a script first.");return;}
+  speechScript=v;speechTemplate="custom";speechCtx=$('speechCtx').value;
+  enterSpeechStage();
+};
+window.enterSpeechStage=function enterSpeechStage(){
+  $('speechScore').classList.add('hidden');$('speechScore').innerHTML='';
+  const words=speechScript.split(/\s+/);
+  $('scroller').innerHTML=words.map((w,i)=>`<span class="w" data-i="${i}">${esc(w)}</span>`).join(' ');
+  $('scroller').style.transform='translateY(125px)';
+  const band=CTX_BANDS[speechCtx];
+  $('sCtxLabel').textContent=band.lo+'-'+band.hi+' wpm';
+  $('sTime').textContent='0.0s';$('sVol').style.width='0%';
+  $('speechBtn').textContent='● Start speaking';$('speechBtn').classList.remove('live');
+  go('speech-stage');
+}
+window.toggleSpeechRec=()=>{
+  if(speechRecording)stopSpeechRec();else startSpeechRec();
+};
+async function startSpeechRec(){
+  try{
+    speechStream=await navigator.mediaDevices.getUserMedia({audio:true});
+  }catch{err("Mic blocked. Allow access and retry.");return;}
+  const mime=MediaRecorder.isTypeSupported('audio/webm')?'audio/webm':(MediaRecorder.isTypeSupported('audio/mp4')?'audio/mp4':'');
+  speechRec=new MediaRecorder(speechStream,mime?{mimeType:mime}:undefined);
+  const chunks=[];
+  speechRec.ondataavailable=e=>{if(e.data.size>0)chunks.push(e.data);};
+  speechRec.onstop=async()=>{
+    speechStream.getTracks().forEach(t=>t.stop());
+    const blob=new Blob(chunks,{type:speechRec.mimeType||'audio/webm'});
+    await scoreSpeechTake(blob);
+  };
+  // audio analysis loop
+  speechAudioCtx=new (window.AudioContext||window.webkitAudioContext)();
+  const src=speechAudioCtx.createMediaStreamSource(speechStream);
+  speechAnalyser=speechAudioCtx.createAnalyser();speechAnalyser.fftSize=2048;
+  src.connect(speechAnalyser);
+  speechBuf=new Float32Array(speechAnalyser.fftSize);
+  speechVolSamples=[];speechPitchSamples=[];speechPauseFrames=0;
+  speechStartTs=performance.now();speechLastSpeechTs=speechStartTs;
+  const loop=()=>{
+    if(!speechRecording)return;
+    speechAnalyser.getFloatTimeDomainData(speechBuf);
+    let sum=0;for(let i=0;i<speechBuf.length;i++)sum+=speechBuf[i]*speechBuf[i];
+    const vol=Math.min(1,Math.sqrt(sum/speechBuf.length)*6);
+    speechVolSamples.push(vol);
+    $('sVol').style.width=(vol*100)+'%';
+    if(vol>0.04){
+      speechLastSpeechTs=performance.now();
+      const f=autoCorr(speechBuf,speechAudioCtx.sampleRate);
+      if(f>60&&f<400)speechPitchSamples.push(f);
+    }else if(performance.now()-speechLastSpeechTs>700){
+      speechPauseFrames++;
+    }
+    const el=(performance.now()-speechStartTs)/1000;
+    $('sTime').textContent=el.toFixed(1)+'s';
+    speechVolRaf=requestAnimationFrame(loop);
+  };
+  speechRecording=true;
+  speechVolRaf=requestAnimationFrame(loop);
+  // scroll the prompter at the target wpm pace
+  const band=CTX_BANDS[speechCtx];
+  const targetWpm=(band.lo+band.hi)/2;
+  const words=speechScript.split(/\s+/).length;
+  const expectedSec=words/(targetWpm/60);
+  // total scroll distance: scroller height varies, approximate by line height * lines
+  speechRec.start();
+  startPromptScroll(expectedSec);
+  $('speechBtn').textContent='■ Stop & score';$('speechBtn').classList.add('live');
+}
+function startPromptScroll(expectedSec){
+  const sc=$('scroller');
+  const start=performance.now();
+  const startY=125;
+  const endY=-(sc.scrollHeight-150);
+  const tick=()=>{
+    if(!speechRecording)return;
+    const el=(performance.now()-start)/1000;
+    const t=Math.min(1,el/Math.max(2,expectedSec));
+    sc.style.transform=`translateY(${startY+(endY-startY)*t}px)`;
+    speechScroll=requestAnimationFrame(tick);
+  };
+  tick();
+}
+function stopSpeechRec(){
+  if(!speechRecording)return;
+  speechRecording=false;
+  if(speechVolRaf)cancelAnimationFrame(speechVolRaf);
+  if(speechScroll)cancelAnimationFrame(speechScroll);
+  try{speechRec.stop();}catch{}
+  try{speechAudioCtx&&speechAudioCtx.close();}catch{}
+  $('speechBtn').textContent='Scoring...';$('speechBtn').disabled=true;
+}
+async function scoreSpeechTake(blob){
+  const dur=(performance.now()-speechStartTs)/1000;
+  // STT through our existing endpoint
+  let transcript='';
+  try{
+    const r=await fetch('/api/stt',{method:'POST',headers:{'Content-Type':blob.type},body:blob});
+    if(r.status===401){showLogin();return;}
+    const d=await r.json();transcript=d.text||'';
+  }catch{err("Couldn't transcribe. Try again.");$('speechBtn').textContent='● Start speaking';$('speechBtn').classList.remove('live');$('speechBtn').disabled=false;return;}
+  const cleanw=s=>s.toLowerCase().replace(/[^a-z0-9']/g,'');
+  const words=transcript.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if(words.length<3){err("Too short to score. Speak for a few seconds.");$('speechBtn').textContent='● Start speaking';$('speechBtn').classList.remove('live');$('speechBtn').disabled=false;return;}
+  const scriptW=speechScript.split(/\s+/).map(cleanw);
+  const spokenW=words.map(cleanw);
+  const faithfulness=Math.round(100*lcsRatio(scriptW,spokenW));
+  const wpm=Math.round(words.length/(dur/60));
+  const fillers=countFillers(transcript);
+  let pitchStd=0,pitchMean=0;
+  if(speechPitchSamples.length>5){
+    pitchMean=speechPitchSamples.reduce((a,b)=>a+b,0)/speechPitchSamples.length;
+    pitchStd=Math.sqrt(speechPitchSamples.reduce((a,b)=>a+(b-pitchMean)**2,0)/speechPitchSamples.length);
+  }
+  const tone=pitchStd<12?'flat':pitchStd<25?'steady':'dynamic';
+  // scoring
+  const band=CTX_BANDS[speechCtx];
+  const paceScore=bandScore(wpm,band.lo,band.hi,40);
+  const fillerRate=fillers/Math.max(1,words.length/100);
+  const fillerScore=Math.max(0,Math.round(100-fillerRate*18));
+  const monoScore=Math.min(100,Math.round((pitchStd/35)*100));
+  const pauseScore=Math.max(40,Math.round(100-Math.max(0,speechPauseFrames-Math.ceil(dur/15))*3));
+  // weighted total: faithfulness 25%, pace 25%, fillers 20%, vocal variety 18%, pauses 12%
+  const total=Math.round(.25*faithfulness+.25*paceScore+.20*fillerScore+.18*monoScore+.12*pauseScore);
+  renderSpeechScore({total,wpm,fillers,tone,pitchStd:Math.round(pitchStd),pause_count:speechPauseFrames,faithfulness,duration_s:Math.round(dur),paceScore,fillerScore,monoScore,band});
+  // Persist
+  fetch('/api/save-speech',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({device_id:deviceId(),template:speechTemplate,context:speechCtx,script_excerpt:speechScript.slice(0,500),score:total,wpm,fillers,pause_count:speechPauseFrames,pitch_std:Math.round(pitchStd),faithfulness,duration_s:Math.round(dur)})}).catch(()=>{});
+  bumpStreak();
+  $('speechBtn').textContent='● Start speaking';$('speechBtn').classList.remove('live');$('speechBtn').disabled=false;
+}
+function lcsRatio(a,b){
+  if(!a.length)return 0;
+  const A=a.slice(0,400),B=b.slice(0,400);
+  const dp=new Array(B.length+1).fill(0);
+  for(let i=1;i<=A.length;i++){let prev=0;for(let j=1;j<=B.length;j++){const tmp=dp[j];dp[j]=A[i-1]===B[j-1]?prev+1:Math.max(dp[j],dp[j-1]);prev=tmp;}}
+  return Math.min(1,dp[B.length]/a.length);
+}
+function bandScore(v,lo,hi,tol){if(v>=lo&&v<=hi)return 100;const d=v<lo?lo-v:v-hi;return Math.max(0,Math.round(100-(d/tol)*100));}
+function cls(v){return v>=75?'good':v>=50?'warn':'bad';}
+function renderSpeechScore(r){
+  const verdict=r.total>=80?"Sharp. You'd hold a room.":r.total>=60?"Solid, a few fixable habits.":r.total>=40?"Rough edges. Run it again.":"Early days, that's the point.";
+  const paceNote=r.wpm<r.band.lo?`Slow. Target ${r.band.lo}-${r.band.hi}.`:r.wpm>r.band.hi?`Rushing. Ease to ${r.band.lo}-${r.band.hi}.`:`In the ${r.band.name.toLowerCase()} pocket.`;
+  $('speechScore').classList.remove('hidden');
+  $('speechScore').innerHTML=`
+    <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px">
+      <div class="bigscore">${r.total}<small>/100</small></div>
+      <div style="font-weight:800;color:var(--accent2);font-size:15px;text-align:right;max-width:55%;line-height:1.35">${verdict}</div>
+    </div>
+    <div class="metric-grid">
+      <div class="m"><div class="mn">Pace</div><div class="mv ${cls(r.paceScore)}">${r.wpm} wpm</div><div class="mnote">${esc(paceNote)}</div></div>
+      <div class="m"><div class="mn">Fillers</div><div class="mv ${cls(r.fillerScore)}">${r.fillers}</div><div class="mnote">${r.fillers<3?"Crisp.":r.fillers<8?"A few slipping in.":"Heavy filler use."}</div></div>
+      <div class="m"><div class="mn">Vocal variety</div><div class="mv ${cls(r.monoScore)}">${r.tone}</div><div class="mnote">${r.tone==='flat'?"Monotone. Vary pitch on key words.":r.tone==='steady'?"Decent range; push emphasis.":"Lively delivery."}</div></div>
+      <div class="m"><div class="mn">Faithfulness</div><div class="mv ${cls(r.faithfulness)}">${r.faithfulness}%</div><div class="mnote">${r.faithfulness>85?"Tracked the script closely.":r.faithfulness>60?"Drifted in places.":"Diverged a lot from the script."}</div></div>
+    </div>
+    <button class="speech-rec" style="margin-top:14px" onclick="enterSpeechStage()">↻ Run it again</button>
+  `;
+  $('speechScore').scrollIntoView({behavior:'smooth',block:'start'});
 }
 
 /* ---------- auth gate ---------- */
