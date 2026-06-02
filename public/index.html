@@ -946,7 +946,9 @@ window.startScene=async()=>{
   );
   addThem(opening);
   logTurn('them',opening);
-  speak(opening,curVoiceOverride||p.voice_id);
+  // Text-only mode skips the ElevenLabs TTS call entirely. Cuts ~95% of
+  // per-session cost when the user just wants the chat without voice.
+  if(!useText)speak(opening,curVoiceOverride||p.voice_id);
 };
 function startTimer(){
   const cap=drillMode?90*1000:SESSION_CAP_MS;
@@ -1096,7 +1098,9 @@ window.toggleInputMode=()=>{
   $('mic').classList.toggle('hidden',useText);
   $('michint').classList.toggle('hidden',useText);
   $('modeToggle').textContent=useText?t('chat.toggle.speak'):t('chat.toggle.type');
-  if(useText)$('inp').focus();
+  // If the user flips to text mid-playback, cut the TTS that's already running.
+  // Text mode = no voice, no spend.
+  if(useText){stopActiveAudio();$('inp').focus();}
 };
 window.sendText=()=>{const v=$('inp').value.trim();if(!v||busy)return;$('inp').value='';handleUserTurn(v);};
 
@@ -1329,6 +1333,8 @@ async function handleUserTurn(text,delivery){
     // Re-enable the mic BEFORE TTS playback so the user can tap to interrupt
     // and respond immediately. toggleRec stops the playing audio if any.
     setBusy(false);$('michint').textContent=t('chat.mic.tap');
+    // Text-only mode: no TTS, no ElevenLabs cost. The reply text is on screen.
+    if(useText){return;}
     await speak(cleanReply,curVoiceOverride||PARTNERS[cur].voice_id);
     return;
   }catch(e){clearStatus();err('Reply failed.');}
