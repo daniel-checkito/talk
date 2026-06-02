@@ -183,6 +183,10 @@
   .streak.drill{color:var(--accent2);background:#f0fbe6;border-color:var(--accent)}
   .lang-toggle{font-weight:900;font-size:12px;color:var(--ink);background:var(--panel2);border:2px solid var(--line);border-radius:20px;padding:5px 10px;cursor:pointer;letter-spacing:.3px;font-family:var(--font);min-width:42px;transition:.1s}
   .lang-toggle:active{transform:translateY(1px)}
+  /* Voice / text mode picker on the goal screen */
+  .mode-pick{display:flex;gap:8px;margin-bottom:12px;background:var(--panel2);padding:4px;border-radius:14px;border:2px solid var(--line)}
+  .mp-btn{flex:1;background:none;border:none;padding:10px 8px;font-family:var(--font);font-weight:800;font-size:13px;letter-spacing:.3px;color:var(--muted);cursor:pointer;border-radius:10px;transition:.1s;display:flex;align-items:center;justify-content:center;gap:6px}
+  .mp-btn.active{background:#fff;color:var(--accent);box-shadow:0 1px 3px rgba(0,0,0,.06)}
   .streak-row{display:flex;gap:6px}
   /* delivery aggregate grid in debrief */
   .dlv-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}
@@ -508,6 +512,10 @@
   <div class="label" id="goalPickLabel">Pick your goal for this scene</div>
   <div id="goalList"></div>
   <div style="flex:1"></div>
+  <div class="mode-pick">
+    <button class="mp-btn" id="modePickVoice" onclick="setInputMode(false)">🎤 <span id="modePickVoiceLbl">Voice</span></button>
+    <button class="mp-btn" id="modePickText" onclick="setInputMode(true)">⌨ <span id="modePickTextLbl">Text only</span></button>
+  </div>
   <button class="btn btn-go" id="startBtn" disabled onclick="startScene()">Start scene</button>
 </section>
 
@@ -681,7 +689,12 @@ function logTurn(role,text,extra={}){
   fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({kind:'message',session_id:curSession,device_id:deviceId(),partner:cur,goal_index:curGoal,variant:curVariant,role,text,...extra})}).catch(()=>{});
 }
-let mediaRecorder=null,chunks=[],recording=false,busy=false,useText=false;
+let mediaRecorder=null,chunks=[],recording=false,busy=false;
+// Text-only mode preference. Persisted so the user's choice survives page
+// reloads + new scenes — without persistence, the opening of every fresh scene
+// fires a TTS call before they can find the toggle in the dock.
+let useText=(()=>{try{return localStorage.getItem('rehearse_use_text')==='1';}catch{return false;}})();
+function persistUseText(){try{localStorage.setItem('rehearse_use_text',useText?'1':'0');}catch{}}
 const SESSION_CAP_MS=5*60*1000, MAX_TURNS=30, MAX_REC_MS=30*1000, MAX_SPEECH_REC_MS=180*1000;
 const VARIANT_COUNT=5; // matches api/_personas.js variants length
 let sessionEndAt=0,timerHandle=null,recHardStop=null,ended=false;
@@ -779,6 +792,8 @@ window.applyI18n=function(){
   if($('s-speech')&&$('s-speech').classList.contains('active')){
     $('speechTemplates').innerHTML=speechTemplates().map((s,i)=>`<div class="tcard" onclick="pickSpeechTemplate(${i})"><div class="ic">${s.ic}</div><div><div class="tt">${esc(s.t)}</div><div class="ts">${esc(s.sub)}</div></div><div class="arr">›</div></div>`).join('');
   }
+  // Refresh the input-mode toggle's label after a language flip.
+  try{syncInputMode();}catch{}
   // Placeholders / titles.
   const pwInp=$('lpw');if(pwInp)pwInp.placeholder=t('login.placeholder');
   const inp=$('inp');if(inp)inp.placeholder=t('chat.placeholder');
@@ -881,7 +896,7 @@ window.pickPartner=k=>{
   $('goalTitle').textContent=p.name;$('goalSub').textContent=p.sub;
   $('goalList').innerHTML=p.goals.map((g,i)=>`<div class="goal" data-i="${i}">${g.t}</div>`).join('');
   $('goalList').querySelectorAll('.goal').forEach(el=>el.onclick=()=>pickGoal(+el.dataset.i));
-  $('startBtn').disabled=true;go('goal');
+  $('startBtn').disabled=true;go('goal');syncInputMode();
 };
 function pickGoal(i){
   curGoal=i;
@@ -918,6 +933,9 @@ window.startScene=async()=>{
   $('chatGl').textContent=(drillMode?t('chat.drill.label'):t('chat.goal.label'))+p.goals[curGoal].t;
   $('feed').innerHTML='';$('chatErr').classList.add('hidden');
   $('liveStrip').classList.add('hidden');$('liveStrip').innerHTML='';
+  // Apply the persisted input-mode preference before the opening line fires,
+  // so a text-mode user doesn't get a TTS opening they didn't want.
+  syncInputMode();
   startTimer();
   go('chat');
   // First bubble in the feed is the "How this works" card so the user has the
@@ -1094,14 +1112,33 @@ function err(t){
 /* ---------- input mode ---------- */
 window.toggleInputMode=()=>{
   useText=!useText;
+  persistUseText();
+  syncInputMode();
+  if(useText){stopActiveAudio();$('inp').focus();}
+};
+// Direct setter (used by the goal-screen mode-pick buttons). Same effect as
+// toggleInputMode but absolute, not toggle.
+window.setInputMode=(text)=>{
+  useText=!!text;
+  persistUseText();
+  syncInputMode();
+  if(useText)stopActiveAudio();
+};
+// Apply the current useText state to the dock UI. Called on toggle + on every
+// scene start so a persisted preference takes effect before the opening line.
+function syncInputMode(){
   $('textrow').classList.toggle('hidden',!useText);
   $('mic').classList.toggle('hidden',useText);
   $('michint').classList.toggle('hidden',useText);
   $('modeToggle').textContent=useText?t('chat.toggle.speak'):t('chat.toggle.type');
-  // If the user flips to text mid-playback, cut the TTS that's already running.
-  // Text mode = no voice, no spend.
-  if(useText){stopActiveAudio();$('inp').focus();}
-};
+  // Goal-screen mode pills + labels stay in sync.
+  const v=$('modePickVoice'),x=$('modePickText');
+  if(v)v.classList.toggle('active',!useText);
+  if(x)x.classList.toggle('active',useText);
+  const vl=$('modePickVoiceLbl'),xl=$('modePickTextLbl');
+  if(vl)vl.textContent=t('mode.voice');
+  if(xl)xl.textContent=t('mode.text');
+}
 window.sendText=()=>{const v=$('inp').value.trim();if(!v||busy)return;$('inp').value='';handleUserTurn(v);};
 
 /* ---------- recording ---------- */

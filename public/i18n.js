@@ -31,6 +31,8 @@ const STRINGS = {
     "goal.label.pick": "Pick your goal for this scene",
     "goal.start": "Start scene",
     "goal.back": "‹ back",
+    "mode.voice": "Voice",
+    "mode.text": "Text only",
 
     // Chat
     "chat.timer": "5:00",
@@ -290,6 +292,8 @@ const STRINGS = {
     "goal.label.pick": "Wähle dein Ziel für diese Szene",
     "goal.start": "Szene starten",
     "goal.back": "‹ zurück",
+    "mode.voice": "Stimme",
+    "mode.text": "Nur Text",
 
     "chat.timer": "5:00",
     "chat.end": "Beenden ▸",
