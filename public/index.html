@@ -546,8 +546,8 @@ let currentAudio=null;
 function logTurn(role,text,extra={}){
   // Fire-and-forget persistence of one conversation turn.
   if(!curSession||!text)return;
-  fetch('/api/save-message',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({session_id:curSession,device_id:deviceId(),partner:cur,goal_index:curGoal,variant:curVariant,role,text,...extra})}).catch(()=>{});
+  fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({kind:'message',session_id:curSession,device_id:deviceId(),partner:cur,goal_index:curGoal,variant:curVariant,role,text,...extra})}).catch(()=>{});
 }
 let mediaRecorder=null,chunks=[],recording=false,busy=false,useText=false;
 const SESSION_CAP_MS=5*60*1000, MAX_TURNS=30, MAX_REC_MS=30*1000, MAX_SPEECH_REC_MS=180*1000;
@@ -1176,8 +1176,9 @@ async function saveTake(d,wasDrill){
   writeLastSession({partner:cur,goal_index:curGoal,score:d.score,hit_goal:!!d.hit_goal,ts:Date.now()});
   bumpStreak();
   if(wasDrill)bumpDrillStreak();
-  await fetch('/api/save-take',{method:'POST',headers:{'Content-Type':'application/json'},
+  await fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({
+      kind:'take',
       device_id:deviceId(),partner:cur,goal_index:curGoal,session_id:curSession,drill:!!wasDrill,
       score:d.score,hit_goal:!!d.hit_goal,nudge_count:nudgeCount,
       turn_count:history.filter(h=>h.role==='me').length,verdict:d.verdict||''
@@ -1822,8 +1823,8 @@ async function scoreSpeechTake(blob){
   const moodBucket=total>=80?'great':total>=60?'good':total>=40?'ok':'miss';
   setTeleCrowdMood(moodBucket);
   // Persist
-  fetch('/api/save-speech',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({device_id:deviceId(),template:speechTemplate,context:speechCtx,script_excerpt:speechScript.slice(0,500),score:total,wpm,fillers,pause_count:speechPauseFrames,pitch_std:Math.round(pitchStd),faithfulness,duration_s:Math.round(dur)})}).catch(()=>{});
+  fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({kind:'speech',device_id:deviceId(),template:speechTemplate,context:speechCtx,script_excerpt:speechScript.slice(0,500),score:total,wpm,fillers,pause_count:speechPauseFrames,pitch_std:Math.round(pitchStd),faithfulness,duration_s:Math.round(dur)})}).catch(()=>{});
   bumpStreak();
   $('speechBtn').textContent='● Start speaking';$('speechBtn').classList.remove('live');$('speechBtn').disabled=false;
 }
