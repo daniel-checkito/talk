@@ -91,6 +91,33 @@
   .nudge{align-self:center;background:#fff7d6;border:2px solid var(--warn);color:#9a7400;font-size:12px;font-weight:800;padding:6px 12px;border-radius:20px;max-width:90%;text-align:center}
   .stage{align-self:center;background:#f5f0ff;border:2px solid #c9b8ff;color:#5b3fb8;font-size:13px;font-weight:700;font-style:italic;padding:10px 14px;border-radius:14px;max-width:94%;text-align:center;line-height:1.45}
   .stage b{font-style:normal;font-weight:900;letter-spacing:.5px;text-transform:uppercase;font-size:10px;display:block;margin-bottom:4px;color:#7d5fd9}
+  /* In-chat How-this-works card (first bubble) */
+  .infocard{align-self:stretch;background:#f0fbe6;border:2px solid var(--accent);border-radius:14px;padding:11px 13px;font-size:12.5px;font-weight:700;color:var(--accent2);line-height:1.5;margin:0 2px}
+  .infocard h5{font-size:10px;letter-spacing:.5px;text-transform:uppercase;color:var(--accent2);margin-bottom:6px;font-weight:800;opacity:.85;display:flex;align-items:center;justify-content:space-between}
+  .infocard h5 .dismiss{background:none;border:none;color:var(--accent2);font-weight:900;font-size:14px;cursor:pointer;padding:0 4px;line-height:1;opacity:.7}
+  .infocard h5 .dismiss:active{opacity:1}
+  .infocard .row{display:flex;gap:8px;margin-bottom:3px}
+  .infocard .row:last-child{margin-bottom:0}
+  .infocard .row b{color:var(--ink);font-weight:800;min-width:42px;font-size:12px}
+  /* Live metrics strip below chathead */
+  .livestrip{display:flex;flex-wrap:wrap;gap:6px;padding:7px 2px 9px;border-bottom:2px solid var(--line);margin-bottom:8px}
+  .livestrip .chip{background:var(--panel2);border:1.5px solid var(--line);border-radius:10px;padding:4px 8px;font-size:11px;font-weight:800;color:var(--muted);letter-spacing:.2px;display:inline-flex;align-items:center;gap:4px;line-height:1.2}
+  .livestrip .chip b{color:var(--ink);font-size:13px;font-weight:900;font-variant-numeric:tabular-nums}
+  .livestrip .chip.g{border-color:var(--accent);background:#f0fbe6;color:var(--accent2)}
+  .livestrip .chip.g b{color:var(--accent2)}
+  .livestrip .chip.w{border-color:var(--warn);background:#fff7d6;color:#8a6500}
+  .livestrip .chip.w b{color:#8a6500}
+  .livestrip .chip.r{border-color:var(--bad);background:rgba(255,75,75,.08);color:var(--bad)}
+  .livestrip .chip.r b{color:var(--bad)}
+  /* End-of-scene modal */
+  .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.42);display:flex;align-items:flex-end;justify-content:center;z-index:100;padding:18px}
+  @media(min-width:460px){.modal-bg{align-items:center}}
+  .modal-bg.hidden{display:none}
+  .modal{background:#fff;border-radius:22px;padding:22px 20px max(20px,env(safe-area-inset-bottom));width:100%;max-width:380px;box-shadow:0 24px 60px rgba(0,0,0,.25);border:1px solid var(--line);animation:popUp .25s cubic-bezier(.34,1.56,.64,1)}
+  @keyframes popUp{from{transform:translateY(24px);opacity:0}to{transform:translateY(0);opacity:1}}
+  .modal-title{font-size:18px;font-weight:900;color:var(--ink);margin-bottom:6px;text-align:center}
+  .modal-sub{font-size:13px;font-weight:700;color:var(--muted);line-height:1.45;margin-bottom:18px;text-align:center}
+  .modal-keep{background:none;border:none;color:var(--blue);font-family:var(--font);font-weight:800;font-size:13px;letter-spacing:.4px;text-transform:uppercase;cursor:pointer;width:100%;margin-top:12px;padding:8px}
   .winbanner{align-self:center;background:#f0fbe6;border:2px solid var(--accent);color:var(--accent2);font-weight:900;font-size:14px;padding:10px 16px;border-radius:16px;text-align:center}
   .status{align-self:center;color:var(--muted);font-size:13px;font-weight:800;padding:4px}
   /* mic dock */
@@ -432,7 +459,6 @@
   <p class="sub" id="goalSub"></p>
   <div class="label">Pick your goal for this scene</div>
   <div id="goalList"></div>
-  <div id="goalCtx" class="hidden"></div>
   <div style="flex:1"></div>
   <button class="btn btn-go" id="startBtn" disabled onclick="startScene()">Start scene</button>
 </section>
@@ -442,9 +468,9 @@
     <div class="av" id="chatAv">😎</div>
     <div style="flex:1"><div class="nm" id="chatNm"></div><div class="gl" id="chatGl"></div></div>
     <div id="timer" style="font-weight:900;font-size:14px;color:var(--muted);margin-right:8px;font-variant-numeric:tabular-nums">5:00</div>
-    <button class="cancel" onclick="cancelScene()" title="Cancel without scoring">✕</button>
     <button class="back" style="margin:0" onclick="endScene()">End ▸</button>
   </div>
+  <div class="livestrip hidden" id="liveStrip"></div>
   <div class="feed" id="feed"></div>
   <div class="dock">
     <button class="mic" id="mic" onclick="toggleRec()">🎤</button>
@@ -457,6 +483,16 @@
   </div>
   <div class="err hidden" id="chatErr"></div>
 </section>
+
+<div class="modal-bg hidden" id="endModal" onclick="closeEndModal(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-title">End this scene?</div>
+    <div class="modal-sub">Score it for your dashboard, or discard without tracking.</div>
+    <button class="btn btn-go" onclick="doScoreEnd()">Score &amp; end</button>
+    <button class="btn btn-grey" style="margin-top:10px" onclick="doCancelEnd()">Cancel without scoring</button>
+    <button class="modal-keep" onclick="closeEndModal()">Keep going</button>
+  </div>
+</div>
 
 <section class="screen" id="s-debrief">
   <button class="back" onclick="go('home')">‹ done</button>
@@ -631,7 +667,6 @@ function quickDrill(){
 window.pickPartner=k=>{
   cur=k;curGoal=null;const p=PARTNERS[k];
   $('goalTitle').textContent=p.name;$('goalSub').textContent=p.sub;
-  $('goalCtx').classList.add('hidden');$('goalCtx').innerHTML='';
   $('goalList').innerHTML=p.goals.map((g,i)=>`<div class="goal" data-i="${i}">${g.t}</div>`).join('');
   $('goalList').querySelectorAll('.goal').forEach(el=>el.onclick=()=>pickGoal(+el.dataset.i));
   $('startBtn').disabled=true;go('goal');
@@ -640,15 +675,6 @@ function pickGoal(i){
   curGoal=i;
   $('goalList').querySelectorAll('.goal').forEach((el,j)=>el.classList.toggle('sel',j===i));
   $('startBtn').disabled=false;
-  const p=PARTNERS[cur];const g=p.goals[i];
-  $('goalCtx').classList.remove('hidden');
-  $('goalCtx').innerHTML=`<div class="ctx">
-    <h5>How this works</h5>
-    <div class="row"><b>Who:</b><span>${esc(p.full)}. ${esc(p.sub)}</span></div>
-    <div class="row"><b>Win:</b><span>${esc(g.t)}.</span></div>
-    ${g.hint?`<div class="row"><b>Tip:</b><span>${esc(g.hint)}</span></div>`:''}
-    <div class="row"><b>How:</b><span>Speak out loud (or type). Scenes cap at 5 minutes. You'll get a coached debrief at the end.</span></div>
-  </div>`;
 }
 
 window.startScene=async()=>{
@@ -679,8 +705,20 @@ window.startScene=async()=>{
   $('chatNm').textContent=(scenario&&scenario.name)||p.full;
   $('chatGl').textContent=(drillMode?"⚡ Quick Drill · ":"Goal: ")+p.goals[curGoal].t;
   $('feed').innerHTML='';$('chatErr').classList.add('hidden');
+  $('liveStrip').classList.add('hidden');$('liveStrip').innerHTML='';
   startTimer();
   go('chat');
+  // First bubble in the feed is the "How this works" card so the user has the
+  // context inside the chat (not buried on the goal-pick screen). Dismissible.
+  const goalDef=p.goals[curGoal];
+  const info=document.createElement('div');
+  info.className='infocard';
+  info.innerHTML=`<h5><span>How this works</span><button class="dismiss" onclick="this.closest('.infocard').remove()">✕</button></h5>
+    <div class="row"><b>Who:</b><span>${esc(p.full)}. ${esc(p.sub)}</span></div>
+    <div class="row"><b>Win:</b><span>${esc(goalDef.t)}.</span></div>
+    ${goalDef.hint?`<div class="row"><b>Tip:</b><span>${esc(goalDef.hint)}</span></div>`:''}
+    <div class="row"><b>How:</b><span>Speak out loud or type. Scenes cap at ${drillMode?'90 seconds':'5 minutes'}. Coached debrief at the end.</span></div>`;
+  $('feed').appendChild(info);
   // If we have a scenario, show the scene-setting "stage direction" first so the user knows
   // where they are and what they're walking into before the stranger speaks.
   if(scenario){
@@ -708,7 +746,7 @@ function startTimer(){
     const t=$('timer');if(!t)return;
     t.textContent=m+':'+String(s).padStart(2,'0');
     t.style.color=left<60000?'var(--bad)':(left<120000?'var(--warn)':'var(--muted)');
-    if(left<=0&&!ended){ended=true;clearInterval(timerHandle);if(recording)stopRec();status("Time's up. Scoring...");setTimeout(endScene,300);}
+    if(left<=0&&!ended){clearInterval(timerHandle);if(recording)stopRec();status("Time's up. Scoring...");setTimeout(()=>{if(sceneHasContent())runScoreEnd();else runCancelDiscard();},300);}
   };
   tick();timerHandle=setInterval(tick,1000);
 }
@@ -734,6 +772,7 @@ function addMe(t,delivery,meta){
   $('feed').appendChild(wrap);
   history.push({role:'me',text:t,_chip:chip,_fb:fb,delivery,isVoice:!!(meta&&meta.isVoice),spokenSec:(meta&&meta.spokenSec)||0});
   scroll();
+  updateLiveStrip();
   return {chip,fb};
 }
 // Crowd reaction emoji sets, keyed by rating bucket.
@@ -777,9 +816,46 @@ function rateLastMe(rating,feedback){
       // If the audience persona is on screen, the crowd reacts to the rating.
       if(cur==='audience')setChatCrowdMood(rating);
       scroll();
+      updateLiveStrip();
       return;
     }
   }
+}
+// Live metrics strip below the chathead. Recomputes after every me-turn (delivery summary)
+// and every rating chip update, so the user can watch their averages move in real time.
+function updateLiveStrip(){
+  const strip=$('liveStrip');if(!strip)return;
+  const meTurns=history.filter(h=>h.role==='me');
+  if(!meTurns.length){strip.classList.add('hidden');strip.innerHTML='';return;}
+  const dlvs=meTurns.filter(t=>t.delivery).map(t=>t.delivery);
+  const avg=arr=>arr.length?Math.round(arr.reduce((a,b)=>a+b,0)/arr.length):null;
+  const wpm=avg(dlvs.map(d=>d.wpm));
+  const fillers=dlvs.reduce((a,d)=>a+(d.fillers||0),0);
+  const conf=avg(dlvs.map(d=>d.confidence));
+  let greats=0,misses=0;
+  for(const t of meTurns){
+    if(!t._chip)continue;
+    if(t._chip.classList.contains('great'))greats++;
+    else if(t._chip.classList.contains('miss'))misses++;
+  }
+  const chips=[];
+  chips.push(`<div class="chip">turns <b>${meTurns.length}</b></div>`);
+  if(wpm!=null){
+    const cls=wpm>=140&&wpm<=160?'g':wpm>=120&&wpm<=180?'':'w';
+    chips.push(`<div class="chip ${cls}"><b>${wpm}</b> wpm</div>`);
+  }
+  if(dlvs.length){
+    const fillerCls=fillers===0?'g':fillers<3?'':'w';
+    chips.push(`<div class="chip ${fillerCls}"><b>${fillers}</b> filler${fillers===1?'':'s'}</div>`);
+  }
+  if(conf!=null){
+    const cls=conf>=70?'g':conf>=50?'':'w';
+    chips.push(`<div class="chip ${cls}"><b>${conf}%</b> confidence</div>`);
+  }
+  if(greats)chips.push(`<div class="chip g"><b>${greats}</b> ✓ great</div>`);
+  if(misses)chips.push(`<div class="chip r"><b>${misses}</b> miss</div>`);
+  strip.innerHTML=chips.join('');
+  strip.classList.remove('hidden');
 }
 function addNudge(t){t=stripDashes(t);if(!t)return;const d=el('nudge','💡 '+t);$('feed').appendChild(d);nudgeCount++;scroll();}
 function addWin(){won=true;const d=el('winbanner','🎉 Goal hit. Keep going or tap End');$('feed').appendChild(d);scroll();}
@@ -1030,25 +1106,23 @@ function startScoringAnim(){
   },1400);
 }
 function stopScoringAnim(){if(scoringStepHandle){clearInterval(scoringStepHandle);scoringStepHandle=null;}}
-// Cancel: end the scene WITHOUT scoring it, without bumping streak,
-// and delete anything already auto-persisted server-side. Confirms once.
-window.cancelScene=async()=>{
+// Cancel-discard: end the scene WITHOUT scoring, without bumping streak,
+// and delete anything already auto-persisted server-side.
+async function runCancelDiscard(){
   if(ended)return;
-  if(!confirm("Cancel this scene? It won't be scored, tracked, or saved."))return;
   stopTimer();ended=true;drillMode=false;
   if(recording)stopRec();
   stopActiveAudio();
-  // Best-effort wipe of any turns already saved by logTurn during the scene.
+  $('endModal').classList.add('hidden');
   if(curSession){
     try{
       await fetch('/api/delete-session',{method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({session_id:curSession,device_id:deviceId()})});
     }catch{}
   }
-  // Clear the in-progress session state so a stray late callback can't re-save anything.
   curSession=null;history=[];
   go('home');
-};
+}
 // Decide whether the scene has enough content to be worth scoring.
 // User rule: at least one typed turn (any length), OR at least 5 seconds of spoken audio total.
 // We rely on the explicit isVoice flag because voice clips under ~1.5s produce a null
@@ -1061,22 +1135,23 @@ function sceneHasContent(){
   const spokenSec=meTurns.reduce((a,t)=>a+(t.spokenSec||0),0);
   return spokenSec>=5;
 }
-window.endScene=async()=>{
+// End button opens a modal with Score / Cancel / Keep going. Empty scenes
+// auto-discard silently without making the user click through.
+window.endScene=()=>{
   if(ended)return;
-  // If the user effectively didn't participate, treat End as a silent cancel: no debrief,
-  // no take row, no streak bump, no entry in Talks. Wipe anything auto-saved during the scene.
-  if(!sceneHasContent()){
-    stopTimer();ended=true;drillMode=false;
-    if(recording)stopRec();
-    stopActiveAudio();
-    if(curSession){
-      try{await fetch('/api/delete-session',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({session_id:curSession,device_id:deviceId()})});}catch{}
-    }
-    curSession=null;history=[];
-    go('home');
-    return;
-  }
+  if(!sceneHasContent()){runCancelDiscard();return;}
+  $('endModal').classList.remove('hidden');
+};
+// Only close when the user taps the dim backdrop OR the Keep-going button;
+// taps inside the modal body bubble up to the bg but get filtered here.
+window.closeEndModal=(ev)=>{
+  if(ev&&ev.target&&ev.target.id!=='endModal'&&!ev.target.classList.contains('modal-keep'))return;
+  $('endModal').classList.add('hidden');
+};
+window.doCancelEnd=()=>{runCancelDiscard();};
+window.doScoreEnd=()=>{$('endModal').classList.add('hidden');runScoreEnd();};
+async function runScoreEnd(){
+  if(ended)return;
   stopTimer();ended=true;
   // Cut anything still running: a live mic recording (would otherwise auto-stop after 30s,
   // hit STT, and bounce the user back), and any TTS playing through the partner's last line.
