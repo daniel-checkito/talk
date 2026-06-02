@@ -51,6 +51,14 @@
   .back:active{transform:translateY(2px);border-bottom-width:1px;background:var(--line)}
   .chathead{display:flex;align-items:center;gap:12px;padding-bottom:14px;border-bottom:2px solid var(--line);margin-bottom:14px}
   .chathead .av{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;background:var(--panel2);flex-shrink:0}
+  /* Audience: a small crowd of stylized faces instead of one avatar */
+  .crowd{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;width:48px;height:44px;flex-shrink:0}
+  .crowd .face{display:flex;align-items:center;justify-content:center;font-size:13px;background:var(--panel2);border-radius:4px;line-height:1}
+  .crowd.speaking .face:nth-child(2){animation:nod 1s infinite}
+  @keyframes nod{50%{transform:translateY(-2px)}}
+  .audience-strip{display:flex;justify-content:center;gap:6px;margin-bottom:10px;padding:8px;background:var(--panel2);border:2px solid var(--line);border-radius:14px}
+  .audience-strip .face{font-size:22px;line-height:1}
+  .audience-strip .lbl{font-size:11px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);font-weight:800;align-self:center;margin-right:6px}
   .chathead .av.speaking{box-shadow:0 0 0 0 rgba(88,204,2,.5);animation:ring 1s infinite}
   @keyframes ring{0%{box-shadow:0 0 0 0 rgba(88,204,2,.5)}100%{box-shadow:0 0 0 12px rgba(88,204,2,0)}}
   .chathead .nm{font-weight:900;font-size:17px}
@@ -151,8 +159,9 @@
   .prompter::after{bottom:0;background:linear-gradient(0deg,var(--panel2),transparent)}
   .prompter .focusline{position:absolute;top:50%;left:0;right:0;height:52px;transform:translateY(-50%);background:rgba(88,204,2,.1);border-top:2px solid rgba(88,204,2,.4);border-bottom:2px solid rgba(88,204,2,.4);z-index:2}
   #scroller{position:absolute;left:0;right:0;padding:0 22px;will-change:transform}
-  #scroller .w{font-size:22px;font-weight:800;line-height:1.7;color:var(--muted);transition:color .2s;display:inline}
-  #scroller .w.read{color:var(--ink)}
+  #scroller .phrase{font-size:22px;font-weight:800;line-height:1.55;color:var(--muted);transition:color .25s;margin-bottom:10px}
+  #scroller .phrase:last-child{margin-bottom:0}
+  #scroller .phrase.read{color:var(--ink)}
   .livebar{display:flex;gap:14px;margin-top:14px;font-weight:700;font-size:12px;color:var(--muted);flex-wrap:wrap;align-items:center}
   .livebar b{color:var(--ink);font-weight:800;font-size:16px}
   .meter{height:8px;background:var(--line);border-radius:6px;overflow:hidden;flex:1;min-width:60px}
@@ -231,6 +240,9 @@
   .login input{background:var(--panel2);border:2px solid var(--line);border-radius:14px;padding:14px 16px;font-family:var(--font);font-weight:800;font-size:16px;text-align:center;letter-spacing:.5px}
   .login input:focus{outline:none;border-color:var(--blue)}
   .login .lerr{color:var(--bad);font-weight:800;font-size:13px;min-height:18px}
+  /* Detect keychain autofill via the browser's :-webkit-autofill animation hook. */
+  @keyframes autofillStart {from{opacity:1}to{opacity:1}}
+  #lpw:-webkit-autofill{animation-name:autofillStart;animation-duration:.01s}
   .transcript{display:flex;flex-direction:column;gap:10px;padding-bottom:12px}
   .transcript .msg{max-width:85%;padding:10px 13px;border-radius:18px;font-size:14px;font-weight:700;line-height:1.4}
   .transcript .msg.them{background:var(--panel2);align-self:flex-start;border-bottom-left-radius:5px}
@@ -257,10 +269,14 @@
 
 <section class="login" id="s-login">
   <div class="lg">Re<span>hearse</span></div>
-  <p>Locked. Enter the access password to continue.</p>
-  <input id="lpw" type="password" placeholder="Password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
-  <button class="btn btn-go" onclick="doLogin()">Unlock</button>
+  <p>Locked. Use Face ID (or type the password).</p>
+  <form id="loginForm" onsubmit="event.preventDefault();doLogin()" autocomplete="on" style="display:flex;flex-direction:column;gap:14px">
+    <input type="text" name="username" id="luser" autocomplete="username" value="rehearse" readonly style="position:absolute;opacity:0;pointer-events:none;height:0;width:0">
+    <input id="lpw" name="password" type="password" placeholder="Password" autocomplete="current-password">
+    <button class="btn btn-go" type="submit">Unlock</button>
+  </form>
   <div class="lerr" id="lerr"></div>
+  <p style="font-size:12px;color:var(--muted);font-weight:700;margin-top:6px">Tip: after your first unlock, save the password in your keychain. Future visits will unlock with Face ID.</p>
 </section>
 
 <section class="screen" id="s-home">
@@ -305,6 +321,7 @@
 
 <section class="screen" id="s-speech-stage">
   <button class="back" onclick="openSpeech()">‹ Pick another</button>
+  <div class="audience-strip"><span class="lbl">Audience</span><span class="face">🧐</span><span class="face">😐</span><span class="face">🙂</span><span class="face">🤨</span><span class="face">😶</span><span class="face">😊</span></div>
   <div class="prompter"><div class="focusline"></div><div id="scroller"></div></div>
   <button class="speech-rec" id="speechBtn" onclick="toggleSpeechRec()">● Start speaking</button>
   <div class="livebar">
@@ -535,7 +552,17 @@ window.startScene=async()=>{
   curVariant=Math.floor(Math.random()*VARIANT_COUNT);
   curSession=(crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random().toString(36).slice(2));
   setLastPrompt(cur,curGoal);
-  $('chatAv').textContent=p.av;$('chatNm').textContent=p.full;$('chatGl').textContent=(drillMode?"⚡ Quick Drill · ":"Goal: ")+p.goals[curGoal].t;
+  // Audience persona gets a 2x3 crowd of stylized faces; everyone else keeps the single emoji.
+  const av=$('chatAv');
+  if(cur==='audience'){
+    av.classList.add('crowd');av.classList.remove('av');
+    av.style.fontSize='';av.style.background='';
+    av.innerHTML=['🧐','😐','🤨','😶','🙂','😑'].map(f=>`<div class="face">${f}</div>`).join('');
+  }else{
+    av.classList.remove('crowd');av.classList.add('av');
+    av.innerHTML='';av.textContent=p.av;
+  }
+  $('chatNm').textContent=p.full;$('chatGl').textContent=(drillMode?"⚡ Quick Drill · ":"Goal: ")+p.goals[curGoal].t;
   $('feed').innerHTML='';$('chatErr').classList.add('hidden');
   startTimer();
   go('chat');
@@ -1108,10 +1135,32 @@ window.useCustomSpeech=()=>{
   speechScript=v;speechTemplate="custom";speechCtx=$('speechCtx').value;
   enterSpeechStage();
 };
+// Split a script into readable phrases. Each sentence breaks to its own line;
+// long sentences (>80 chars) are further split at clause-level commas.
+function splitIntoPhrases(text){
+  const sentences=text.match(/[^.!?]+[.!?]+["')\]]*\s*/g)||[text];
+  const phrases=[];
+  for(const raw of sentences){
+    const s=raw.trim();
+    if(!s)continue;
+    if(s.length>80&&/,/.test(s)){
+      const parts=s.split(/(?<=,)\s+/);
+      let buf="";
+      for(const p of parts){
+        if((buf+" "+p).trim().length>60&&buf){phrases.push(buf.trim());buf=p;}
+        else buf=(buf+" "+p).trim();
+      }
+      if(buf)phrases.push(buf.trim());
+    }else{
+      phrases.push(s);
+    }
+  }
+  return phrases.length?phrases:[text];
+}
 window.enterSpeechStage=function enterSpeechStage(){
   $('speechScore').classList.add('hidden');$('speechScore').innerHTML='';
-  const words=speechScript.split(/\s+/);
-  $('scroller').innerHTML=words.map((w,i)=>`<span class="w" data-i="${i}">${esc(w)}</span>`).join(' ');
+  const phrases=splitIntoPhrases(speechScript);
+  $('scroller').innerHTML=phrases.map((p,i)=>`<div class="phrase" data-i="${i}">${esc(p)}</div>`).join('');
   $('scroller').style.transform='translateY(125px)';
   const band=CTX_BANDS[speechCtx];
   $('sCtxLabel').textContent=band.lo+'-'+band.hi+' wpm';
@@ -1327,8 +1376,16 @@ window.doLogin=async()=>{
     else{const d=await r.json().catch(()=>({}));$('lerr').textContent=d.error||'Wrong password.';}
   }catch{$('lerr').textContent='Network error.';}
 };
-function showLogin(){$('s-login').classList.add('active');document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));setTimeout(()=>$('lpw').focus(),100);}
+function showLogin(){
+  $('s-login').classList.add('active');document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));
+  setTimeout(()=>$('lpw').focus(),100);
+}
 function enterApp(){$('s-login').classList.remove('active');go('home');}
+// Auto-submit when Safari/Chrome autofills the password field (Face ID flow).
+// Only fires on actual autofill, never on typing.
+$('lpw').addEventListener('animationstart',e=>{
+  if(e.animationName==='autofillStart'&&$('lpw').value)setTimeout(doLogin,80);
+});
 (async()=>{
   const ok=await checkAuth();
   if(ok)enterApp(); else showLogin();
