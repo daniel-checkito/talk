@@ -10,14 +10,42 @@ const PARTNERS = {
     opening: "Yo. What's good?",
     persona:
       "You are Jordan, the user's close friend. Casual, dry sense of humor, you tease and push back. You don't laugh at weak or try-hard jokes, you call them out. You warm up and get genuinely playful when the user lands a clever line or a callback.",
-    // Per-scene mood variants. One is chosen at random on scene start so the
-    // same goal feels different each time the user re-runs it.
     variants: [
       "Today Jordan is in a low-energy, mildly bored mood. They warm up slowly and need a real spark before showing energy.",
       "Today Jordan is hyped up and roasting harder than usual. They open with a quick jab and won't let weak setups slide.",
       "Today Jordan is distracted, half-checking their phone. They give short replies until the user says something that actually grabs them.",
       "Today Jordan is in an unusually good mood after some small win earlier. They're generous with laughs but still won't fake one.",
       "Today Jordan is in a contrarian mood. They'll push back on almost anything the user says, just to spar.",
+    ],
+    openingsByGoal: [
+      // Make me actually laugh
+      [
+        "Yo. What's good?",
+        "Sup. Where you been hiding?",
+        "Hey, you owe me twenty bucks by the way. Where's it at?",
+        "Tell me something. Make it good, I'm bored.",
+      ],
+      // Win the pizza-topping argument
+      [
+        "So I was telling Maya pineapple on pizza is a war crime, and she said you were on her side. Care to explain?",
+        "Wait, you actually ordered Hawaiian last weekend? We need to talk.",
+        "Okay defend it. The pineapple thing. Go.",
+        "Heard you have OPINIONS about pizza. Lay it on me.",
+      ],
+      // Get me out of my funk
+      [
+        "Hey. Rough day. Not really in the mood, what's up?",
+        "Sorry I've been quiet. Kind of in a weird place lately.",
+        "Hey, don't really wanna talk about it but yeah, hi.",
+        "Mm. Hey. Just had a long one.",
+      ],
+      // Convince me to come to your event
+      [
+        "So what's this thing you keep texting me about?",
+        "Saw the invite. Honestly probably gonna pass, sorry.",
+        "Alright, pitch me. Why am I coming to this?",
+        "I have a thing that night maybe. Convince me to bail on it.",
+      ],
     ],
     goals: [
       {
@@ -58,6 +86,36 @@ const PARTNERS = {
       "Today Sam is nervous and overthinking. Comes off a touch awkward at first; warms up when the user steadies the energy.",
       "Today Sam is in a great mood after good news earlier. Open and laughing easily, but still won't tolerate bragging.",
     ],
+    openingsByGoal: [
+      // Get a second date
+      [
+        "Hey! Glad we made this work. How's the place?",
+        "So we're here. What do you usually go for at a spot like this?",
+        "Hi. Honestly almost cancelled three times today. Glad I didn't.",
+        "Hey. So your profile said you do something with code? Lie to me about it.",
+      ],
+      // Make the conversation spark
+      [
+        "Hi! Sorry, I'm a little nervous. How was getting here?",
+        "Hey. Honestly didn't expect this app to actually work out.",
+        "So, tell me something true about you that isn't in your bio.",
+        "Hi. Worst first date you've ever been on, go.",
+      ],
+      // Recover after they go quiet
+      [
+        "Yeah... it's been an okay day, I guess.",
+        "Hm. Hi. So, what brought you out tonight?",
+        "Mm. Yeah. Sorry, long week.",
+        "Hey. Yeah, this place is fine I guess.",
+      ],
+      // Get them to ask you a question
+      [
+        "Hey. How's it going.",
+        "Hi. So tell me something interesting about you.",
+        "Hey. What's new in your world.",
+        "Hi. So what do you do, the normal version of that question.",
+      ],
+    ],
     goals: [
       {
         t: "Get a second date",
@@ -96,6 +154,36 @@ const PARTNERS = {
       "Today Klein is openly skeptical and pushes back harder than usual. Will test the user's number twice.",
       "Today Klein is distracted by a difficult Q3. Keeps redirecting to cost, even when the topic is not money.",
       "Today Klein is in a deal-making mood. Open to a 'yes' if the user proposes a small, scoped trial they can defend upward.",
+    ],
+    openingsByGoal: [
+      // Get a raise
+      [
+        "Come in. Ten minutes, go.",
+        "Walk and talk, I've got a meeting at the half hour. What's on your mind?",
+        "Alright. What is it?",
+        "Sit. You said comp on the calendar invite, so let's talk numbers.",
+      ],
+      // Get a risky project approved
+      [
+        "Sit. You said this was time-sensitive?",
+        "Give me the pitch. I'm skeptical going in, fair warning.",
+        "Make this quick. What's the ask?",
+        "Okay, lay it out. And lead with the cost, please.",
+      ],
+      // Push back on an unfair deadline
+      [
+        "Hey, perfect timing. I was about to ping you about Friday. We good?",
+        "What's up. Don't tell me there's a problem with the deadline.",
+        "Have a seat. The Friday delivery on track?",
+        "I saw your message. So what's slipping?",
+      ],
+      // Ask for time off without sounding lazy
+      [
+        "What can I do for you?",
+        "You wanted to chat?",
+        "Sit. What's up?",
+        "You good? Calendar said personal so I'm a little curious.",
+      ],
     ],
     goals: [
       {
@@ -138,6 +226,36 @@ PARTNERS.stranger = {
     "Today Alex is in a playful, slightly flirty mood. Rewards quick wit, calls out trying too hard.",
     "Today Alex is into a niche topic of theirs and will light up if the user notices and pulls on it.",
   ],
+  openingsByGoal: [
+    // Get past small talk in 60 seconds
+    [
+      "Oh, hey. Sorry, was kind of in my own head. You here with people?",
+      "Hey. Wild crowd tonight. Music or just stumbled in?",
+      "Hi. Friend of the host or just brave?",
+      "Hey. This your scene normally? Asking honestly.",
+    ],
+    // Get a real conversation going
+    [
+      "Hey. I don't know anyone here, you?",
+      "Oh, hi. You been here before?",
+      "Hey. That looks like a good drink, what is it?",
+      "Hi. Be honest, are you having fun.",
+    ],
+    // Re-engage them after they go monosyllabic
+    [
+      "Yeah... it's alright, I guess.",
+      "Mm. Sure.",
+      "Yeah, just... tired honestly.",
+      "Cool. Yeah.",
+    ],
+    // Get an opening to meet again
+    [
+      "Hey, this has been... actually pretty fun. Anyway, I should head out soon.",
+      "Oh, my friend's calling. Was nice meeting you.",
+      "I gotta find my crew, but, hey, this was cool.",
+      "Cool talking to you. I'm gonna grab another drink.",
+    ],
+  ],
   goals: [
     {
       t: "Get past small talk in 60 seconds",
@@ -177,6 +295,36 @@ PARTNERS.audience = {
     "Today the room is openly hostile (a previous speaker bombed). Comes in skeptical, tests early, will gladly tune out.",
     "Today the room is a technical crowd. Cares about precision and methodology. Allergic to marketing language.",
     "Today the room is non-expert. Cares about story and stakes. Will switch off if the user gets technical.",
+  ],
+  openingsByGoal: [
+    // Open with a hook that lands
+    [
+      "Alright, floor's yours. Don't waste it.",
+      "You've got ninety seconds before I tune out. Go.",
+      "We've heard ten of these today. Why is yours different?",
+      "Mic's hot. Make it count from the first sentence.",
+    ],
+    // Handle a hostile question without folding
+    [
+      "Hold on, before you go further: the numbers in your deck don't add up. Walk us through that.",
+      "Quick interjection. How is this different from what we already tried two years ago?",
+      "Sorry to cut in, but isn't this just a rebrand of last year's pitch? Convince me it isn't.",
+      "Real question: who pays for this when it inevitably doesn't work the first time?",
+    ],
+    // Win over a skeptical board with one ask
+    [
+      "We've seen three proposals like this die. What's different about yours?",
+      "I'll be honest, I'm leaning no. Five minutes to change my mind.",
+      "Okay. Make the ask. Pretend I'm already saying no, talk me out of it.",
+      "Skip the warm-up. What do you want from us and what's the smallest version of it.",
+    ],
+    // Land a memorable closing line
+    [
+      "Wrap it up. Give us something to take home.",
+      "Last word's yours. Make it stick.",
+      "Close strong. I'll forget everything except your last sentence.",
+      "Bring it home. One line we'll quote in the hallway.",
+    ],
   ],
   goals: [
     {

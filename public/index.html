@@ -23,8 +23,8 @@
   }
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   html,body{height:100%;overscroll-behavior:none}
-  body{background:var(--bg);color:var(--ink);font-family:var(--font);font-weight:700;-webkit-font-smoothing:antialiased;max-width:440px;margin:0 auto;min-height:100vh;position:relative;display:flex;flex-direction:column;overflow:hidden}
-  @media(min-width:460px){body{margin:24px auto;min-height:calc(100vh - 48px);max-height:920px;border-radius:34px;box-shadow:0 30px 80px rgba(120,90,40,.18),0 0 0 1px var(--line)}}
+  body{background:var(--bg);color:var(--ink);font-family:var(--font);font-weight:700;-webkit-font-smoothing:antialiased;max-width:440px;margin:0 auto;height:100vh;height:100dvh;position:relative;display:flex;flex-direction:column;overflow:hidden}
+  @media(min-width:460px){body{margin:24px auto;height:min(920px,calc(100vh - 48px));border-radius:34px;box-shadow:0 30px 80px rgba(120,90,40,.18),0 0 0 1px var(--line)}}
   .screen{display:none;padding:max(20px,env(safe-area-inset-top)) 18px 18px;flex:1;min-height:0}
   .screen.active{display:flex;flex-direction:column;overflow-y:auto;-webkit-overflow-scrolling:touch}
   .logo{font-weight:900;font-size:28px;letter-spacing:-.5px;color:var(--accent)}
@@ -186,6 +186,9 @@
   .stat .k{font-size:10px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);font-weight:800;margin-top:6px}
   .scope{font-size:13px;color:var(--muted);font-weight:800;margin-bottom:10px}
   .scope b{color:var(--ink)}
+  .ptoggle{display:flex;gap:6px;margin-bottom:14px;background:var(--panel2);padding:4px;border-radius:14px;border:2px solid var(--line)}
+  .pt-btn{flex:1;background:none;border:none;padding:9px 10px;font-family:var(--font);font-weight:800;font-size:13px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);cursor:pointer;border-radius:10px;transition:.1s}
+  .pt-btn.active{background:#fff;color:var(--accent);box-shadow:0 1px 3px rgba(0,0,0,.06)}
   /* takes carousel */
   .takes-car{display:flex;gap:9px;overflow-x:auto;padding:4px 0 12px;-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory}
   .takes-car::-webkit-scrollbar{display:none}
@@ -306,7 +309,9 @@
   <button class="speech-rec" id="speechBtn" onclick="toggleSpeechRec()">● Start speaking</button>
   <div class="livebar">
     <span>time <b id="sTime">0.0s</b></span>
-    <span>pace target <b id="sCtxLabel">-</b></span>
+    <span>pace <b id="sWpm">-</b></span>
+    <span>fillers <b id="sFillers">0</b></span>
+    <span>target <b id="sCtxLabel">-</b></span>
     <span style="display:flex;align-items:center;gap:7px;flex:1;min-width:110px">vol<span class="meter"><i id="sVol"></i></span></span>
   </div>
   <div id="speechScore" class="hidden" style="margin-top:18px"></div>
@@ -351,6 +356,10 @@
 <section class="screen" id="s-progress">
   <div class="logo">Pro<span>gress</span></div>
   <p class="sub">Same prompt, tracked over takes. The loop that actually moves the needle.</p>
+  <div class="ptoggle">
+    <button class="pt-btn active" data-pmode="conversation" onclick="setProgressMode('conversation')">Conversations</button>
+    <button class="pt-btn" data-pmode="speech" onclick="setProgressMode('speech')">Speech</button>
+  </div>
   <div class="stats">
     <div class="stat"><div class="v dash" id="pTakes">-</div><div class="k">Takes</div></div>
     <div class="stat"><div class="v dash" id="pBest">-</div><div class="k">Best score</div></div>
@@ -530,7 +539,8 @@ window.startScene=async()=>{
   $('feed').innerHTML='';$('chatErr').classList.add('hidden');
   startTimer();
   go('chat');
-  const opening=stripDashes(p.opening);
+  const pool=(p.openingsByGoal&&p.openingsByGoal[curGoal])||[p.opening];
+  const opening=stripDashes(pool[Math.floor(Math.random()*pool.length)]);
   addThem(opening);
   logTurn('them',opening);
   speak(opening,p.voice_id);
@@ -853,24 +863,58 @@ async function saveTake(d,wasDrill){
       turn_count:history.filter(h=>h.role==='me').length,verdict:d.verdict||''
     })});
 }
+let progressMode='conversation';
+window.setProgressMode=m=>{
+  progressMode=m;
+  document.querySelectorAll('.pt-btn').forEach(b=>b.classList.toggle('active',b.dataset.pmode===m));
+  openProgress();
+};
 window.openProgress=async()=>{
   go('progress');
-  const lp=lastPrompt();
   const scopeEl=$('pScope');
-  let qs='device_id='+encodeURIComponent(deviceId());
-  if(lp){
-    qs+='&partner='+encodeURIComponent(lp.partner)+'&goal_index='+lp.goal_index;
-    const p=PARTNERS[lp.partner];const g=p&&p.goals[lp.goal_index];
-    scopeEl.innerHTML='This prompt: <b>'+esc(p?p.name:lp.partner)+'</b> · '+esc(g?g.t:'');
+  let qs='device_id='+encodeURIComponent(deviceId())+'&mode='+progressMode;
+  if(progressMode==='conversation'){
+    const lp=lastPrompt();
+    if(lp){
+      qs+='&partner='+encodeURIComponent(lp.partner)+'&goal_index='+lp.goal_index;
+      const p=PARTNERS[lp.partner];const g=p&&p.goals[lp.goal_index];
+      scopeEl.innerHTML='This prompt: <b>'+esc(p?p.name:lp.partner)+'</b> · '+esc(g?g.t:'');
+    }else{
+      scopeEl.textContent='All takes';
+    }
   }else{
-    scopeEl.textContent='All takes';
+    scopeEl.textContent='All teleprompter takes';
   }
   try{
     const r=await fetch('/api/progress?'+qs);
     const d=await r.json();
-    renderProgress(d);
-  }catch(e){renderProgress({takes:0,best_score:null,gain:null,recent:[]});}
+    if(progressMode==='speech')renderSpeechProgress(d);else renderProgress(d);
+  }catch(e){
+    if(progressMode==='speech')renderSpeechProgress({takes:0,best_score:null,gain:null,recent:[]});
+    else renderProgress({takes:0,best_score:null,gain:null,recent:[]});
+  }
 };
+function renderSpeechProgress(d){
+  const setVal=(id,v)=>{const el=$(id);if(v==null){el.textContent='-';el.classList.add('dash');}else{el.textContent=v;el.classList.remove('dash');}};
+  setVal('pTakes',d.takes||0);
+  setVal('pBest',d.best_score);
+  if(d.gain==null)setVal('pGain',null);else{$('pGain').textContent=(d.gain>0?'+':'')+d.gain;$('pGain').classList.remove('dash');}
+  const list=$('pList');
+  if(!d.recent||!d.recent.length){
+    list.innerHTML='<div class="empty">No speech takes yet. Open Home > Teleprompter and run one.</div>';
+    return;
+  }
+  const takes=d.recent.slice().reverse();
+  const cards=takes.map((t,i)=>{
+    const prev=i>0?takes[i-1].score:null;
+    const delta=prev!=null?t.score-prev:null;
+    const dCls=delta==null?'base':delta>0?'up':delta<0?'down':'flat';
+    const dTxt=delta==null?'base':(delta>0?'+':'')+delta;
+    return `<div class="tcard-take"><div class="tn">Take ${i+1}</div><div class="ts">${t.score}</div><div class="td ${dCls}">${dTxt}</div></div>`;
+  }).join('');
+  list.innerHTML=`<div class="takes-car">${cards}</div>`;
+  requestAnimationFrame(()=>{const car=list.querySelector('.takes-car');if(car)car.scrollLeft=car.scrollWidth;});
+}
 function renderProgress(d){
   const set=(id,v,suffix='')=>{const el=$(id);if(v==null){el.textContent='-';el.classList.add('dash');}else{el.textContent=(v>0&&suffix==='+'?'+':'')+v+suffix;el.classList.remove('dash');}};
   set('pTakes',d.takes||0);
@@ -925,6 +969,19 @@ function renderTalksList(sessions){
     return;
   }
   $('talksList').innerHTML=sessions.map(s=>{
+    if(s.kind==='speech'){
+      const when=new Date(s.last_at).toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+      const ctx=(s.context||'').replace(/^./,c=>c.toUpperCase());
+      return `<div class="talk-card" onclick="openSpeechDetail('${esc(s.id)}')">
+        <div class="av">📖</div>
+        <div class="info">
+          <div class="name">Teleprompter · ${esc(ctx)}</div>
+          <div class="meta">${esc(when)} · ${s.wpm||0} wpm · ${s.fillers||0} fillers${s.faithfulness!=null?' · '+s.faithfulness+'% faith':''}</div>
+          <div class="preview">${esc(s.last_text||'')}</div>
+        </div>
+        <div class="score ${s.hit_goal?'':'miss'}">${s.score}</div>
+      </div>`;
+    }
     const p=PARTNERS[s.partner];const g=p&&p.goals[s.goal_index];
     const when=new Date(s.last_at).toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
     const scoreHtml=s.score!=null
@@ -941,6 +998,31 @@ function renderTalksList(sessions){
     </div>`;
   }).join('');
 }
+window.openSpeechDetail=async(speech_id)=>{
+  go('talk');
+  $('talkHead').innerHTML='';
+  $('talkBody').innerHTML='<div class="loading">⟳ Loading take...</div>';
+  try{
+    const r=await fetch('/api/conversations?device_id='+encodeURIComponent(deviceId())+'&speech_id='+encodeURIComponent(speech_id));
+    const d=await r.json();
+    if(d.missing){$('talkBody').innerHTML='<div class="takelist"><div class="empty">Take not found.</div></div>';return;}
+    const ctx=(d.context||'').replace(/^./,c=>c.toUpperCase());
+    $('talkHead').innerHTML=`<div class="talk-head">
+      <div class="av">📖</div>
+      <div class="info"><div class="name">Teleprompter</div><div class="goal">${esc(ctx)} · ${d.duration_s||0}s</div></div>
+      <div class="score">${d.score}<small>/100</small></div>
+    </div>`;
+    $('talkBody').innerHTML=`
+      <div class="metric-grid" style="margin-bottom:14px">
+        <div class="m"><div class="mn">Pace</div><div class="mv">${d.wpm||0} wpm</div></div>
+        <div class="m"><div class="mn">Fillers</div><div class="mv">${d.fillers||0}</div></div>
+        <div class="m"><div class="mn">Faithfulness</div><div class="mv">${d.faithfulness!=null?d.faithfulness+'%':'-'}</div></div>
+        <div class="m"><div class="mn">Pauses</div><div class="mv">${d.pause_count||0}</div></div>
+      </div>
+      <div class="talk-head" style="background:var(--panel2)"><div class="info"><div class="name" style="font-size:13px;white-space:normal">${esc(d.script_excerpt||'')}</div></div></div>
+    `;
+  }catch(e){$('talkBody').innerHTML='<div class="err">Could not load this take.</div>';}
+};
 window.openTalk=async(session_id)=>{
   go('talk');
   $('talkHead').innerHTML='';
@@ -1009,7 +1091,7 @@ const SPEECH_TEMPLATES=[
   {id:"launch",ic:"📣",t:"Product launch",sub:"energetic announcement",ctx:"sales",text:"Today is the day everything changes for how your team works. For two years we listened to one piece of feedback over and over. It's too slow, and it's too complicated. So we rebuilt it from the ground up. It's three times faster. It learns how you work. And starting right now, it's available to everyone in this room. Let me show you what that actually looks like."},
 ];
 const CTX_BANDS={keynote:{lo:130,hi:150,name:"Keynote"},interview:{lo:150,hi:170,name:"Interview"},sales:{lo:150,hi:170,name:"Sales"},technical:{lo:110,hi:130,name:"Technical"},toast:{lo:120,hi:140,name:"Ceremonial"}};
-let speechScript="",speechTemplate="",speechCtx="keynote",speechRec=null,speechRecording=false,speechStartTs=0,speechVolRaf=0,speechAudioCtx=null,speechAnalyser=null,speechBuf=null,speechVolSamples=[],speechPitchSamples=[],speechPauseFrames=0,speechLastSpeechTs=0,speechStream=null,speechScroll=null;
+let speechScript="",speechTemplate="",speechCtx="keynote",speechRec=null,speechRecording=false,speechStartTs=0,speechVolRaf=0,speechAudioCtx=null,speechAnalyser=null,speechBuf=null,speechVolSamples=[],speechPitchSamples=[],speechPauseFrames=0,speechLastSpeechTs=0,speechStream=null,speechScroll=null,speechSR=null,speechLiveText="";
 
 window.openSpeech=()=>{
   $('speechTemplates').innerHTML=SPEECH_TEMPLATES.map((t,i)=>`<div class="tcard" onclick="pickSpeechTemplate(${i})"><div class="ic">${t.ic}</div><div><div class="tt">${t.t}</div><div class="ts">${t.sub}</div></div><div class="arr">›</div></div>`).join('');
@@ -1033,7 +1115,7 @@ window.enterSpeechStage=function enterSpeechStage(){
   $('scroller').style.transform='translateY(125px)';
   const band=CTX_BANDS[speechCtx];
   $('sCtxLabel').textContent=band.lo+'-'+band.hi+' wpm';
-  $('sTime').textContent='0.0s';$('sVol').style.width='0%';
+  $('sTime').textContent='0.0s';$('sVol').style.width='0%';$('sWpm').textContent='-';$('sFillers').textContent='0';
   $('speechBtn').textContent='● Start speaking';$('speechBtn').classList.remove('live');
   go('speech-stage');
 }
@@ -1081,6 +1163,9 @@ async function startSpeechRec(){
   };
   speechRecording=true;
   speechVolRaf=requestAnimationFrame(loop);
+  // Live wpm + filler counter (Web Speech API, Chrome/Edge/Safari).
+  // Scribe still does the accurate scoring on stop; this is for live feedback only.
+  startLiveCounter();
   // scroll the prompter at the target wpm pace
   const band=CTX_BANDS[speechCtx];
   const targetWpm=(band.lo+band.hi)/2;
@@ -1110,9 +1195,33 @@ function stopSpeechRec(){
   speechRecording=false;
   if(speechVolRaf)cancelAnimationFrame(speechVolRaf);
   if(speechScroll)cancelAnimationFrame(speechScroll);
+  if(speechSR){try{speechSR.stop();}catch{}speechSR=null;}
   try{speechRec.stop();}catch{}
   try{speechAudioCtx&&speechAudioCtx.close();}catch{}
   $('speechBtn').textContent='Scoring...';$('speechBtn').disabled=true;
+}
+function startLiveCounter(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR)return; // not supported (Firefox); live counter stays as -
+  speechLiveText="";
+  let final="";
+  try{
+    speechSR=new SR();speechSR.continuous=true;speechSR.interimResults=true;speechSR.lang='en-US';
+    speechSR.onresult=e=>{
+      let interim="";
+      for(let i=e.resultIndex;i<e.results.length;i++){
+        const t=e.results[i][0].transcript;
+        if(e.results[i].isFinal)final+=' '+t;else interim+=t;
+      }
+      speechLiveText=(final+' '+interim).trim();
+      const words=speechLiveText.toLowerCase().split(/\s+/).filter(Boolean);
+      const el=(performance.now()-speechStartTs)/1000;
+      $('sWpm').textContent=el>2?Math.round(words.length/(el/60)):'-';
+      $('sFillers').textContent=countFillers(speechLiveText);
+    };
+    speechSR.onend=()=>{if(speechRecording){try{speechSR.start();}catch{}}};
+    speechSR.start();
+  }catch{speechSR=null;}
 }
 async function scoreSpeechTake(blob){
   const dur=(performance.now()-speechStartTs)/1000;

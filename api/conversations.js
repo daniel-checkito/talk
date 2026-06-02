@@ -11,13 +11,52 @@ module.exports = async (req, res) => {
     const device_id = String(req.query.device_id || "").slice(0, 64);
     if (!device_id) return res.status(400).json({ error: "device_id required" });
     const session_id = req.query.session_id ? String(req.query.session_id).slice(0, 64) : null;
+    const speech_id = req.query.speech_id ? String(req.query.speech_id).slice(0, 64) : null;
 
     if (session_id) return res.status(200).json(await getDetail(device_id, session_id));
-    return res.status(200).json({ sessions: await listSessions(device_id) });
+    if (speech_id) return res.status(200).json(await getSpeechDetail(device_id, speech_id));
+    const [convo, speech] = await Promise.all([listSessions(device_id), listSpeech(device_id)]);
+    const sessions = [...convo, ...speech].sort((a, b) => new Date(b.last_at) - new Date(a.last_at));
+    return res.status(200).json({ sessions });
   } catch (e) {
     return res.status(500).json({ error: String(e.message || e) });
   }
 };
+
+async function listSpeech(device_id) {
+  const rows = await rest(
+    `/rehearse_speech_takes?device_id=eq.${encodeURIComponent(device_id)}` +
+    `&select=id,template,context,script_excerpt,score,wpm,fillers,faithfulness,duration_s,created_at` +
+    `&order=created_at.desc&limit=30`
+  );
+  return rows.map((r) => ({
+    kind: "speech",
+    id: r.id,
+    template: r.template,
+    context: r.context,
+    last_at: r.created_at,
+    started_at: r.created_at,
+    last_text: r.script_excerpt || "(script)",
+    turn_count: 1,
+    score: r.score,
+    hit_goal: r.faithfulness != null && r.faithfulness >= 70,
+    wpm: r.wpm,
+    fillers: r.fillers,
+    faithfulness: r.faithfulness,
+    duration_s: r.duration_s,
+  }));
+}
+
+async function getSpeechDetail(device_id, speech_id) {
+  const rows = await rest(
+    `/rehearse_speech_takes?device_id=eq.${encodeURIComponent(device_id)}` +
+    `&id=eq.${encodeURIComponent(speech_id)}` +
+    `&select=template,context,script_excerpt,score,wpm,fillers,pause_count,pitch_std,faithfulness,duration_s,created_at&limit=1`
+  );
+  if (!rows.length) return { kind: "speech", missing: true };
+  const r = rows[0];
+  return { kind: "speech", ...r };
+}
 
 async function listSessions(device_id) {
   // Pull the most recent ~500 turns and group client-side. Keeps schema simple.
@@ -31,6 +70,7 @@ async function listSessions(device_id) {
     let s = byId.get(m.session_id);
     if (!s) {
       s = {
+        kind: "convo",
         session_id: m.session_id,
         partner: m.partner,
         goal_index: m.goal_index,
