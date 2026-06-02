@@ -27,6 +27,13 @@ const FACE_MODEL = "https://storage.googleapis.com/mediapipe-models/face_landmar
 let _pose = null, _face = null, _ready = null;
 let _videoEl = null, _stream = null, _running = false, _rafId = 0;
 let _turnState = null;
+// Eye-contact baseline. When a user's camera sits above their monitor (the normal
+// laptop setup) their natural forward gaze still trips the eyeLookDown blendshape.
+// Calibrating against "look at the lens for 3 seconds" gives us a personal floor
+// to score against instead of treating the corpus zero as the truth.
+let _eyeBaseline = null;
+export function setEyeBaseline(baseline) { _eyeBaseline = baseline || null; }
+export function getEyeBaseline() { return _eyeBaseline; }
 
 async function loadModels() {
   if (_pose && _face) return;
@@ -125,7 +132,10 @@ function loop() {
               if (b.score > offAxis) offAxis = b.score;
             }
           }
-          if (offAxis < 0.35) _turnState.framesGazeForward++;
+          // Threshold is "looking forward" plus a tolerance band. If the user
+          // calibrated, use their baseline as the floor.
+          const floor = _eyeBaseline ? _eyeBaseline.forwardOffAxis : 0;
+          if (offAxis < floor + 0.18) _turnState.framesGazeForward++;
         } else {
           // No blendshapes: count as forward if face was detected at all.
           _turnState.framesGazeForward++;
@@ -163,6 +173,38 @@ export function disableCamera() {
 }
 
 export function isCameraOn() { return _running && !!_stream; }
+
+// Run for `durationMs` while the user stares at the camera lens. Returns the mean
+// off-axis blendshape value during that window. Save to localStorage + pass back
+// via setEyeBaseline().
+export async function sampleEyeBaseline(durationMs = 3000) {
+  if (!_running || !_face || !_videoEl) return null;
+  const samples = [];
+  const start = performance.now();
+  while (performance.now() - start < durationMs) {
+    if (_videoEl.readyState >= 2) {
+      try {
+        const r = _face.detectForVideo(_videoEl, performance.now());
+        const blends = r.faceBlendshapes && r.faceBlendshapes[0] && r.faceBlendshapes[0].categories;
+        if (blends) {
+          let off = 0;
+          for (const b of blends) {
+            const n = b.categoryName;
+            if (n === "eyeLookOutLeft" || n === "eyeLookOutRight" || n === "eyeLookUpLeft" ||
+                n === "eyeLookUpRight" || n === "eyeLookDownLeft" || n === "eyeLookDownRight") {
+              if (b.score > off) off = b.score;
+            }
+          }
+          samples.push(off);
+        }
+      } catch {}
+    }
+    await new Promise(r => requestAnimationFrame(r));
+  }
+  if (samples.length < 5) return null;
+  const mean = samples.reduce((a, b) => a + b, 0) / samples.length;
+  return { forwardOffAxis: mean, samples: samples.length, at: Date.now() };
+}
 
 export function markTurnStart() {
   if (!_running) return;

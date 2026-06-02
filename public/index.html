@@ -551,6 +551,15 @@
   <div class="err hidden" id="chatErr"></div>
 </section>
 
+<div class="modal-bg hidden" id="calibModal">
+  <div class="modal" style="text-align:center">
+    <div class="modal-title" id="calibTitle">Calibrate eye contact</div>
+    <div class="modal-sub" id="calibSub">Look right at your camera lens for 3 seconds. Don't follow your own face on screen.</div>
+    <div id="calibStage" style="font-size:60px;font-weight:900;color:var(--accent);margin:14px 0 18px;line-height:1">3</div>
+    <button class="btn btn-go" id="calibStart" onclick="startCalibration()">Start</button>
+    <button class="modal-keep" id="calibSkip" onclick="skipCalibration()">Skip</button>
+  </div>
+</div>
 <div class="modal-bg hidden" id="endModal" onclick="closeEndModal(event)">
   <div class="modal" onclick="event.stopPropagation()">
     <div class="modal-title" id="modalEndTitle">End this scene?</div>
@@ -607,7 +616,7 @@
 import { PARTNERS as PARTNERS_EN } from "./personas.js";
 import { PARTNERS as PARTNERS_DE } from "./personas_de.js";
 import { t, getLang, setLang, bcp47, scribeLang } from "./i18n.js";
-import { enableCamera as blEnable, disableCamera as blDisable, markTurnStart as blTurnStart, markTurnEnd as blTurnEnd, isCameraOn as blCameraOn } from "./bodylang.js";
+import { enableCamera as blEnable, disableCamera as blDisable, markTurnStart as blTurnStart, markTurnEnd as blTurnEnd, isCameraOn as blCameraOn, sampleEyeBaseline as blCalibrate, setEyeBaseline as blSetBaseline } from "./bodylang.js";
 // Active partner table swaps when the user toggles language. Most code paths
 // read window.PARTNERS to stay in sync after a switch.
 let PARTNERS = getLang() === 'de' ? PARTNERS_DE : PARTNERS_EN;
@@ -637,7 +646,35 @@ window.toggleCamera=async()=>{
   if(!ok){cameraDesired=false;err(t('err.mic.blocked'));return;}
   if(sv)sv.classList.remove('hidden');
   if(btn)btn.classList.add('on');
+  // First-time-only: prompt the user to calibrate their forward-gaze baseline.
+  // Subsequent enables reuse the stored baseline silently.
+  if(!localStorage.getItem('rehearse_eye_baseline')){
+    $('calibStage').textContent='3';
+    $('calibStart').textContent=t('calib.start');
+    $('calibSkip').textContent=t('calib.skip');
+    $('calibTitle').textContent=t('calib.title');
+    $('calibSub').textContent=t('calib.sub');
+    $('calibModal').classList.remove('hidden');
+  }
 };
+window.skipCalibration=()=>{$('calibModal').classList.add('hidden');};
+window.startCalibration=async()=>{
+  const start=$('calibStart');start.disabled=true;
+  // Countdown 3-2-1, then sample for 3 seconds.
+  for(let n=3;n>=1;n--){$('calibStage').textContent=n;await new Promise(r=>setTimeout(r,800));}
+  $('calibStage').textContent='👁️';
+  const result=await blCalibrate(3000);
+  $('calibModal').classList.add('hidden');
+  start.disabled=false;
+  if(result){
+    localStorage.setItem('rehearse_eye_baseline',JSON.stringify(result));
+    blSetBaseline(result);
+  }
+};
+// Load stored baseline on boot so the analyser uses it from the first frame.
+(function loadStoredBaseline(){
+  try{const raw=localStorage.getItem('rehearse_eye_baseline');if(raw)blSetBaseline(JSON.parse(raw));}catch{}
+})();
 function logTurn(role,text,extra={}){
   // Fire-and-forget persistence of one conversation turn.
   if(!curSession||!text)return;
@@ -1065,6 +1102,10 @@ window.sendText=()=>{const v=$('inp').value.trim();if(!v||busy)return;$('inp').v
 
 /* ---------- recording ---------- */
 window.toggleRec=async()=>{
+  // If the partner's voice is mid-playback, tap-to-mic interrupts: kill the audio
+  // and immediately start recording the user's response. This is the natural way
+  // to "talk over" the AI.
+  if(currentAudio)stopActiveAudio();
   if(busy)return;
   if(!recording)await startRec();else stopRec();
 };
@@ -1098,7 +1139,9 @@ function startConvoSR(){
 function stopConvoSR(){if(convoSR){try{convoSR.stop();}catch{}convoSR=null;}}
 async function startRec(){
   try{
-    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    // Echo cancellation + noise suppression so the mic doesn't pick up the partner's
+    // TTS playing from the speakers and try to transcribe it as user speech.
+    const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
     const mime=MediaRecorder.isTypeSupported('audio/webm')?'audio/webm':(MediaRecorder.isTypeSupported('audio/mp4')?'audio/mp4':'');
     mediaRecorder=new MediaRecorder(stream,mime?{mimeType:mime}:undefined);
     chunks=[];
@@ -1283,7 +1326,11 @@ async function handleUserTurn(text,delivery){
     addThem(cleanReply);
     logTurn('them',cleanReply,{goal_hit:!!d.goal_hit});
     if(d.goal_hit&&!won)addWin();
+    // Re-enable the mic BEFORE TTS playback so the user can tap to interrupt
+    // and respond immediately. toggleRec stops the playing audio if any.
+    setBusy(false);$('michint').textContent=t('chat.mic.tap');
     await speak(cleanReply,curVoiceOverride||PARTNERS[cur].voice_id);
+    return;
   }catch(e){clearStatus();err('Reply failed.');}
   setBusy(false);$('michint').textContent=t('chat.mic.tap');
 }
@@ -1705,7 +1752,7 @@ function renderDashboard(d){
       <div class="hero-info">
         <div class="hero-tag">${esc(t('progress.hero.tag'))}</div>
         <div class="hero-title">${esc(verdict)}</div>
-        <div class="hero-sub">${esc(t('progress.hero.sub'))}</div>
+        <div class="hero-sub">${esc(t('progress.hero.sub'))}${d.weighting_basis?`<br><span style="opacity:.8;font-size:11px">${esc(t('weighting.basis',{partner:t('partner.'+d.weighting_basis.partner+'.name')}))}</span>`:''}</div>
       </div>
     </div>
     ${trendHtml}
@@ -2065,7 +2112,7 @@ window.toggleSpeechRec=()=>{
 };
 async function startSpeechRec(){
   try{
-    speechStream=await navigator.mediaDevices.getUserMedia({audio:true});
+    speechStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
   }catch{err("Mic blocked. Allow access and retry.");return;}
   const mime=MediaRecorder.isTypeSupported('audio/webm')?'audio/webm':(MediaRecorder.isTypeSupported('audio/mp4')?'audio/mp4':'');
   speechRec=new MediaRecorder(speechStream,mime?{mimeType:mime}:undefined);

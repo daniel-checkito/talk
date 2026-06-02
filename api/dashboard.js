@@ -334,6 +334,22 @@ module.exports = async (req, res) => {
       const m = wpmSeries.reduce((a, b) => a + b, 0) / wpmSeries.length;
       tempoStd = Math.sqrt(wpmSeries.reduce((a, b) => a + (b - m) ** 2, 0) / wpmSeries.length);
     }
+    // Personal pace baseline. After ~10 voice turns we have enough signal to grade
+    // against the user's own sweet spot rather than the TED corpus. Clamp the band
+    // into [120, 190] so a chronically-too-fast speaker doesn't normalize their
+    // problem away.
+    let personalPaceBand = null;
+    if (wpmSeries.length >= 10 && avgWpm) {
+      const personalLo = Math.max(120, Math.round(avgWpm - 12));
+      const personalHi = Math.min(190, Math.round(avgWpm + 12));
+      personalPaceBand = { lo: personalLo, hi: personalHi, samples: wpmSeries.length };
+    }
+    function personalPaceScore(wpm) {
+      if (wpm == null || !personalPaceBand) return paceScore(wpm);
+      if (wpm >= personalPaceBand.lo && wpm <= personalPaceBand.hi) return 100;
+      const d = wpm < personalPaceBand.lo ? personalPaceBand.lo - wpm : wpm - personalPaceBand.hi;
+      return Math.max(35, Math.round(100 - d * 2.5));
+    }
     function tempoScore(std) {
       if (std == null) return null;
       if (std < 12) return 100;
@@ -362,10 +378,18 @@ module.exports = async (req, res) => {
     // Bilingual labels/targets/tips. The L() helper picks the active language.
     const L = (en, de) => (lang === "de" ? de : en);
     const dims = [
-      { key: "pace", category: "delivery", label: L("Pace","Tempo"), value: avgWpm != null ? Math.round(avgWpm) + L(" wpm"," WpM") : null, score: paceScore(avgWpm), target: L("140-160 wpm","140-160 WpM"),
-        tip: avgWpm == null ? "" : avgWpm < 130 ? L("You're slow. Push energy on key sentences.","Du bist langsam. Mehr Energie auf den Schlüsselsätzen.") :
-             avgWpm > 175 ? L("You're rushing. Land each beat, breathe between sentences.","Du rast. Setz die Beats, atme zwischen den Sätzen.") :
-             L("Pace is in the keynote pocket.","Tempo liegt im Keynote-Bereich.") },
+      { key: "pace", category: "delivery", label: L("Pace","Tempo"),
+        value: avgWpm != null ? Math.round(avgWpm) + L(" wpm"," WpM") : null,
+        score: personalPaceBand ? personalPaceScore(avgWpm) : paceScore(avgWpm),
+        target: personalPaceBand
+          ? `${personalPaceBand.lo}-${personalPaceBand.hi}` + L(" wpm (your range)"," WpM (dein Bereich)")
+          : L("140-160 wpm","140-160 WpM"),
+        tip: avgWpm == null ? "" : personalPaceBand
+          ? L(`Personal sweet spot from your last ${personalPaceBand.samples} turns.`,
+              `Persönlicher Sweet Spot aus deinen letzten ${personalPaceBand.samples} Beiträgen.`)
+          : avgWpm < 130 ? L("You're slow. Push energy on key sentences.","Du bist langsam. Mehr Energie auf den Schlüsselsätzen.") :
+            avgWpm > 175 ? L("You're rushing. Land each beat, breathe between sentences.","Du rast. Setz die Beats, atme zwischen den Sätzen.") :
+            L("Pace is in the keynote pocket.","Tempo liegt im Keynote-Bereich.") },
       { key: "tempo", category: "delivery", label: L("Tempo control","Tempo-Kontrolle"), value: tempoStd != null ? "±" + Math.round(tempoStd) + L(" wpm"," WpM") : null, score: tempoScore(tempoStd), target: L("Tight, intentional variance","Eng, bewusste Varianz"),
         tip: tempoStd == null ? "" : tempoStd < 15 ? L("Steady rhythm. Watch you don't go flat.","Stabiler Rhythmus. Pass auf, dass du nicht flach wirst.") :
              tempoStd < 30 ? L("Healthy variation across turns.","Gesunde Variation über die Beiträge.") :
@@ -444,7 +468,36 @@ module.exports = async (req, res) => {
     const measured = dims.filter(d => d.score != null);
     const strengths = measured.filter(d => d.score >= 75).sort((a, b) => b.score - a.score).slice(0, 3);
     const weaknesses = measured.filter(d => d.score < 65).sort((a, b) => a.score - b.score).slice(0, 3);
-    const composite = measured.length ? Math.round(measured.reduce((a, d) => a + d.score, 0) / measured.length) : null;
+
+    // Per-partner dimension weights. Audience scenes care about body + performance
+    // disproportionately; friend banter is mostly language + delivery. We derive a
+    // category-weight map from the user's actual practice mix.
+    const PARTNER_DIM_WEIGHTS = {
+      audience: { delivery: 1.0, language: 1.0, engagement: 0.7, body: 1.5, performance: 1.2 },
+      friend:   { delivery: 0.8, language: 1.2, engagement: 1.0, body: 0.6, performance: 1.0 },
+      date:     { delivery: 1.0, language: 1.0, engagement: 1.4, body: 1.2, performance: 1.0 },
+      boss:     { delivery: 1.0, language: 1.3, engagement: 0.8, body: 1.1, performance: 1.5 },
+      stranger: { delivery: 0.9, language: 1.0, engagement: 1.3, body: 1.0, performance: 1.0 },
+    };
+    let composite, weighting_basis = null;
+    if (takes.length > 0 && measured.length) {
+      const catW = { delivery: 0, language: 0, engagement: 0, body: 0, performance: 0 };
+      for (const tk of takes) {
+        const w = PARTNER_DIM_WEIGHTS[tk.partner];
+        if (!w) continue;
+        for (const c of Object.keys(catW)) catW[c] += w[c] / takes.length;
+      }
+      let s = 0, w = 0;
+      for (const d of measured) { const cw = catW[d.category] || 1; s += d.score * cw; w += cw; }
+      composite = w ? Math.round(s / w) : null;
+      // Surface which partner most shaped the composite weighting.
+      const partnerCounts = {};
+      for (const tk of takes) partnerCounts[tk.partner] = (partnerCounts[tk.partner] || 0) + 1;
+      const dom = Object.entries(partnerCounts).sort((a, b) => b[1] - a[1])[0];
+      weighting_basis = dom ? { partner: dom[0], share: Math.round(dom[1] / takes.length * 100) } : null;
+    } else {
+      composite = measured.length ? Math.round(measured.reduce((a, d) => a + d.score, 0) / measured.length) : null;
+    }
 
     // --- Improvement: per-weakness trend (first half vs second half of recent takes) ---
     // Crude but readable: did the dimension improve in the last ~half of attempts?
@@ -541,6 +594,8 @@ module.exports = async (req, res) => {
         words_spoken: totalWords,
       },
       top_fillers: topFillers,
+      personal_pace_band: personalPaceBand,
+      weighting_basis,
       // Per-take score timeline for the dashboard's "progress over time" graph.
       // Includes both conversation and speech takes, oldest first.
       score_trend: [
