@@ -4,6 +4,7 @@
 export const config = { api: { bodyParser: false } };
 
 import crypto from "crypto";
+import { logUsage, sttCostMicros, sttSecondsFromBytes } from "./_usage.js";
 function authed(req) {
   const pw = process.env.APP_PASSWORD || "";
   if (!pw) return false;
@@ -65,6 +66,13 @@ export default async function handler(req, res) {
       return res.status(r.status).json({ error: "elevenlabs stt: " + msg.slice(0, 300) });
     }
     const data = await r.json();
+    const device_id = (req.headers["x-device-id"] || "").toString().slice(0, 64);
+    const seconds = sttSecondsFromBytes(audio.length);
+    logUsage({
+      device_id, provider: "elevenlabs", service: "stt", model: "scribe_v2",
+      input_units: audio.length, output_units: 0,
+      cost_micros: sttCostMicros(seconds),
+    });
     return res.status(200).json({ text: (data.text || "").trim() });
   } catch (e) {
     return res.status(500).json({ error: String(e) });

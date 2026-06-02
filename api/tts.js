@@ -2,6 +2,7 @@
 // Body: { text, voice_id }
 const { check } = require("./_ratelimit");
 const { requireAuth } = require("./_auth");
+const { logUsage, ttsCostMicros } = require("./_usage");
 const MAX_CHARS = 600;
 const DAILY_LIMIT = 200;
 
@@ -11,7 +12,7 @@ module.exports = async (req, res) => {
   try {
     const rl = check(req, "tts", DAILY_LIMIT);
     if (!rl.ok) return res.status(429).json({ error: "Daily voice limit reached. Try again tomorrow." });
-    let { text, voice_id } = req.body || {};
+    let { text, voice_id, device_id } = req.body || {};
     if (!text || !voice_id) return res.status(400).json({ error: "text and voice_id required" });
     if (text.length > MAX_CHARS) text = text.slice(0, MAX_CHARS);
 
@@ -32,6 +33,11 @@ module.exports = async (req, res) => {
       return res.status(r.status).json({ error: "elevenlabs tts: " + msg.slice(0, 300) });
     }
     const buf = Buffer.from(await r.arrayBuffer());
+    logUsage({
+      device_id, provider: "elevenlabs", service: "tts", model: "eleven_flash_v2_5",
+      input_units: text.length, output_units: buf.length,
+      cost_micros: ttsCostMicros(text.length),
+    });
     res.setHeader("Content-Type", "audio/mpeg");
     res.setHeader("Cache-Control", "no-store");
     return res.status(200).send(buf);

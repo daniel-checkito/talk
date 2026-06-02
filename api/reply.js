@@ -2,6 +2,7 @@
 // Body: { partner, goalIndex, history:[{role:'me'|'them', text}], variant }
 const { PARTNERS } = require("./_personas");
 const { requireAuth } = require("./_auth");
+const { logUsage, anthropicCostMicros } = require("./_usage");
 
 function stripDashes(s) {
   if (!s) return s;
@@ -18,7 +19,7 @@ module.exports = async (req, res) => {
   if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
   if (!requireAuth(req, res)) return;
   try {
-    const { partner, goalIndex, history, variant, scenarioIndex } = req.body || {};
+    const { partner, goalIndex, history, variant, scenarioIndex, device_id } = req.body || {};
     const p = PARTNERS[partner];
     if (!p) return res.status(400).json({ error: "unknown partner" });
     const g = p.goals[goalIndex];
@@ -71,6 +72,14 @@ Return ONLY valid JSON, no markdown, no preamble:
     });
     const data = await r.json();
     if (data.error) return res.status(500).json({ error: data.error.message || "anthropic error" });
+    // Log usage (fire-and-forget). Reply runs many times per scene, so this is the hottest cost line.
+    const model = "claude-haiku-4-5-20251001";
+    logUsage({
+      device_id, provider: "anthropic", service: "reply", model,
+      input_units: data.usage?.input_tokens || 0,
+      output_units: data.usage?.output_tokens || 0,
+      cost_micros: anthropicCostMicros(model, data.usage),
+    });
     let txt = (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("").replace(/```json|```/g, "").trim();
     let parsed;
     try { parsed = JSON.parse(txt); }

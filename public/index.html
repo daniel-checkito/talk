@@ -254,6 +254,23 @@
   details.dash-fold summary::after{content:"›";color:var(--muted);font-size:18px;font-weight:900;transition:transform .2s}
   details.dash-fold[open] summary::after{transform:rotate(90deg)}
   details.dash-fold .fold-body{padding:0 14px 14px}
+  /* api cost card */
+  .cost-card{background:#fff;border:2px solid var(--line);border-bottom-width:4px;border-radius:16px;padding:14px 16px;margin-bottom:14px}
+  .cost-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px;gap:8px}
+  .cost-total{font-size:28px;font-weight:900;color:var(--ink);line-height:1;font-variant-numeric:tabular-nums}
+  .cost-total small{font-size:12px;color:var(--muted);font-weight:800;margin-left:5px;letter-spacing:.3px;text-transform:uppercase}
+  .cost-window{font-size:11px;color:var(--muted);font-weight:800;letter-spacing:.4px;text-transform:uppercase;text-align:right}
+  .cost-window b{color:var(--ink);font-size:14px;font-weight:900;display:block}
+  .cost-spark{display:flex;gap:2px;align-items:flex-end;height:36px;margin:8px 0 10px;border-bottom:1.5px dashed var(--line);padding-bottom:2px}
+  .cost-spark .b{flex:1;min-width:2px;background:var(--accent);border-radius:2px 2px 0 0;transition:height .5s}
+  .cost-spark .b.zero{background:var(--line);height:2px!important}
+  .cost-row{display:flex;align-items:center;gap:10px;padding:6px 0;border-top:1.5px solid var(--panel2);font-size:12.5px}
+  .cost-row:first-of-type{border-top:none}
+  .cost-row .cs{flex:1;font-weight:800;color:var(--ink)}
+  .cost-row .cs .pv{color:var(--muted);font-weight:700;font-size:11px;margin-left:5px}
+  .cost-row .cn{font-weight:700;color:var(--muted);font-size:11px;min-width:60px;text-align:right}
+  .cost-row .cv{font-weight:900;color:var(--ink);min-width:70px;text-align:right;font-variant-numeric:tabular-nums}
+  .cost-note{font-size:10.5px;color:var(--muted);font-weight:700;line-height:1.45;margin-top:10px;padding-top:8px;border-top:1.5px solid var(--panel2)}
   .scope{font-size:13px;color:var(--muted);font-weight:800;margin-bottom:10px}
   .scope b{color:var(--ink)}
   .ptoggle{display:flex;gap:6px;margin-bottom:14px;background:var(--panel2);padding:4px;border-radius:14px;border:2px solid var(--line)}
@@ -436,6 +453,7 @@
   <div class="logo">Pro<span>gress</span></div>
   <p class="sub">Your speaker dashboard. Strengths, weaknesses, and the dimensions top speakers actually live or die by.</p>
   <div id="dashBody"><div class="loading">⟳ Loading dashboard...</div></div>
+  <div id="costSlot"></div>
   <details class="dash-fold" id="dashFold">
     <summary><span>Per-prompt takes</span></summary>
     <div class="fold-body">
@@ -900,7 +918,7 @@ function aggregateDelivery(){
 async function transcribeAndTurn(blob,delivery){
   setBusy(true);status('Transcribing...');
   try{
-    const r=await fetch('/api/stt',{method:'POST',headers:{'Content-Type':blob.type},body:blob});
+    const r=await fetch('/api/stt',{method:'POST',headers:{'Content-Type':blob.type,'x-device-id':deviceId()},body:blob});
     if(r.status===401){clearStatus();showLogin();setBusy(false);return;}
     const d=await r.json().catch(()=>({}));
     clearStatus();
@@ -920,7 +938,7 @@ async function handleUserTurn(text,delivery){
   status(PARTNERS[cur].name+' is thinking…');
   try{
     const r=await fetch('/api/reply',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({partner:cur,goalIndex:curGoal,history:history.map(h=>({role:h.role,text:h.text})),variant:curVariant,scenarioIndex:curScenarioIndex})});
+      body:JSON.stringify({partner:cur,goalIndex:curGoal,history:history.map(h=>({role:h.role,text:h.text})),variant:curVariant,scenarioIndex:curScenarioIndex,device_id:deviceId()})});
     const d=await r.json();
     clearStatus();
     // The scene may have been cancelled while /api/reply was in flight.
@@ -945,7 +963,7 @@ async function speak(text,voice_id){
   try{
     $('chatAv').classList.add('speaking');
     const r=await fetch('/api/tts',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({text,voice_id})});
+      body:JSON.stringify({text,voice_id,device_id:deviceId()})});
     if(!r.ok){$('chatAv').classList.remove('speaking');return;}
     const buf=await r.arrayBuffer();
     const url=URL.createObjectURL(new Blob([buf],{type:'audio/mpeg'}));
@@ -1023,7 +1041,7 @@ window.endScene=async()=>{
   go('debrief');startScoringAnim();
   try{
     const r=await fetch('/api/debrief',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({partner:cur,goalIndex:curGoal,history:history.map(h=>({role:h.role,text:h.text})),nudgeCount})});
+      body:JSON.stringify({partner:cur,goalIndex:curGoal,history:history.map(h=>({role:h.role,text:h.text})),nudgeCount,device_id:deviceId()})});
     const d=await r.json();
     if(d.error){throw new Error(d.error);}
     stopScoringAnim();
@@ -1055,6 +1073,7 @@ window.openProgress=async()=>{
   go('progress');
   // Load the dashboard (left side panel) in parallel with the per-prompt strip.
   loadDashboard();
+  loadCosts();
   const scopeEl=$('pScope');
   let qs='device_id='+encodeURIComponent(deviceId())+'&mode='+progressMode;
   if(progressMode==='conversation'){
@@ -1088,6 +1107,68 @@ async function loadDashboard(){
   }catch(e){
     body.innerHTML='<div class="empty-dash"><b>Couldn\'t load your dashboard.</b>Try again in a moment.</div>';
   }
+}
+async function loadCosts(){
+  const slot=$('costSlot');if(!slot)return;
+  try{
+    const r=await fetch('/api/usage?device_id='+encodeURIComponent(deviceId()));
+    const d=await r.json();
+    renderCosts(d);
+  }catch{slot.innerHTML='';}
+}
+// Service display names. Anything else falls through to the raw service key.
+const SERVICE_LABEL={
+  reply:{label:"Replies",prov:"Claude Haiku"},
+  debrief:{label:"Scene debrief",prov:"Claude Sonnet"},
+  tts:{label:"Partner voice",prov:"ElevenLabs TTS"},
+  stt:{label:"Your speech",prov:"ElevenLabs Scribe"},
+};
+function fmtUsd(usd){
+  if(usd==null)return '—';
+  if(usd<0.01)return '<$0.01';
+  if(usd<1)return '$'+usd.toFixed(3);
+  if(usd<10)return '$'+usd.toFixed(2);
+  return '$'+usd.toFixed(1);
+}
+function renderCosts(d){
+  const slot=$('costSlot');if(!slot)return;
+  if(!d||d.skipped||(d.calls||0)===0){
+    slot.innerHTML=`<div class="cost-card">
+      <div class="cost-head">
+        <div><div class="hero-tag" style="margin-bottom:2px">API costs · estimated</div>
+          <div class="cost-total">$0.00<small>so far</small></div></div>
+        <div class="cost-window"><b>$0.00</b>last 7 days</div>
+      </div>
+      <div class="cost-note">Each conversation hits ElevenLabs (your voice + the partner's voice) and Claude (their reply + the end-of-scene debrief). Run a scene and your spend lands here.</div>
+    </div>`;
+    return;
+  }
+  const series=d.series_30d||[];
+  const maxC=Math.max(0.0001,...series.map(s=>s.cost_usd||0));
+  const sparkHtml=series.map(s=>{
+    const h=Math.round(((s.cost_usd||0)/maxC)*32);
+    return `<div class="b ${(s.cost_usd||0)===0?'zero':''}" style="height:${Math.max(2,h)}px" title="${s.day}: ${fmtUsd(s.cost_usd)}"></div>`;
+  }).join('');
+  const rows=(d.services||[]).map(s=>{
+    const info=SERVICE_LABEL[s.service]||{label:s.service,prov:s.provider};
+    return `<div class="cost-row">
+      <div class="cs">${esc(info.label)}<span class="pv">${esc(info.prov||'')}</span></div>
+      <div class="cn">${s.calls} call${s.calls===1?'':'s'}</div>
+      <div class="cv">${fmtUsd(s.cost_usd)}</div>
+    </div>`;
+  }).join('');
+  slot.innerHTML=`<div class="cost-card">
+    <div class="cost-head">
+      <div>
+        <div class="hero-tag" style="margin-bottom:2px">API costs · estimated</div>
+        <div class="cost-total">${fmtUsd(d.total_usd)}<small>${d.calls} call${d.calls===1?'':'s'}, last ${d.window_days||90} days</small></div>
+      </div>
+      <div class="cost-window"><b>${fmtUsd(d.total_7d_usd)}</b>last 7 days</div>
+    </div>
+    <div class="cost-spark" aria-label="Daily spend, last 30 days">${sparkHtml}</div>
+    ${rows}
+    <div class="cost-note">Estimates from list prices. ElevenLabs is ~95% of per-session cost (voice in + voice out). Claude Haiku and Sonnet are token-priced and tiny by comparison.</div>
+  </div>`;
 }
 function dimColor(score){return score>=75?'g':score>=55?'y':'r';}
 function trendChip(t){
@@ -1572,7 +1653,7 @@ async function scoreSpeechTake(blob){
   // STT through our existing endpoint
   let transcript='';
   try{
-    const r=await fetch('/api/stt',{method:'POST',headers:{'Content-Type':blob.type},body:blob});
+    const r=await fetch('/api/stt',{method:'POST',headers:{'Content-Type':blob.type,'x-device-id':deviceId()},body:blob});
     if(r.status===401){showLogin();return;}
     const d=await r.json();transcript=d.text||'';
   }catch{err("Couldn't transcribe. Try again.");$('speechBtn').textContent='● Start speaking';$('speechBtn').classList.remove('live');$('speechBtn').disabled=false;return;}
