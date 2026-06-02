@@ -20,11 +20,13 @@ async function readCache(hash) {
   try {
     const rows = await rest(`/rehearse_tts_cache?hash=eq.${encodeURIComponent(hash)}&select=audio_b64&limit=1`);
     if (Array.isArray(rows) && rows.length && rows[0].audio_b64) {
-      // Best-effort update of hit_count + last_used_at; don't block the response.
+      // Best-effort touch of last_used_at so the warmest entries are easy to keep
+      // when we eventually trim the table. (hit_count needs an atomic increment via
+      // an RPC, which we don't have set up; for now we just refresh the timestamp.)
       rest(`/rehearse_tts_cache?hash=eq.${encodeURIComponent(hash)}`, {
         method: "PATCH",
         headers: { Prefer: "return=minimal" },
-        body: JSON.stringify({ last_used_at: new Date().toISOString(), hit_count: undefined }),
+        body: JSON.stringify({ last_used_at: new Date().toISOString() }),
       }).catch(() => {});
       return Buffer.from(rows[0].audio_b64, "base64");
     }
