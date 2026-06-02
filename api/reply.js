@@ -1,8 +1,10 @@
 // POST /api/reply  -> { reply, nudge, goal_hit }
 // Body: { partner, goalIndex, history:[{role:'me'|'them', text}], variant }
-const { PARTNERS } = require("./_personas");
+const { PARTNERS: PARTNERS_EN } = require("./_personas");
+const { PARTNERS: PARTNERS_DE } = require("./_personas_de");
 const { requireAuth } = require("./_auth");
 const { logUsage, anthropicCostMicros } = require("./_usage");
+function partners(lang) { return lang === "de" ? PARTNERS_DE : PARTNERS_EN; }
 
 function stripDashes(s) {
   if (!s) return s;
@@ -19,7 +21,8 @@ module.exports = async (req, res) => {
   if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
   if (!requireAuth(req, res)) return;
   try {
-    const { partner, goalIndex, history, variant, scenarioIndex, device_id } = req.body || {};
+    const { partner, goalIndex, history, variant, scenarioIndex, device_id, lang } = req.body || {};
+    const PARTNERS = partners(lang);
     const p = PARTNERS[partner];
     if (!p) return res.status(400).json({ error: "unknown partner" });
     const g = p.goals[goalIndex];
@@ -37,7 +40,11 @@ module.exports = async (req, res) => {
         " The user is approaching you cold. Stay in this exact physical setting.";
     }
 
+    const langInstruction = lang === "de"
+      ? "Antworte AUSSCHLIESSLICH auf Deutsch, in der du-Form."
+      : "Reply only in English.";
     const sys = `${p.persona}
+${langInstruction}
 ${variantLine ? "MOOD FOR THIS SCENE: " + variantLine : ""}
 ${sceneLine}
 You are in a live spoken conversation. Reply in 1-3 short, natural, interruptible sentences, it will be read aloud, so write the way people actually talk. Stay 100% in character. Never mention being an AI.

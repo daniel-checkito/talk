@@ -105,28 +105,33 @@ function rateScore(pct) {
   return Math.max(15, Math.round(pct + 15));
 }
 
-// Powerless / hedging markers from sociolinguistics (Lakoff, O'Barr).
-const HEDGES = [
-  "maybe","kind of","kinda","sort of","sorta","i think","i guess","i mean",
-  "just","like","probably","might","could be","i feel like","honestly",
-  "i'm not sure","not really","a little bit","somewhat","perhaps","i suppose",
-];
-// Conviction markers - the inverse of hedges. From persuasion research +
-// rhetoric textbooks. Used at ~2-4 per 100 words by confident speakers.
-const POWER_WORDS = [
-  "definitely","absolutely","certainly","clearly","precisely","specifically",
-  "obviously","exactly","entirely","completely","fundamentally","essentially",
-  "will","must","know","proven","decided","commit","guarantee","ensure",
-];
-// First-person vs second-person pronoun sets. Carnegie/Cialdini show that
-// other-focused language tends to land better in persuasive contexts.
-const I_WORDS = new Set(["i","i'm","i'll","i've","i'd","me","my","mine","myself"]);
-const YOU_WORDS = new Set(["you","your","yours","you're","you've","you'd","you'll"]);
-function countHedges(text) {
+// Per-language lexicons. Picked at request time via lang param.
+const LEX = {
+  en: {
+    hedges: ["maybe","kind of","kinda","sort of","sorta","i think","i guess","i mean","just","like","probably","might","could be","i feel like","honestly","i'm not sure","not really","a little bit","somewhat","perhaps","i suppose"],
+    power: ["definitely","absolutely","certainly","clearly","precisely","specifically","obviously","exactly","entirely","completely","fundamentally","essentially","will","must","know","proven","decided","commit","guarantee","ensure"],
+    iWords: new Set(["i","i'm","i'll","i've","i'd","me","my","mine","myself"]),
+    youWords: new Set(["you","your","yours","you're","you've","you'd","you'll"]),
+    fillers: ["um","uh","like","you know","sort of","kind of","basically","actually","literally","right","i mean","er","ah"],
+  },
+  de: {
+    hedges: ["vielleicht","irgendwie","irgendwo","sozusagen","ich glaube","ich denke","ich meine","quasi","halt","eigentlich","im prinzip","im grunde","wahrscheinlich","könnte","möglicherweise","ich bin nicht sicher","ein bisschen","etwas","ich vermute","ein wenig"],
+    power: ["definitiv","absolut","sicherlich","klar","genau","konkret","offensichtlich","exakt","vollständig","komplett","grundsätzlich","wesentlich","werde","muss","weiß","bewiesen","entschieden","verspreche","garantiere","stelle sicher"],
+    iWords: new Set(["ich","mir","mich","mein","meine","meiner","meines","meinem","meinen"]),
+    youWords: new Set(["du","dir","dich","dein","deine","deiner","deines","deinem","deinen","ihr","euch","euer","eure"]),
+    fillers: ["äh","ähm","also","halt","quasi","irgendwie","sozusagen","eigentlich","weißt du","ne","mal","schon","gewissermaßen","ja"],
+  },
+};
+// Backwards-compat single-language exports (used by legacy code paths if any).
+const HEDGES = LEX.en.hedges;
+const POWER_WORDS = LEX.en.power;
+const I_WORDS = LEX.en.iWords;
+const YOU_WORDS = LEX.en.youWords;
+function countHedges(text, hedgeList) {
   if (!text) return 0;
-  const t = " " + text.toLowerCase().replace(/[^a-z' ]/g, " ").replace(/\s+/g, " ") + " ";
+  const t = " " + text.toLowerCase().replace(/[^a-zäöüß' ]/g, " ").replace(/\s+/g, " ") + " ";
   let n = 0;
-  for (const h of HEDGES) {
+  for (const h of (hedgeList || HEDGES)) {
     const re = new RegExp("\\b" + h.replace(/ /g, "\\s+") + "\\b", "g");
     const m = t.match(re);
     if (m) n += m.length;
@@ -178,6 +183,8 @@ module.exports = async (req, res) => {
   try {
     const device_id = String(req.query.device_id || "").slice(0, 64);
     if (!device_id) return res.status(400).json({ error: "device_id required" });
+    const lang = String(req.query.lang || "en").toLowerCase() === "de" ? "de" : "en";
+    const lex = LEX[lang];
 
     // Pull recent data. 90-day window is plenty for trend math.
     const since = new Date(Date.now() - 90 * 86400000).toISOString();
@@ -227,7 +234,7 @@ module.exports = async (req, res) => {
     const allWords = totalWords + speechWords;
     const fillerRate = allWords > 0 ? (totalFillers / allWords) * 100 : null;
 
-    const totalHedges = msgs.reduce((a, m) => a + countHedges(m.text), 0);
+    const totalHedges = msgs.reduce((a, m) => a + countHedges(m.text, lex.hedges), 0);
     const hedgeRate = totalWords > 0 ? (totalHedges / totalWords) * 100 : null;
 
     // --- Deep text analysis across user turns ---
@@ -241,25 +248,22 @@ module.exports = async (req, res) => {
     for (const m of msgs) {
       const raw = m.text || "";
       const lower = raw.toLowerCase();
-      const wordList = lower.replace(/[^a-z' ]/g, " ").split(/\s+/).filter(Boolean);
+      const wordList = lower.replace(/[^a-zäöüß' ]/g, " ").split(/\s+/).filter(Boolean);
       turnWordCounts.push(wordList.length);
       for (const w of wordList) {
         uniqueWords.add(w);
-        if (I_WORDS.has(w)) iCount++;
-        else if (YOU_WORDS.has(w)) youCount++;
+        if (lex.iWords.has(w)) iCount++;
+        else if (lex.youWords.has(w)) youCount++;
       }
-      // Sentences via terminal punctuation. Filter out junk fragments (<2 words).
       const sentences = raw.split(/[.!?]+/).map(s => s.trim()).filter(s => s.split(/\s+/).filter(Boolean).length >= 2);
       for (const s of sentences) sentenceLens.push(s.split(/\s+/).filter(Boolean).length);
       if (/\?/.test(raw)) questionTurns++;
-      for (const pw of POWER_WORDS) {
-        const re = new RegExp("\\b" + pw + "\\b", "g");
+      for (const pw of lex.power) {
+        const re = new RegExp("\\b" + pw.replace(/ /g, "\\s+") + "\\b", "g");
         const matches = lower.match(re);
         if (matches) powerCount += matches.length;
       }
-      // Filler breakdown - count each known filler phrase separately so we can
-      // surface the top offender, not just a rate.
-      for (const f of ["um","uh","like","you know","sort of","kind of","basically","actually","literally","right","i mean","er","ah"]) {
+      for (const f of lex.fillers) {
         const re = new RegExp("\\b" + f.replace(/ /g, "\\s+") + "\\b", "g");
         const matches = lower.match(re);
         if (matches) fillerByType[f] = (fillerByType[f] || 0) + matches.length;

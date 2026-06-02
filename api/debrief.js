@@ -1,8 +1,10 @@
 // POST /api/debrief -> { score, hit_goal, verdict, worked[], fix[], weak_line, better_line }
 // Body: { partner, goalIndex, history, nudgeCount }
-const { PARTNERS } = require("./_personas");
+const { PARTNERS: PARTNERS_EN } = require("./_personas");
+const { PARTNERS: PARTNERS_DE } = require("./_personas_de");
 const { requireAuth } = require("./_auth");
 const { logUsage, anthropicCostMicros } = require("./_usage");
+function partners(lang) { return lang === "de" ? PARTNERS_DE : PARTNERS_EN; }
 
 function stripDashes(s) {
   if (!s) return s;
@@ -19,13 +21,18 @@ module.exports = async (req, res) => {
   if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
   if (!requireAuth(req, res)) return;
   try {
-    const { partner, goalIndex, history, nudgeCount, device_id } = req.body || {};
+    const { partner, goalIndex, history, nudgeCount, device_id, lang } = req.body || {};
+    const PARTNERS = partners(lang);
     const p = PARTNERS[partner];
     if (!p) return res.status(400).json({ error: "unknown partner" });
     const g = p.goals[goalIndex];
 
+    const langInstruction = lang === "de"
+      ? "Schreibe deine Auswertung AUSSCHLIESSLICH auf Deutsch."
+      : "Write your debrief only in English.";
     const sys = `You are a sharp, encouraging conversation coach. Analyze this "${partner}" roleplay. The user's goal was: "${g.t}". Win condition: ${g.win}
 Score against this rubric: ${g.rubric.join(", ")}.
+${langInstruction}
 STYLE RULES: Do NOT use em-dashes or en-dashes anywhere in your output. Use commas, periods, or simple words. No emojis.
 Be specific and reference what the user ACTUALLY said. Return ONLY valid JSON, no markdown:
 {"score":<0-100 integer>,"hit_goal":<true/false>,"verdict":"<one encouraging sentence>","worked":["<thing 1>","<thing 2>"],"fix":["<thing 1>","<thing 2>"],"weak_line":"<the user's weakest actual line, verbatim or close>","better_line":"<a stronger rewrite of that line>"}`;

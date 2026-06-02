@@ -49,12 +49,15 @@ export default async function handler(req, res) {
     const contentType = req.headers["content-type"] || "audio/webm";
     const ext = contentType.includes("mp4") ? "mp4" : contentType.includes("ogg") ? "ogg" : "webm";
 
-    // Build multipart form for ElevenLabs Scribe
+    // Build multipart form for ElevenLabs Scribe. Language can be overridden via
+    // the x-language header; default English. Scribe uses 3-letter codes.
+    const langHeader = (req.headers["x-language"] || "").toString().toLowerCase();
+    const languageCode = langHeader === "de" || langHeader === "deu" ? "deu" : "eng";
     const form = new FormData();
     const blob = new Blob([audio], { type: contentType });
     form.append("file", blob, `clip.${ext}`);
     form.append("model_id", "scribe_v2");
-    form.append("language_code", "eng");
+    form.append("language_code", languageCode);
 
     const r = await fetch("https://api.elevenlabs.io/v1/speech-to-text", {
       method: "POST",

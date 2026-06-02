@@ -12,9 +12,14 @@ module.exports = async (req, res) => {
   try {
     const rl = check(req, "tts", DAILY_LIMIT);
     if (!rl.ok) return res.status(429).json({ error: "Daily voice limit reached. Try again tomorrow." });
-    let { text, voice_id, device_id } = req.body || {};
+    let { text, voice_id, device_id, lang } = req.body || {};
     if (!text || !voice_id) return res.status(400).json({ error: "text and voice_id required" });
     if (text.length > MAX_CHARS) text = text.slice(0, MAX_CHARS);
+
+    // Flash v2.5 is English-only. For German (and any other non-English), use the
+    // multilingual turbo model: still fast, supports 24+ languages, same voices.
+    const isEnglish = !lang || lang === "en";
+    const model_id = isEnglish ? "eleven_flash_v2_5" : "eleven_turbo_v2_5";
 
     const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice_id}`, {
       method: "POST",
@@ -24,7 +29,7 @@ module.exports = async (req, res) => {
       },
       body: JSON.stringify({
         text,
-        model_id: "eleven_flash_v2_5", // ~75ms latency, cheapest credits — right for real-time
+        model_id,
         voice_settings: { stability: 0.4, similarity_boost: 0.75 },
       }),
     });

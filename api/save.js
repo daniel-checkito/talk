@@ -18,6 +18,7 @@ module.exports = async (req, res) => {
     if (kind === "message") return await saveMessage(b, res);
     if (kind === "take") return await saveTake(b, res);
     if (kind === "speech") return await saveSpeech(b, res);
+    if (kind === "cancel") return await cancelSession(b, res);
     return res.status(400).json({ error: "unknown kind" });
   } catch (e) {
     return res.status(500).json({ error: String(e.message || e) });
@@ -62,6 +63,20 @@ async function saveTake(b, res) {
   };
   await rest("/rehearse_takes", { method: "POST", body: JSON.stringify(row) });
   return res.status(200).json({ ok: true });
+}
+
+// kind:'cancel' - wipe a session's messages + take row. Scoped by device_id
+// so a leaked session id alone can't touch another device's data.
+async function cancelSession(b, res) {
+  if (!b.session_id || !b.device_id) return res.status(400).json({ error: "session_id and device_id required" });
+  const sid = String(b.session_id).slice(0, 64);
+  const did = String(b.device_id).slice(0, 64);
+  const msgPath = `/rehearse_messages?session_id=eq.${encodeURIComponent(sid)}&device_id=eq.${encodeURIComponent(did)}`;
+  const takePath = `/rehearse_takes?session_id=eq.${encodeURIComponent(sid)}&device_id=eq.${encodeURIComponent(did)}`;
+  let deletedMsgs = 0, deletedTakes = 0;
+  try { const r = await rest(msgPath, { method: "DELETE", headers: { Prefer: "return=representation" } }); deletedMsgs = Array.isArray(r) ? r.length : 0; } catch {}
+  try { const r = await rest(takePath, { method: "DELETE", headers: { Prefer: "return=representation" } }); deletedTakes = Array.isArray(r) ? r.length : 0; } catch {}
+  return res.status(200).json({ ok: true, deleted_messages: deletedMsgs, deleted_takes: deletedTakes });
 }
 
 async function saveSpeech(b, res) {

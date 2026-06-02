@@ -172,6 +172,8 @@
   .streak{font-weight:900;font-size:14px;color:var(--warn);letter-spacing:.3px;display:flex;align-items:center;gap:3px;padding:5px 10px;border-radius:20px;background:#fff7d6;border:2px solid var(--warn)}
   .streak.cold{color:var(--muted);background:var(--panel2);border-color:var(--line)}
   .streak.drill{color:var(--accent2);background:#f0fbe6;border-color:var(--accent)}
+  .lang-toggle{font-weight:900;font-size:12px;color:var(--ink);background:var(--panel2);border:2px solid var(--line);border-radius:20px;padding:5px 10px;cursor:pointer;letter-spacing:.3px;font-family:var(--font);min-width:42px;transition:.1s}
+  .lang-toggle:active{transform:translateY(1px)}
   .streak-row{display:flex;gap:6px}
   /* delivery aggregate grid in debrief */
   .dlv-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}
@@ -315,6 +317,22 @@
   details.dash-fold summary::after{content:"›";color:var(--muted);font-size:18px;font-weight:900;transition:transform .2s}
   details.dash-fold[open] summary::after{transform:rotate(90deg)}
   details.dash-fold .fold-body{padding:0 14px 14px}
+  /* coach card */
+  .coach-card{background:#fff;border:2px solid var(--line);border-bottom-width:4px;border-radius:16px;padding:14px 16px;margin-bottom:14px}
+  .coach-head{margin-bottom:10px}
+  .coach-sub{font-size:11.5px;font-weight:700;color:var(--muted);line-height:1.4;margin-top:2px}
+  .coach-thread{display:flex;flex-direction:column;gap:8px;margin-bottom:10px;max-height:340px;overflow-y:auto;padding:2px}
+  .coach-turn{font-size:13.5px;font-weight:600;line-height:1.5;padding:9px 12px;border-radius:14px;max-width:92%}
+  .coach-me{align-self:flex-end;background:var(--blue);color:#fff;font-weight:700}
+  .coach-coach{align-self:flex-start;background:var(--panel2);color:var(--ink)}
+  .coach-thinking{align-self:flex-start;background:var(--panel2);color:var(--muted);font-style:italic}
+  .coach-empty{font-size:12.5px;font-weight:700;color:var(--muted);line-height:1.45;padding:14px 6px;text-align:center}
+  .coach-row{display:flex;gap:8px}
+  .coach-row input{flex:1;background:var(--panel2);border:2px solid var(--line);border-radius:12px;padding:11px 13px;font-family:var(--font);font-weight:700;font-size:14px;color:var(--ink)}
+  .coach-row input:focus{outline:none;border-color:var(--blue)}
+  .coach-row button{background:var(--accent);color:#fff;border:none;border-radius:12px;padding:0 18px;font-family:var(--font);font-weight:900;font-size:13px;letter-spacing:.4px;text-transform:uppercase;cursor:pointer;box-shadow:0 3px 0 var(--accent2);transition:.1s}
+  .coach-row button:active{transform:translateY(3px);box-shadow:0 0 0}
+  .coach-row button:disabled{opacity:.5;cursor:not-allowed}
   /* api cost card */
   .cost-card{background:#fff;border:2px solid var(--line);border-bottom-width:4px;border-radius:16px;padding:14px 16px;margin-bottom:14px}
   .cost-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px;gap:8px}
@@ -408,34 +426,35 @@
 
 <section class="login" id="s-login">
   <div class="lg">Re<span>hearse</span></div>
-  <p>Locked. Use Face ID (or type the password).</p>
+  <p id="loginLockedText">Locked. Use Face ID (or type the password).</p>
   <form id="loginForm" onsubmit="event.preventDefault();doLogin()" autocomplete="on" style="display:flex;flex-direction:column;gap:14px">
     <input type="text" name="username" id="luser" autocomplete="username" value="rehearse" readonly style="position:absolute;opacity:0;pointer-events:none;height:0;width:0">
     <input id="lpw" name="password" type="password" placeholder="Password" autocomplete="current-password">
-    <button class="btn btn-go" type="submit">Unlock</button>
+    <button class="btn btn-go" type="submit" id="loginUnlockBtn">Unlock</button>
   </form>
   <div class="lerr" id="lerr"></div>
-  <p style="font-size:12px;color:var(--muted);font-weight:700;margin-top:6px">Tip: after your first unlock, save the password in your keychain. Future visits will unlock with Face ID.</p>
+  <p id="loginTip" style="font-size:12px;color:var(--muted);font-weight:700;margin-top:6px">Tip: after your first unlock, save the password in your keychain. Future visits will unlock with Face ID.</p>
 </section>
 
 <section class="screen" id="s-home">
   <div class="top">
     <div class="logo">Re<span>hearse</span></div>
     <div class="streak-row">
+      <button class="lang-toggle" id="langToggle" onclick="toggleLanguage()" title="Switch language">EN</button>
       <div class="streak drill cold" id="drillStreak" title="Quick Drill streak">⚡ 0</div>
       <div class="streak cold" id="streak" title="Daily streak">🔥 0</div>
     </div>
   </div>
-  <p class="sub">Talk through the conversations that matter. Speak out loud, hear them respond, get coached in real time.</p>
+  <p class="sub" id="homeSub">Talk through the conversations that matter. Speak out loud, hear them respond, get coached in real time.</p>
   <div id="lastSession" class="hidden"></div>
-  <div class="label">Who are you talking to?</div>
-  <div class="tcard" onclick="pickPartner('friend')"><div class="ic">😎</div><div><div class="tt">A friend</div><div class="ts">banter, timing, being funnier</div></div><div class="arr">›</div></div>
-  <div class="tcard" onclick="pickPartner('date')"><div class="ic">💘</div><div><div class="tt">A date</div><div class="ts">flirting, curiosity, not being needy</div></div><div class="arr">›</div></div>
-  <div class="tcard" onclick="pickPartner('boss')"><div class="ic">💼</div><div><div class="tt">Your boss</div><div class="ts">negotiating, confidence, holding your number</div></div><div class="arr">›</div></div>
-  <div class="tcard" onclick="pickPartner('stranger')"><div class="ic">👋</div><div><div class="tt">A stranger</div><div class="ts">approaching, small talk, getting past it</div></div><div class="arr">›</div></div>
-  <div class="tcard" onclick="pickPartner('audience')"><div class="ic">🎤</div><div><div class="tt">An audience</div><div class="ts">public speaking, hooks, Q&amp;A under pressure</div></div><div class="arr">›</div></div>
-  <div class="label" style="margin-top:18px">Or rehearse a speech</div>
-  <div class="tcard" onclick="openSpeech()"><div class="ic">📖</div><div><div class="tt">Teleprompter</div><div class="ts">read a script, get scored on delivery + faithfulness</div></div><div class="arr">›</div></div>
+  <div class="label" id="homeWho">Who are you talking to?</div>
+  <div class="tcard" data-partner-key="friend" onclick="pickPartner('friend')"><div class="ic">😎</div><div><div class="tt">A friend</div><div class="ts">banter, timing, being funnier</div></div><div class="arr">›</div></div>
+  <div class="tcard" data-partner-key="date" onclick="pickPartner('date')"><div class="ic">💘</div><div><div class="tt">A date</div><div class="ts">flirting, curiosity, not being needy</div></div><div class="arr">›</div></div>
+  <div class="tcard" data-partner-key="boss" onclick="pickPartner('boss')"><div class="ic">💼</div><div><div class="tt">Your boss</div><div class="ts">negotiating, confidence, holding your number</div></div><div class="arr">›</div></div>
+  <div class="tcard" data-partner-key="stranger" onclick="pickPartner('stranger')"><div class="ic">👋</div><div><div class="tt">A stranger</div><div class="ts">approaching, small talk, getting past it</div></div><div class="arr">›</div></div>
+  <div class="tcard" data-partner-key="audience" onclick="pickPartner('audience')"><div class="ic">🎤</div><div><div class="tt">An audience</div><div class="ts">public speaking, hooks, Q&amp;A under pressure</div></div><div class="arr">›</div></div>
+  <div class="label" id="homeSpeech" style="margin-top:18px">Or rehearse a speech</div>
+  <div class="tcard" data-partner-key="speech" onclick="openSpeech()"><div class="ic">📖</div><div><div class="tt">Teleprompter</div><div class="ts">read a script, get scored on delivery + faithfulness</div></div><div class="arr">›</div></div>
   <div style="flex:1"></div>
 </section>
 
@@ -477,27 +496,27 @@
   <button class="back" onclick="go('home')">‹ back</button>
   <div class="logo" id="goalTitle">Goal</div>
   <p class="sub" id="goalSub"></p>
-  <div class="label">Pick your goal for this scene</div>
+  <div class="label" id="goalPickLabel">Pick your goal for this scene</div>
   <div id="goalList"></div>
   <div style="flex:1"></div>
   <button class="btn btn-go" id="startBtn" disabled onclick="startScene()">Start scene</button>
 </section>
 
 <section class="screen" id="s-practice">
-  <div class="logo">Quick <span>Drill</span></div>
-  <p class="sub">A random partner, a random goal, a 90-second timer. Built to train thinking on your feet.</p>
+  <div class="logo"><span id="practiceTitleQ">Quick</span> <span id="practiceTitleD">Drill</span></div>
+  <p class="sub" id="practiceSub">A random partner, a random goal, a 90-second timer. Built to train thinking on your feet.</p>
   <div style="background:#f0fbe6;border:2px solid var(--accent);border-radius:14px;padding:14px;color:var(--accent2);font-weight:700;font-size:13.5px;line-height:1.55;margin-bottom:14px">
-    <div style="font-weight:900;font-size:11px;letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px;opacity:.85">What you'll do</div>
-    You won't know what you're walking into. The opening line is your only context. Land a clean response under pressure, then keep the rhythm for 90 seconds.
+    <div id="practiceWhatTitle" style="font-weight:900;font-size:11px;letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px;opacity:.85">What you'll do</div>
+    <span id="practiceWhatBody">You won't know what you're walking into. The opening line is your only context. Land a clean response under pressure, then keep the rhythm for 90 seconds.</span>
   </div>
-  <div class="label">Tips before you start</div>
+  <div class="label" id="practiceTipsTitle">Tips before you start</div>
   <div style="font-size:13.5px;font-weight:700;color:var(--muted);line-height:1.6;margin-bottom:14px;padding-left:6px">
-    · Don't apologize for not knowing the topic, react to it.<br>
-    · Mirror their energy and match it back.<br>
-    · End on a question if you want them to keep going.
+    · <span id="practiceTipT1">Don't apologize for not knowing the topic, react to it.</span><br>
+    · <span id="practiceTipT2">Mirror their energy and match it back.</span><br>
+    · <span id="practiceTipT3">End on a question if you want them to keep going.</span>
   </div>
   <div style="flex:1"></div>
-  <button class="btn btn-go" onclick="startDrill()">⚡ Start Quick Drill</button>
+  <button class="btn btn-go" id="practiceStart" onclick="startDrill()">⚡ Start Quick Drill</button>
 </section>
 
 <section class="screen" id="s-chat">
@@ -523,11 +542,11 @@
 
 <div class="modal-bg hidden" id="endModal" onclick="closeEndModal(event)">
   <div class="modal" onclick="event.stopPropagation()">
-    <div class="modal-title">End this scene?</div>
-    <div class="modal-sub">Score it for your dashboard, or discard without tracking.</div>
-    <button class="btn btn-go" onclick="doScoreEnd()">Score &amp; end</button>
-    <button class="btn btn-grey" style="margin-top:10px" onclick="doCancelEnd()">Cancel without scoring</button>
-    <button class="modal-keep" onclick="closeEndModal()">Keep going</button>
+    <div class="modal-title" id="modalEndTitle">End this scene?</div>
+    <div class="modal-sub" id="modalEndSub">Score it for your dashboard, or discard without tracking.</div>
+    <button class="btn btn-go" id="modalEndScore" onclick="doScoreEnd()">Score &amp; end</button>
+    <button class="btn btn-grey" id="modalEndCancel" style="margin-top:10px" onclick="doCancelEnd()">Cancel without scoring</button>
+    <button class="modal-keep" id="modalEndKeep" onclick="closeEndModal()">Keep going</button>
   </div>
 </div>
 
@@ -537,25 +556,26 @@
 </section>
 
 <section class="screen" id="s-progress">
-  <div class="logo">Pro<span>gress</span></div>
-  <p class="sub">Your speaker dashboard. Every dimension that separates a great speaker from a forgettable one.</p>
+  <div class="logo"><span id="progressTitlePro">Pro</span><span id="progressTitleGress">gress</span></div>
+  <p class="sub" id="progressSub">Your speaker dashboard. Every dimension that separates a great speaker from a forgettable one.</p>
   <div id="dashBody"><div class="loading">⟳ Loading dashboard...</div></div>
+  <div id="coachSlot"></div>
   <div id="costSlot"></div>
   <details class="dash-fold" id="talksFold">
-    <summary><span>Past talks</span></summary>
+    <summary><span id="progressFoldTalks">Past talks</span></summary>
     <div class="fold-body" id="talksFoldBody"><div class="loading">⟳ Loading...</div></div>
   </details>
   <details class="dash-fold" id="dashFold">
-    <summary><span>Per-prompt takes</span></summary>
+    <summary><span id="progressFoldPrompt">Per-prompt takes</span></summary>
     <div class="fold-body">
       <div class="ptoggle">
-        <button class="pt-btn active" data-pmode="conversation" onclick="setProgressMode('conversation')">Conversations</button>
-        <button class="pt-btn" data-pmode="speech" onclick="setProgressMode('speech')">Speech</button>
+        <button class="pt-btn active" data-pmode="conversation" onclick="setProgressMode('conversation')" id="progressPtoggleConvo">Conversations</button>
+        <button class="pt-btn" data-pmode="speech" onclick="setProgressMode('speech')" id="progressPtoggleSpeech">Speech</button>
       </div>
       <div class="stats">
-        <div class="stat"><div class="v dash" id="pTakes">-</div><div class="k">Takes</div></div>
-        <div class="stat"><div class="v dash" id="pBest">-</div><div class="k">Best score</div></div>
-        <div class="stat"><div class="v dash" id="pGain">-</div><div class="k">Gain</div></div>
+        <div class="stat"><div class="v dash" id="pTakes">-</div><div class="k" id="progressStatTakes">Takes</div></div>
+        <div class="stat"><div class="v dash" id="pBest">-</div><div class="k" id="progressStatBest">Best score</div></div>
+        <div class="stat"><div class="v dash" id="pGain">-</div><div class="k" id="progressStatGain">Gain</div></div>
       </div>
       <div class="scope" id="pScope">This prompt</div>
       <div class="takelist" id="pList"><div class="empty">No takes yet. Run a scene and your runs show up here.</div></div>
@@ -573,7 +593,14 @@
 <nav class="nav" id="appNav"></nav>
 
 <script type="module">
-import { PARTNERS } from "./personas.js";
+import { PARTNERS as PARTNERS_EN } from "./personas.js";
+import { PARTNERS as PARTNERS_DE } from "./personas_de.js";
+import { t, getLang, setLang, bcp47, scribeLang } from "./i18n.js";
+// Active partner table swaps when the user toggles language. Most code paths
+// read window.PARTNERS to stay in sync after a switch.
+let PARTNERS = getLang() === 'de' ? PARTNERS_DE : PARTNERS_EN;
+function refreshPartners(){PARTNERS = getLang()==='de'?PARTNERS_DE:PARTNERS_EN;window.PARTNERS=PARTNERS;}
+refreshPartners();
 
 let cur=null,curGoal=null,curVariant=0,curSession=null,history=[],won=false,nudgeCount=0,drillMode=false;
 // Per-scene scenario (for goals that have a `scenariosByGoal` pool, like the stranger-approach goal).
@@ -630,6 +657,65 @@ const NAV_HTML=`
   <button class="nav-item" data-nav="home" onclick="navTo('home')"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7h-6v7H4a1 1 0 0 1-1-1V11z"/></svg>HOME</button>
   <button class="nav-item" data-nav="practice" onclick="navTo('practice')"><svg viewBox="0 0 24 24"><path d="M4 9v6M7 6v12M17 6v12M20 9v6M7 12h10"/></svg>PRACTICE</button>
   <button class="nav-item" data-nav="progress" onclick="navTo('progress')"><svg viewBox="0 0 24 24"><path d="M3 17l5-5 4 4 8-9"/><path d="M14 7h6v6"/></svg>PROGRESS</button>`;
+// Apply current language to every static piece of UI. Called on boot + after toggle.
+window.applyI18n=function(){
+  const L=getLang();
+  $('langToggle').textContent=L.toUpperCase();
+  document.documentElement.lang=L;
+  // Bottom nav labels.
+  const navMap={home:t('nav.home'),practice:t('nav.practice'),progress:t('nav.progress')};
+  document.querySelectorAll('.nav-item').forEach(el=>{
+    const key=el.dataset.nav;if(!navMap[key])return;
+    const lbl=el.querySelector('span.nav-lbl');
+    if(lbl){lbl.textContent=navMap[key];}else{
+      // First time: wrap the text after the svg in a span we can re-target.
+      const svg=el.querySelector('svg');if(!svg)return;
+      const text=document.createElement('span');text.className='nav-lbl';text.textContent=navMap[key];
+      while(el.lastChild&&el.lastChild.nodeType===3)el.removeChild(el.lastChild);
+      el.appendChild(text);
+    }
+  });
+  // Static labels by id, mapped to translation keys.
+  const map={
+    'homeSub':'home.sub','homeWho':'home.label.who','homeSpeech':'home.label.speech',
+    'goalPickLabel':'goal.label.pick',
+    'practiceTitleQ':'practice.title.q','practiceTitleD':'practice.title.d',
+    'practiceSub':'practice.sub','practiceWhatTitle':'practice.what.title','practiceWhatBody':'practice.what.body',
+    'practiceTipsTitle':'practice.tips.title','practiceTipT1':'practice.tips.t1','practiceTipT2':'practice.tips.t2','practiceTipT3':'practice.tips.t3',
+    'practiceStart':'practice.start',
+    'progressTitlePro':'progress.title.pro','progressTitleGress':'progress.title.gress',
+    'progressSub':'progress.sub','progressFoldTalks':'progress.fold.talks','progressFoldPrompt':'progress.fold.prompt',
+    'progressPtoggleConvo':'progress.ptoggle.convo','progressPtoggleSpeech':'progress.ptoggle.speech',
+    'progressStatTakes':'progress.stat.takes','progressStatBest':'progress.stat.best','progressStatGain':'progress.stat.gain',
+    'modalEndTitle':'modal.end.title','modalEndSub':'modal.end.sub','modalEndScore':'modal.end.score','modalEndCancel':'modal.end.cancel','modalEndKeep':'modal.end.keep',
+    'coachTitle':'coach.title','coachSub':'coach.sub','coachSend':'coach.send',
+    'loginLockedText':'login.locked','loginUnlockBtn':'login.unlock','loginTip':'login.tip',
+    'startBtn':'goal.start',
+  };
+  for(const id of Object.keys(map)){const el=$(id);if(el)el.textContent=t(map[id]);}
+  // Placeholders / titles.
+  const pwInp=$('lpw');if(pwInp)pwInp.placeholder=t('login.placeholder');
+  const inp=$('inp');if(inp)inp.placeholder=t('chat.placeholder');
+  const coachInp=$('coachQ');if(coachInp)coachInp.placeholder=t('coach.placeholder');
+  $('langToggle').title=t('lang.toggle.title');
+  // Localized partner cards on home.
+  document.querySelectorAll('[data-partner-key]').forEach(el=>{
+    const k=el.dataset.partnerKey;
+    const tt=el.querySelector('.tt');const ts=el.querySelector('.ts');
+    if(tt)tt.textContent=t('partner.'+k+'.name');
+    if(ts)ts.textContent=t('partner.'+k+'.sub');
+  });
+  // Streak titles.
+  const ds=$('drillStreak');if(ds)ds.title=t('home.streak.drill');
+  const s=$('streak');if(s)s.title=t('home.streak.daily');
+  // Re-render home widgets so last-session card uses new strings.
+  try{renderHomeWidgets();}catch{}
+};
+window.toggleLanguage=function(){
+  setLang(getLang()==='de'?'en':'de');
+  refreshPartners();
+  applyI18n();
+};
 $('appNav').innerHTML=NAV_HTML;
 const TABS=new Set(['home','progress','practice']);
 const go=s=>{
@@ -944,7 +1030,7 @@ function startConvoSR(){
   convoSRText="";convoSRReady=true;
   try{
     convoSR=new SR();
-    convoSR.continuous=true;convoSR.interimResults=true;convoSR.lang='en-US';
+    convoSR.continuous=true;convoSR.interimResults=true;convoSR.lang=bcp47();
     let final="";
     convoSR.onresult=e=>{
       let interim="";
@@ -1103,7 +1189,7 @@ function aggregateDelivery(){
 async function transcribeAndTurn(blob,delivery){
   setBusy(true);status('Transcribing...');
   try{
-    const r=await fetch('/api/stt',{method:'POST',headers:{'Content-Type':blob.type,'x-device-id':deviceId()},body:blob});
+    const r=await fetch('/api/stt',{method:'POST',headers:{'Content-Type':blob.type,'x-device-id':deviceId(),'x-language':getLang()},body:blob});
     if(r.status===401){clearStatus();showLogin();setBusy(false);return;}
     const d=await r.json().catch(()=>({}));
     clearStatus();
@@ -1126,7 +1212,7 @@ async function handleUserTurn(text,delivery){
   status(PARTNERS[cur].name+' is thinking…');
   try{
     const r=await fetch('/api/reply',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({partner:cur,goalIndex:curGoal,history:history.map(h=>({role:h.role,text:h.text})),variant:curVariant,scenarioIndex:curScenarioIndex,device_id:deviceId()})});
+      body:JSON.stringify({partner:cur,goalIndex:curGoal,history:history.map(h=>({role:h.role,text:h.text})),variant:curVariant,scenarioIndex:curScenarioIndex,device_id:deviceId(),lang:getLang()})});
     const d=await r.json();
     clearStatus();
     // The scene may have been cancelled while /api/reply was in flight.
@@ -1151,7 +1237,7 @@ async function speak(text,voice_id){
   try{
     $('chatAv').classList.add('speaking');
     const r=await fetch('/api/tts',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({text,voice_id,device_id:deviceId()})});
+      body:JSON.stringify({text,voice_id,device_id:deviceId(),lang:getLang()})});
     if(!r.ok){$('chatAv').classList.remove('speaking');return;}
     const buf=await r.arrayBuffer();
     const url=URL.createObjectURL(new Blob([buf],{type:'audio/mpeg'}));
@@ -1209,8 +1295,8 @@ async function runCancelDiscard(){
   $('endModal').classList.add('hidden');
   if(curSession){
     try{
-      await fetch('/api/delete-session',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({session_id:curSession,device_id:deviceId()})});
+      await fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({kind:'cancel',session_id:curSession,device_id:deviceId()})});
     }catch{}
   }
   curSession=null;history=[];
@@ -1254,7 +1340,7 @@ async function runScoreEnd(){
   go('debrief');startScoringAnim();
   try{
     const r=await fetch('/api/debrief',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({partner:cur,goalIndex:curGoal,history:history.map(h=>({role:h.role,text:h.text})),nudgeCount,device_id:deviceId()})});
+      body:JSON.stringify({partner:cur,goalIndex:curGoal,history:history.map(h=>({role:h.role,text:h.text})),nudgeCount,device_id:deviceId(),lang:getLang()})});
     const d=await r.json();
     if(d.error){throw new Error(d.error);}
     stopScoringAnim();
@@ -1316,13 +1402,56 @@ window.openProgress=async()=>{
 async function loadDashboard(){
   const body=$('dashBody');if(!body)return;
   try{
-    const r=await fetch('/api/dashboard?device_id='+encodeURIComponent(deviceId()));
+    const r=await fetch('/api/dashboard?device_id='+encodeURIComponent(deviceId())+'&lang='+getLang());
     const d=await r.json();
+    coachLastDashboard=d;
     renderDashboard(d);
+    renderCoachCard();
   }catch(e){
     body.innerHTML='<div class="empty-dash"><b>Couldn\'t load your dashboard.</b>Try again in a moment.</div>';
   }
 }
+// AI Coach: in-page Q&A about the user's performance. The dashboard snapshot
+// we just rendered is sent along so Claude has the metrics in context.
+let coachLastDashboard=null;
+let coachHistory=[];
+function renderCoachCard(){
+  const slot=$('coachSlot');if(!slot)return;
+  const turnsHtml=coachHistory.length?coachHistory.map(t=>`<div class="coach-turn coach-${esc(t.role)}">${esc(t.text)}</div>`).join(''):
+    `<div class="coach-empty">${esc(t('coach.empty'))}</div>`;
+  slot.innerHTML=`<div class="coach-card">
+    <div class="coach-head">
+      <div><div class="hero-tag" style="margin-bottom:2px">${esc(t('coach.title'))}</div>
+      <div class="coach-sub">${esc(t('coach.sub'))}</div></div>
+    </div>
+    <div class="coach-thread" id="coachThread">${turnsHtml}</div>
+    <div class="coach-row">
+      <input id="coachQ" type="text" placeholder="${esc(t('coach.placeholder'))}" onkeydown="if(event.key==='Enter')askCoach()">
+      <button id="coachSend" onclick="askCoach()">${esc(t('coach.send'))}</button>
+    </div>
+  </div>`;
+}
+window.askCoach=async()=>{
+  const inp=$('coachQ');if(!inp)return;
+  const q=inp.value.trim();if(!q)return;
+  inp.value='';inp.disabled=true;$('coachSend').disabled=true;
+  coachHistory.push({role:'me',text:q});
+  coachHistory.push({role:'thinking',text:t('coach.thinking')});
+  renderCoachCard();
+  try{
+    const r=await fetch('/api/coach',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({device_id:deviceId(),question:q,lang:getLang(),dashboard:coachLastDashboard})});
+    const d=await r.json();
+    // Drop the thinking row, append the real answer.
+    coachHistory=coachHistory.filter(x=>x.role!=='thinking');
+    coachHistory.push({role:'coach',text:d.answer||d.error||'…'});
+  }catch(e){
+    coachHistory=coachHistory.filter(x=>x.role!=='thinking');
+    coachHistory.push({role:'coach',text:t('err.reply')});
+  }
+  renderCoachCard();
+  const qq=$('coachQ');if(qq){qq.disabled=false;qq.focus();}
+};
 async function loadCosts(){
   const slot=$('costSlot');if(!slot)return;
   try{
@@ -1957,7 +2086,7 @@ function startLiveCounter(){
   speechLiveText="";
   let final="";
   try{
-    speechSR=new SR();speechSR.continuous=true;speechSR.interimResults=true;speechSR.lang='en-US';
+    speechSR=new SR();speechSR.continuous=true;speechSR.interimResults=true;speechSR.lang=bcp47();
     speechSR.onresult=e=>{
       let interim="";
       for(let i=e.resultIndex;i<e.results.length;i++){
@@ -1979,7 +2108,7 @@ async function scoreSpeechTake(blob){
   // STT through our existing endpoint
   let transcript='';
   try{
-    const r=await fetch('/api/stt',{method:'POST',headers:{'Content-Type':blob.type,'x-device-id':deviceId()},body:blob});
+    const r=await fetch('/api/stt',{method:'POST',headers:{'Content-Type':blob.type,'x-device-id':deviceId(),'x-language':getLang()},body:blob});
     if(r.status===401){showLogin();return;}
     const d=await r.json();transcript=d.text||'';
   }catch{err("Couldn't transcribe. Try again.");$('speechBtn').textContent='● Start speaking';$('speechBtn').classList.remove('live');$('speechBtn').disabled=false;return;}
@@ -2083,9 +2212,10 @@ window.doLogin=async()=>{
 };
 function showLogin(){
   $('s-login').classList.add('active');document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));
+  applyI18n();
   setTimeout(()=>$('lpw').focus(),100);
 }
-function enterApp(){$('s-login').classList.remove('active');go('home');}
+function enterApp(){$('s-login').classList.remove('active');applyI18n();go('home');}
 // Auto-submit when Safari/Chrome autofills the password field (Face ID flow).
 // Only fires on actual autofill, never on typing.
 $('lpw').addEventListener('animationstart',e=>{
