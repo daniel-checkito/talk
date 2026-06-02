@@ -117,6 +117,20 @@
   .nav-item.active svg{transform:scale(1.1)}
   .nav-item.active::before{content:"";position:absolute;top:0;left:50%;transform:translateX(-50%);width:30px;height:3px;background:var(--accent);border-radius:0 0 3px 3px;animation:dropIn .25s ease}
   @keyframes dropIn{from{width:0;opacity:0}to{width:30px;opacity:1}}
+  /* home top + streak */
+  .top{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+  .streak{font-weight:900;font-size:14px;color:var(--warn);letter-spacing:.3px;display:flex;align-items:center;gap:3px;padding:5px 10px;border-radius:20px;background:#fff7d6;border:2px solid var(--warn)}
+  .streak.cold{color:var(--muted);background:var(--panel2);border-color:var(--line)}
+  /* last session card */
+  .last{background:#fff;border:2px solid var(--line);border-bottom-width:4px;border-radius:16px;padding:14px 16px;margin-bottom:18px;display:flex;align-items:center;gap:14px}
+  .last .ls{font-size:34px;font-weight:900;color:var(--accent2);line-height:1;min-width:64px;text-align:center}
+  .last .ls small{font-size:13px;color:var(--muted);font-weight:800}
+  .last .ls.miss{color:var(--bad)}
+  .last .lt{flex:1;min-width:0}
+  .last .ln{font-size:14px;font-weight:900;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .last .lg{font-size:12px;color:var(--muted);font-weight:700;margin-top:2px;line-height:1.3}
+  .last .lb{background:var(--accent);color:#fff;border:none;border-radius:12px;width:40px;height:40px;font-size:18px;font-weight:900;cursor:pointer;box-shadow:0 3px 0 var(--accent2);flex-shrink:0;transition:.1s}
+  .last .lb:active{transform:translateY(3px);box-shadow:0 0 0}
   /* progress page */
   .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px}
   .stat{background:#fff;border:2px solid var(--line);border-bottom-width:4px;border-radius:14px;padding:14px 6px;text-align:center}
@@ -125,6 +139,17 @@
   .stat .k{font-size:10px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);font-weight:800;margin-top:6px}
   .scope{font-size:13px;color:var(--muted);font-weight:800;margin-bottom:10px}
   .scope b{color:var(--ink)}
+  /* takes carousel */
+  .takes-car{display:flex;gap:9px;overflow-x:auto;padding:4px 0 12px;-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory}
+  .takes-car::-webkit-scrollbar{display:none}
+  .tcard-take{min-width:96px;background:var(--panel2);border:2px solid var(--line);border-radius:14px;padding:11px 12px;flex-shrink:0;scroll-snap-align:start}
+  .tcard-take .tn{font-size:10px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);font-weight:800}
+  .tcard-take .ts{font-size:28px;font-weight:900;line-height:1.1;margin:4px 0 2px;color:var(--ink)}
+  .tcard-take .td{font-size:12px;font-weight:800;letter-spacing:.3px}
+  .tcard-take .td.up{color:var(--accent2)}
+  .tcard-take .td.down{color:var(--bad)}
+  .tcard-take .td.flat,.tcard-take .td.base{color:var(--muted)}
+  .progress-note{margin-top:6px;color:var(--accent2);font-size:13px;font-weight:700;line-height:1.45;padding:0 2px 12px}
   .takelist{border:2px solid var(--line);border-radius:14px;padding:14px;min-height:140px}
   .takelist .empty{color:var(--muted);font-weight:700;font-size:14px;text-align:center;padding:30px 10px;line-height:1.5}
   .take{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1.5px solid var(--line)}
@@ -144,8 +169,12 @@
 <body>
 
 <section class="screen active" id="s-home">
-  <div class="logo">Re<span>hearse</span></div>
+  <div class="top">
+    <div class="logo">Re<span>hearse</span></div>
+    <div class="streak cold" id="streak">🔥 0</div>
+  </div>
   <p class="sub">Talk through the conversations that matter. Speak out loud, hear them respond, get coached in real time.</p>
+  <div id="lastSession" class="hidden"></div>
   <div class="label">Who are you talking to?</div>
   <div class="tcard" onclick="pickPartner('friend')"><div class="ic">😎</div><div><div class="tt">A friend</div><div class="ts">banter, timing, being funnier</div></div><div class="arr">›</div></div>
   <div class="tcard" onclick="pickPartner('date')"><div class="ic">💘</div><div><div class="tt">A date</div><div class="ts">flirting, curiosity, not being needy</div></div><div class="arr">›</div></div>
@@ -235,9 +264,53 @@ function lastPrompt(){
 function setLastPrompt(partner,goal_index){
   localStorage.setItem('rehearse_last_prompt',JSON.stringify({partner,goal_index}));
 }
+/* streak: only counts a day if the user finished a scene that day */
+function readStreak(){
+  try{return JSON.parse(localStorage.getItem('rehearse_streak')||'null')||{streak:0,lastDay:null};}
+  catch{return {streak:0,lastDay:null};}
+}
+function bumpStreak(){
+  const today=new Date().toISOString().slice(0,10);
+  const yest=new Date(Date.now()-864e5).toISOString().slice(0,10);
+  const s=readStreak();
+  if(s.lastDay===today)return s.streak;
+  s.streak=s.lastDay===yest?(s.streak||0)+1:1;
+  s.lastDay=today;
+  localStorage.setItem('rehearse_streak',JSON.stringify(s));
+  return s.streak;
+}
+/* last session card */
+function readLastSession(){try{return JSON.parse(localStorage.getItem('rehearse_last_session')||'null');}catch{return null;}}
+function writeLastSession(d){localStorage.setItem('rehearse_last_session',JSON.stringify(d));}
 const $=id=>document.getElementById(id);
-const go=s=>{document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));$('s-'+s).classList.add('active');setNavActive(s);};
+const go=s=>{document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));$('s-'+s).classList.add('active');setNavActive(s);if(s==='home')renderHomeWidgets();};
 window.go=go;
+function renderHomeWidgets(){
+  // streak chip
+  const s=readStreak();
+  const today=new Date().toISOString().slice(0,10);
+  const yest=new Date(Date.now()-864e5).toISOString().slice(0,10);
+  const live=s.lastDay===today||s.lastDay===yest;
+  const el=$('streak');
+  if(el){el.textContent='🔥 '+(s.streak||0);el.classList.toggle('cold',!live||!s.streak);}
+  // last session
+  const last=readLastSession();const wrap=$('lastSession');if(!wrap)return;
+  if(!last||!PARTNERS[last.partner]){wrap.classList.add('hidden');wrap.innerHTML='';return;}
+  const p=PARTNERS[last.partner];const g=(p.goals||[])[last.goal_index]||{t:''};
+  wrap.classList.remove('hidden');
+  wrap.innerHTML=`<div class="last">
+    <div class="ls ${last.hit_goal?'':'miss'}">${last.score}<small>/100</small></div>
+    <div class="lt"><div class="ln">${esc(p.name)} · ${last.hit_goal?'🎯 goal hit':'goal missed'}</div><div class="lg">${esc(g.t)}</div></div>
+    <button class="lb" onclick="replayLast()" title="Run it again">↻</button>
+  </div>`;
+}
+window.replayLast=()=>{
+  const last=readLastSession();
+  if(!last||!PARTNERS[last.partner])return;
+  window.pickPartner(last.partner);
+  pickGoal(last.goal_index||0);
+  startScene();
+};
 function setNavActive(screen){
   // Map any screen to its bottom-nav tab.
   const tab=screen==='progress'?'progress':(screen==='goal'?'practice':'home');
@@ -479,6 +552,9 @@ window.endScene=async()=>{
   }catch(e){stopScoringAnim();$('debriefBody').innerHTML='<div class="err">Could not score the scene.</div><button class="btn btn-go" style="margin-top:14px" onclick="go(\'home\')">Back home</button>';}
 };
 async function saveTake(d){
+  // Local first (fast paint for next Home visit), then server.
+  writeLastSession({partner:cur,goal_index:curGoal,score:d.score,hit_goal:!!d.hit_goal,ts:Date.now()});
+  bumpStreak();
   await fetch('/api/save-take',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({
       device_id:deviceId(),partner:cur,goal_index:curGoal,
@@ -515,14 +591,28 @@ function renderProgress(d){
     list.innerHTML='<div class="empty">No takes yet. Run a scene and your runs show up here.</div>';
     return;
   }
-  list.innerHTML=d.recent.map(t=>{
-    const when=new Date(t.created_at).toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
-    const p=PARTNERS[t.partner];const g=p&&p.goals[t.goal_index];
-    return `<div class="take">
-      <div class="ts ${t.hit_goal?'':'miss'}">${t.score}</div>
-      <div><div class="tv">${esc((p?p.name:t.partner)+' · '+(g?g.t:''))}</div><div class="td">${esc(when)}${t.hit_goal?' · 🎯':''}</div></div>
-    </div>`;
+  // Server returns newest-first; reverse so Take 1 is the first attempt
+  // and the carousel reads chronologically left to right.
+  const takes=d.recent.slice().reverse();
+  const cards=takes.map((t,i)=>{
+    const prev=i>0?takes[i-1].score:null;
+    const delta=prev!=null?t.score-prev:null;
+    const dCls=delta==null?'base':delta>0?'up':delta<0?'down':'flat';
+    const dTxt=delta==null?'base':(delta>0?'+':'')+delta;
+    return `<div class="tcard-take"><div class="tn">Take ${i+1}${t.hit_goal?' 🎯':''}</div><div class="ts">${t.score}</div><div class="td ${dCls}">${dTxt}</div></div>`;
   }).join('');
+  let note='';
+  if(takes.length>=2){
+    const f=takes[0],l=takes[takes.length-1],diff=l.score-f.score;
+    note=diff>0?`Up ${diff} points across ${takes.length} takes. This is the loop that moves the needle.`
+        :diff<0?`Down ${-diff} from your first take. Reset and nail one clean run.`
+        :`Holding steady. Push your weakest beat next take.`;
+  }else{
+    note='Run the same prompt again to see real, attributable improvement.';
+  }
+  list.innerHTML=`<div class="takes-car">${cards}</div><div class="progress-note">${esc(note)}</div>`;
+  // Auto-scroll to most recent take.
+  requestAnimationFrame(()=>{const car=list.querySelector('.takes-car');if(car)car.scrollLeft=car.scrollWidth;});
 }
 function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function renderDebrief(d){
@@ -537,6 +627,7 @@ function renderDebrief(d){
     <button class="btn btn-go" style="margin-top:8px" onclick="startScene()">↻ Run it again</button>
     <button class="btn btn-grey" style="margin-top:10px" onclick="go('home')">New scenario</button>`;
 }
+renderHomeWidgets();
 </script>
 </body>
 </html>
