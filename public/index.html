@@ -75,6 +75,10 @@
   .fb.ok{color:var(--muted)}
   .fb.miss{color:#a87600}
   @keyframes slideIn{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:translateY(0)}}
+  .dlv{display:flex;flex-wrap:wrap;gap:4px 9px;font-size:11px;font-weight:800;color:var(--muted);padding:2px 4px;line-height:1.4;letter-spacing:.3px;animation:slideIn .4s ease}
+  .dlv span.good{color:var(--accent2)}
+  .dlv span.ok{color:var(--warn)}
+  .dlv span.low{color:var(--bad)}
   .nudge{align-self:center;background:#fff7d6;border:2px solid var(--warn);color:#9a7400;font-size:12px;font-weight:800;padding:6px 12px;border-radius:20px;max-width:90%;text-align:center}
   .winbanner{align-self:center;background:#f0fbe6;border:2px solid var(--accent);color:var(--accent2);font-weight:900;font-size:14px;padding:10px 16px;border-radius:16px;text-align:center}
   .status{align-self:center;color:var(--muted);font-size:13px;font-weight:800;padding:4px}
@@ -305,7 +309,7 @@
 <script type="module">
 import { PARTNERS } from "./personas.js";
 
-let cur=null,curGoal=null,curVariant=0,curSession=null,history=[],won=false,nudgeCount=0;
+let cur=null,curGoal=null,curVariant=0,curSession=null,history=[],won=false,nudgeCount=0,drillMode=false;
 function logTurn(role,text,extra={}){
   // Fire-and-forget persistence of one conversation turn.
   if(!curSession||!text)return;
@@ -391,17 +395,22 @@ window.navTo=key=>{
   if(key==='home'){go('home');return;}
   if(key==='progress'){openProgress();return;}
   if(key==='talks'){openTalks();return;}
-  if(key==='practice'){
-    const lp=lastPrompt();
-    if(lp&&PARTNERS[lp.partner]){
-      window.pickPartner(lp.partner);
-      pickGoal(lp.goal_index||0);
-      setNavActive('practice');
-    }else{
-      go('home');
-    }
-  }
+  if(key==='practice'){quickDrill();return;}
 };
+// Quick Drill: random partner + random goal + random mood, 90-second timer.
+// One tap and you're in. Built to drill 'thinking on your feet'.
+function quickDrill(){
+  const keys=Object.keys(PARTNERS);
+  const rk=keys[Math.floor(Math.random()*keys.length)];
+  const p=PARTNERS[rk];
+  const ri=Math.floor(Math.random()*(p.goals.length||1));
+  window.pickPartner(rk);
+  pickGoal(ri);
+  setNavActive('practice');
+  // Shorter cap for drill mode.
+  drillMode=true;
+  startScene();
+}
 
 window.pickPartner=k=>{
   cur=k;curGoal=null;const p=PARTNERS[k];
@@ -431,7 +440,7 @@ window.startScene=async()=>{
   curVariant=Math.floor(Math.random()*VARIANT_COUNT);
   curSession=(crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random().toString(36).slice(2));
   setLastPrompt(cur,curGoal);
-  $('chatAv').textContent=p.av;$('chatNm').textContent=p.full;$('chatGl').textContent="Goal: "+p.goals[curGoal].t;
+  $('chatAv').textContent=p.av;$('chatNm').textContent=p.full;$('chatGl').textContent=(drillMode?"⚡ Quick Drill · ":"Goal: ")+p.goals[curGoal].t;
   $('feed').innerHTML='';$('chatErr').classList.add('hidden');
   startTimer();
   go('chat');
@@ -441,7 +450,8 @@ window.startScene=async()=>{
   speak(opening,p.voice_id);
 };
 function startTimer(){
-  sessionEndAt=Date.now()+SESSION_CAP_MS;
+  const cap=drillMode?90*1000:SESSION_CAP_MS;
+  sessionEndAt=Date.now()+cap;
   if(timerHandle)clearInterval(timerHandle);
   const tick=()=>{
     const left=Math.max(0,sessionEndAt-Date.now());
@@ -456,7 +466,7 @@ function startTimer(){
 function stopTimer(){if(timerHandle){clearInterval(timerHandle);timerHandle=null;}}
 
 function addThem(t){t=stripDashes(t);const d=el('msg them',t);$('feed').appendChild(d);history.push({role:'them',text:t});scroll();}
-function addMe(t){
+function addMe(t,delivery){
   t=stripDashes(t);
   const wrap=document.createElement('div');wrap.className='me-wrap';
   const row=document.createElement('div');row.className='me-row';
@@ -465,8 +475,13 @@ function addMe(t){
   row.appendChild(msg);row.appendChild(chip);
   const fb=document.createElement('div');fb.className='fb';fb.style.display='none';
   wrap.appendChild(row);wrap.appendChild(fb);
+  if(delivery){
+    const d=document.createElement('div');d.className='dlv';
+    d.innerHTML=`<span>🎙️ ${delivery.wpm} wpm</span><span>${delivery.fillers} filler${delivery.fillers===1?'':'s'}</span><span>${delivery.tone} tone</span><span class="${delivery.confidence>=70?'good':delivery.confidence>=50?'ok':'low'}">${delivery.confidence}% confidence</span>`;
+    wrap.appendChild(d);
+  }
   $('feed').appendChild(wrap);
-  history.push({role:'me',text:t,_chip:chip,_fb:fb});
+  history.push({role:'me',text:t,_chip:chip,_fb:fb,delivery});
   scroll();
   return {chip,fb};
 }
@@ -494,7 +509,19 @@ function status(t){let s=$('liveStatus');if(!s){s=el('status','');s.id='liveStat
 function clearStatus(){const s=$('liveStatus');if(s)s.remove();}
 function el(c,t){const d=document.createElement('div');d.className=c;d.textContent=t;return d;}
 function scroll(){const f=$('feed');f.scrollTop=f.scrollHeight;}
-function err(t){$('chatErr').textContent=t;$('chatErr').classList.remove('hidden');setTimeout(()=>$('chatErr').classList.add('hidden'),4000);}
+function err(t){
+  const s=String(t||'');
+  if(/unauthorized/i.test(s)){showLogin();return;}
+  // Friendly rewrites for common backend errors.
+  const friendly=s
+    .replace(/^anthropic error.*$/i,"The AI service had a hiccup. Try again.")
+    .replace(/^elevenlabs.*$/i,"Voice service couldn't respond. Try again.")
+    .replace(/Failed to fetch|NetworkError/i,"Can't reach the server. Check your connection.")
+    .replace(/^Reply failed\.?$/i,"Couldn't get a reply. Try again.")
+    .replace(/^Transcription failed\.?$/i,"Couldn't hear that clearly. Try again.");
+  $('chatErr').textContent=friendly;$('chatErr').classList.remove('hidden');
+  setTimeout(()=>$('chatErr').classList.add('hidden'),4000);
+}
 
 /* ---------- input mode ---------- */
 window.toggleInputMode=()=>{
@@ -519,10 +546,12 @@ async function startRec(){
     mediaRecorder=new MediaRecorder(stream,mime?{mimeType:mime}:undefined);
     chunks=[];
     mediaRecorder.ondataavailable=e=>{if(e.data.size>0)chunks.push(e.data);};
+    startDeliveryAnalysis(stream);
     mediaRecorder.onstop=async()=>{
+      const delivery=stopDeliveryAnalysis();
       stream.getTracks().forEach(t=>t.stop());
       const blob=new Blob(chunks,{type:mediaRecorder.mimeType||'audio/webm'});
-      await transcribeAndTurn(blob);
+      await transcribeAndTurn(blob,delivery);
     };
     mediaRecorder.start();recording=true;
     $('mic').classList.add('rec');$('mic').textContent='■';$('michint').textContent='Tap to stop';
@@ -532,24 +561,105 @@ async function startRec(){
 }
 function stopRec(){if(mediaRecorder&&recording){recording=false;if(recHardStop){clearTimeout(recHardStop);recHardStop=null;}$('mic').classList.remove('rec');$('mic').textContent='🎤';$('michint').textContent='Transcribing…';mediaRecorder.stop();}}
 
-async function transcribeAndTurn(blob){
-  setBusy(true);status('Transcribing…');
+/* ---------- delivery scoring (voice mode only) ---------- */
+// Common filler tokens, lowercased; matched as whole words.
+const FILLERS=["um","uh","like","you know","sort of","kind of","basically","actually","literally","right","i mean","er","ah"];
+let deliveryState=null;
+function startDeliveryAnalysis(stream){
+  try{
+    const ctx=new (window.AudioContext||window.webkitAudioContext)();
+    const src=ctx.createMediaStreamSource(stream);
+    const an=ctx.createAnalyser();an.fftSize=2048;
+    src.connect(an);
+    const buf=new Float32Array(an.fftSize);
+    deliveryState={ctx,an,buf,volSamples:[],pitchSamples:[],pauseFrames:0,startTs:performance.now(),rafId:0,lastSpeechTs:performance.now()};
+    const loop=()=>{
+      if(!deliveryState)return;
+      const {an,buf,volSamples,pitchSamples}=deliveryState;
+      an.getFloatTimeDomainData(buf);
+      let sum=0;for(let i=0;i<buf.length;i++)sum+=buf[i]*buf[i];
+      const vol=Math.min(1,Math.sqrt(sum/buf.length)*6);
+      volSamples.push(vol);
+      if(vol>0.04){
+        deliveryState.lastSpeechTs=performance.now();
+        const f=autoCorr(buf,deliveryState.ctx.sampleRate);
+        if(f>60&&f<400)pitchSamples.push(f);
+      }else if(performance.now()-deliveryState.lastSpeechTs>700){
+        deliveryState.pauseFrames++;
+      }
+      deliveryState.rafId=requestAnimationFrame(loop);
+    };
+    deliveryState.rafId=requestAnimationFrame(loop);
+  }catch(e){deliveryState=null;}
+}
+function stopDeliveryAnalysis(){
+  if(!deliveryState)return null;
+  cancelAnimationFrame(deliveryState.rafId);
+  const dur=(performance.now()-deliveryState.startTs)/1000;
+  const state=deliveryState;deliveryState=null;
+  try{state.ctx.close();}catch{}
+  return {duration:dur,volSamples:state.volSamples,pitchSamples:state.pitchSamples,pauseFrames:state.pauseFrames};
+}
+// Autocorrelation pitch estimator. Voice fundamental is 60-400 Hz.
+function autoCorr(buf,rate){
+  let best=-1,off=-1;
+  const lo=Math.floor(rate/400),hi=Math.floor(rate/60);
+  for(let o=lo;o<hi;o++){let c=0;for(let i=0;i<buf.length-o;i++)c+=buf[i]*buf[i+o];if(c>best){best=c;off=o;}}
+  return off>0?rate/off:-1;
+}
+function countFillers(text){
+  const t=' '+text.toLowerCase().replace(/[^a-z0-9' ]/g,' ').replace(/\s+/g,' ')+' ';
+  let n=0;for(const f of FILLERS){const m=t.match(new RegExp('\\b'+f.replace(/ /g,'\\s+')+'\\b','g'));if(m)n+=m.length;}
+  return n;
+}
+function summarizeDelivery(text,delivery){
+  if(!delivery||!delivery.duration||delivery.duration<1.5)return null;
+  const words=text.trim().split(/\s+/).filter(Boolean);
+  const wpm=Math.round(words.length/(delivery.duration/60));
+  const fillers=countFillers(text);
+  // Pitch variability (std dev). Higher = more vocal variety / dynamic tone.
+  let pitchStd=0,pitchMean=0;
+  if(delivery.pitchSamples.length>5){
+    pitchMean=delivery.pitchSamples.reduce((a,b)=>a+b,0)/delivery.pitchSamples.length;
+    pitchStd=Math.sqrt(delivery.pitchSamples.reduce((a,b)=>a+(b-pitchMean)**2,0)/delivery.pitchSamples.length);
+  }
+  const tone=pitchStd<12?'flat':pitchStd<25?'steady':'dynamic';
+  // Confidence = composite. Penalize heavy fillers, monotone, off-pace, lots of dead air.
+  const fillerRate=fillers/Math.max(1,words.length/100);
+  const paceOff=wpm<110?(110-wpm):wpm>180?(wpm-180):0;
+  let conf=100;
+  conf-=Math.min(40,fillerRate*10);
+  if(pitchStd<12)conf-=18;
+  conf-=Math.min(20,paceOff*0.5);
+  conf-=Math.min(15,Math.max(0,delivery.pauseFrames-3)*0.6);
+  conf=Math.max(0,Math.min(100,Math.round(conf)));
+  return {wpm,fillers,tone,pitchStd:Math.round(pitchStd),confidence:conf,duration:Math.round(delivery.duration)};
+}
+function renderDelivery(d){
+  if(!d)return '';
+  return `<div class="dlv"><span>🎙️ ${d.wpm} wpm</span><span>${d.fillers} filler${d.fillers===1?'':'s'}</span><span>${d.tone} tone</span><span>${d.confidence}% confidence</span></div>`;
+}
+
+async function transcribeAndTurn(blob,delivery){
+  setBusy(true);status('Transcribing...');
   try{
     const r=await fetch('/api/stt',{method:'POST',headers:{'Content-Type':blob.type},body:blob});
+    if(r.status===401){clearStatus();showLogin();setBusy(false);return;}
     const d=await r.json().catch(()=>({}));
     clearStatus();
-    if(r.status===429){err(d.error||'Daily limit reached.');setBusy(false);$('michint').textContent='Tap to speak';return;}
-    if(!d.text){err('Did not catch that. Try again.');setBusy(false);$('michint').textContent='Tap to speak';return;}
-    handleUserTurn(d.text);
-  }catch(e){clearStatus();err('Transcription failed.');setBusy(false);$('michint').textContent='Tap to speak';}
+    if(r.status===429){err(d.error||"Hit the daily voice limit.");setBusy(false);$('michint').textContent='Tap to speak';return;}
+    if(!d.text){err("Couldn't hear that clearly. Try again.");setBusy(false);$('michint').textContent='Tap to speak';return;}
+    handleUserTurn(d.text,delivery);
+  }catch(e){clearStatus();err("Couldn't transcribe. Try again.");setBusy(false);$('michint').textContent='Tap to speak';}
 }
 
 /* ---------- the turn loop ---------- */
-async function handleUserTurn(text){
+async function handleUserTurn(text,delivery){
   if(ended)return;
   const userTurns=history.filter(h=>h.role==='me').length;
   if(userTurns>=MAX_TURNS){err('Turn limit reached. Ending scene.');ended=true;setTimeout(endScene,500);return;}
-  addMe(text);setBusy(true);
+  const dlv=summarizeDelivery(text,delivery);
+  addMe(text,dlv);setBusy(true);
   status(PARTNERS[cur].name+' is thinking…');
   try{
     const r=await fetch('/api/reply',{method:'POST',headers:{'Content-Type':'application/json'},
@@ -618,6 +728,7 @@ function startScoringAnim(){
 function stopScoringAnim(){if(scoringStepHandle){clearInterval(scoringStepHandle);scoringStepHandle=null;}}
 window.endScene=async()=>{
   stopTimer();ended=true;
+  const wasDrill=drillMode;drillMode=false;
   go('debrief');startScoringAnim();
   try{
     const r=await fetch('/api/debrief',{method:'POST',headers:{'Content-Type':'application/json'},
@@ -785,6 +896,24 @@ async function checkAuth(){
     const d=await r.json();
     return !!d.authed;
   }catch{return false;}
+}
+// Centralized fetch: turns 401 into the login screen, network failures into
+// readable error strings. Returns the parsed JSON (or a 'blob' for non-JSON).
+async function api(path,opts={}){
+  let r;
+  try{r=await fetch(path,opts);}
+  catch{throw new Error("Can't reach the server. Check your connection.");}
+  if(r.status===401){showLogin();throw new Error("Session expired. Please log in again.");}
+  if(opts.raw)return r;
+  let d=null;try{d=await r.json();}catch{}
+  if(!r.ok)throw new Error((d&&d.error)||friendlyHttp(r.status));
+  return d||{};
+}
+function friendlyHttp(s){
+  if(s===429)return "Hit the daily voice limit. Try again tomorrow.";
+  if(s===413)return "Recording too long. Speak in shorter takes.";
+  if(s>=500)return "Server hiccup. Try again in a moment.";
+  return "Something went wrong. Try again.";
 }
 window.doLogin=async()=>{
   const pw=$('lpw').value;
