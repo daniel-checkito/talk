@@ -706,7 +706,9 @@ function startTimer(){
 function stopTimer(){if(timerHandle){clearInterval(timerHandle);timerHandle=null;}}
 
 function addThem(t){t=stripDashes(t);const d=el('msg them',t);$('feed').appendChild(d);history.push({role:'them',text:t});scroll();}
-function addMe(t,delivery){
+// meta: {isVoice, spokenSec} - tracks raw input shape even when delivery summary
+// is null (voice turns under 1.5s don't produce a summary but still count as voice).
+function addMe(t,delivery,meta){
   t=stripDashes(t);
   const wrap=document.createElement('div');wrap.className='me-wrap';
   const row=document.createElement('div');row.className='me-row';
@@ -721,7 +723,7 @@ function addMe(t,delivery){
     wrap.appendChild(d);
   }
   $('feed').appendChild(wrap);
-  history.push({role:'me',text:t,_chip:chip,_fb:fb,delivery});
+  history.push({role:'me',text:t,_chip:chip,_fb:fb,delivery,isVoice:!!(meta&&meta.isVoice),spokenSec:(meta&&meta.spokenSec)||0});
   scroll();
   return {chip,fb};
 }
@@ -939,7 +941,10 @@ async function handleUserTurn(text,delivery){
   const userTurns=history.filter(h=>h.role==='me').length;
   if(userTurns>=MAX_TURNS){err('Turn limit reached. Ending scene.');ended=true;setTimeout(endScene,500);return;}
   const dlv=summarizeDelivery(text,delivery);
-  addMe(text,dlv);setBusy(true);
+  // Track raw input shape independently of the delivery summary, so the empty-scene
+  // check can tell a 1-second voice grunt from a typed message.
+  const meta={isVoice:!!delivery,spokenSec:(delivery&&delivery.duration)||0};
+  addMe(text,dlv,meta);setBusy(true);
   status(PARTNERS[cur].name+' is thinking…');
   try{
     const r=await fetch('/api/reply',{method:'POST',headers:{'Content-Type':'application/json'},
@@ -1036,13 +1041,15 @@ window.cancelScene=async()=>{
   go('home');
 };
 // Decide whether the scene has enough content to be worth scoring.
-// User rule: at least one typed turn, OR at least 5 seconds of spoken audio.
+// User rule: at least one typed turn (any length), OR at least 5 seconds of spoken audio total.
+// We rely on the explicit isVoice flag because voice clips under ~1.5s produce a null
+// delivery summary and would otherwise look indistinguishable from a typed turn.
 function sceneHasContent(){
   const meTurns=history.filter(h=>h.role==='me');
   if(meTurns.length===0)return false;
-  const hasTextTurn=meTurns.some(t=>!t.delivery);
+  const hasTextTurn=meTurns.some(t=>!t.isVoice);
   if(hasTextTurn)return true;
-  const spokenSec=meTurns.reduce((a,t)=>a+((t.delivery&&t.delivery.duration)||0),0);
+  const spokenSec=meTurns.reduce((a,t)=>a+(t.spokenSec||0),0);
   return spokenSec>=5;
 }
 window.endScene=async()=>{
