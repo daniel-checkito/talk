@@ -706,6 +706,11 @@ window.applyI18n=function(){
   const tex=$('speechCustom');if(tex)tex.placeholder=t('tele.placeholder');
   // Back button on speech setup screen.
   const sb=$('speechBack');if(sb)sb.textContent=t('back');
+  // If the speech-setup screen is currently active, re-render the template list
+  // so the user sees the localized scripts after toggling languages.
+  if($('s-speech')&&$('s-speech').classList.contains('active')){
+    $('speechTemplates').innerHTML=speechTemplates().map((s,i)=>`<div class="tcard" onclick="pickSpeechTemplate(${i})"><div class="ic">${s.ic}</div><div><div class="tt">${esc(s.t)}</div><div class="ts">${esc(s.sub)}</div></div><div class="arr">›</div></div>`).join('');
+  }
   // Placeholders / titles.
   const pwInp=$('lpw');if(pwInp)pwInp.placeholder=t('login.placeholder');
   const inp=$('inp');if(inp)inp.placeholder=t('chat.placeholder');
@@ -1943,25 +1948,35 @@ function renderDebrief(d){
 }
 
 /* ---------- teleprompter ---------- */
-const SPEECH_TEMPLATES=[
+const SPEECH_TEMPLATES_EN=[
   {id:"elevator",ic:"🎤",t:"Elevator pitch",sub:"30 sec · who you are",ctx:"sales",text:"Hi, I'm building Rehearse, a tool that helps you become a better speaker in days, not months. Most coaching apps just tell you that you said um too much. We do something different. We hand you a real script, you read it aloud, and we score whether your delivery actually matched the moment. Then we prove you're getting better, take after take."},
   {id:"ted",ic:"💡",t:"TED-style opener",sub:"hook in 20 seconds",ctx:"keynote",text:"Imagine if the single biggest thing standing between you and the life you want wasn't talent, or money, or luck. Imagine it was something far simpler. The way you say what you already know. Today I want to show you that the gap between a good idea and a great one is almost always the gap between how it's thought and how it's spoken."},
   {id:"status",ic:"📊",t:"Team update",sub:"crisp weekly status",ctx:"technical",text:"Quick update on where we are this week. We shipped the new onboarding flow on Tuesday, and early numbers look strong. Activation is up roughly fifteen percent. Two things still need attention before Friday. First, the billing edge case we flagged last sprint. Second, the mobile layout on smaller screens. I'll own the first, and I'd like Maya to take the second."},
   {id:"toast",ic:"🥂",t:"Wedding toast",sub:"warm, paced, ceremonial",ctx:"toast",text:"For those who don't know me, I'm the lucky one who's been Sarah's best friend since we were seven years old. I've watched her fall for exactly the wrong people more times than I can count. And then she met James. The first time she talked about him, she didn't list his job or his car. She just smiled, and said he made the ordinary days feel like something. So please, raise your glass. To Sarah and James."},
   {id:"launch",ic:"📣",t:"Product launch",sub:"energetic announcement",ctx:"sales",text:"Today is the day everything changes for how your team works. For two years we listened to one piece of feedback over and over. It's too slow, and it's too complicated. So we rebuilt it from the ground up. It's three times faster. It learns how you work. And starting right now, it's available to everyone in this room. Let me show you what that actually looks like."},
 ];
+// Native German scripts. Different topics from the English set so the user
+// gets fresh content per language, not a translation.
+const SPEECH_TEMPLATES_DE=[
+  {id:"elevator_de",ic:"🎤",t:"Elevator-Pitch",sub:"30 Sek. · wer du bist",ctx:"sales",text:"Hi, ich bin Mitgründerin von Veroni, einem Tool das aus jedem Meeting ein klares Protokoll macht. Bisher zahlen Teams für Notizen, die niemand mehr liest. Wir machen es anders. Wir hören mit, fassen automatisch zusammen und schicken jedem Teilnehmer genau die drei Punkte, die für ihn wichtig sind. Nach zwei Wochen Pilot sagen unsere Kunden: endlich enden Meetings mit Klarheit, nicht mit einem leeren Dokument."},
+  {id:"ted_de",ic:"💡",t:"TED-Eröffnung",sub:"Hook in 20 Sekunden",ctx:"keynote",text:"Stell dir kurz vor, deine fünf wichtigsten Entscheidungen in den nächsten zehn Jahren hängen alle an einer einzigen Fähigkeit. Nicht Intelligenz. Nicht Glück. Sondern wie klar du in den entscheidenden drei Minuten sprichst, wenn jemand zuhört. Heute zeige ich euch, dass dieser Moment, drei Minuten lang, der Unterschied ist zwischen einem guten Leben und einem Leben, das du wirklich willst."},
+  {id:"sprint_de",ic:"📊",t:"Sprint-Update",sub:"klares Status-Update",ctx:"technical",text:"Kurzer Stand zum aktuellen Sprint. Wir haben den neuen Checkout am Mittwoch ausgerollt, Conversion ist über die ersten zwei Tage um neun Prozent gestiegen. Zwei Themen vor dem Demo am Freitag. Erstens: die Edge Cases beim Refund, die letzte Woche aufgetaucht sind. Zweitens: die Performance auf älteren Android-Geräten. Ich nehme das Erste, ich würde Lukas bitten, das Zweite zu übernehmen."},
+  {id:"toast_de",ic:"🥂",t:"Trauzeugen-Rede",sub:"warm, getragen",ctx:"toast",text:"Für die, die mich nicht kennen: ich bin Annas Schwester. Wir haben dreißig Jahre lang im selben Kinderzimmer alles geteilt, von Geheimnissen bis zu schlechten Frisuren. Ich habe sie verliebt gesehen, oft, manchmal gegen besseres Wissen. Und dann kam Tom. Beim ersten Anruf hat sie nicht über ihn geredet, sondern darüber, wie ruhig sie sich gefühlt hat. Also bitte hebt eure Gläser. Auf Anna und Tom, und auf jeden Tag, der sich genau so ruhig anfühlt."},
+  {id:"launch_de",ic:"📣",t:"Produkt-Launch",sub:"energetische Ankündigung",ctx:"sales",text:"Heute ändert sich, wie ihr mit euren Kunden sprecht. Zwei Jahre lang haben wir denselben Satz gehört: das System ist langsam, und es lernt nichts dazu. Wir haben es komplett neu gebaut. Es ist viermal schneller. Es merkt sich jeden Kontakt, den ihr je hattet. Und ab heute, ohne Wartezeit, ist es für jedes Team in diesem Raum verfügbar. Ich zeige euch jetzt genau, wie das aussieht."},
+];
+function speechTemplates(){return getLang()==='de'?SPEECH_TEMPLATES_DE:SPEECH_TEMPLATES_EN;}
 const CTX_BANDS={keynote:{lo:130,hi:150,name:"Keynote"},interview:{lo:150,hi:170,name:"Interview"},sales:{lo:150,hi:170,name:"Sales"},technical:{lo:110,hi:130,name:"Technical"},toast:{lo:120,hi:140,name:"Ceremonial"}};
 let speechScript="",speechTemplate="",speechCtx="keynote",speechRec=null,speechRecording=false,speechStartTs=0,speechVolRaf=0,speechAudioCtx=null,speechAnalyser=null,speechBuf=null,speechVolSamples=[],speechPitchSamples=[],speechPauseFrames=0,speechLastSpeechTs=0,speechStream=null,speechScroll=null,speechSR=null,speechLiveText="",speechHardStop=null;
 
 window.openSpeech=()=>{
   // Back-out from mid-take: kill the mic + audio loops so they don't leak in the background.
   if(speechRecording)stopSpeechRec();
-  $('speechTemplates').innerHTML=SPEECH_TEMPLATES.map((t,i)=>`<div class="tcard" onclick="pickSpeechTemplate(${i})"><div class="ic">${t.ic}</div><div><div class="tt">${t.t}</div><div class="ts">${t.sub}</div></div><div class="arr">›</div></div>`).join('');
+  $('speechTemplates').innerHTML=speechTemplates().map((s,i)=>`<div class="tcard" onclick="pickSpeechTemplate(${i})"><div class="ic">${s.ic}</div><div><div class="tt">${esc(s.t)}</div><div class="ts">${esc(s.sub)}</div></div><div class="arr">›</div></div>`).join('');
   go('speech');
 };
 window.pickSpeechTemplate=i=>{
-  const t=SPEECH_TEMPLATES[i];
-  speechScript=t.text;speechTemplate=t.id;speechCtx=t.ctx;$('speechCtx').value=t.ctx;
+  const tpl=speechTemplates()[i];
+  speechScript=tpl.text;speechTemplate=tpl.id;speechCtx=tpl.ctx;$('speechCtx').value=tpl.ctx;
   enterSpeechStage();
 };
 window.useCustomSpeech=()=>{
@@ -2114,14 +2129,21 @@ function startLiveCounter(){
 }
 async function scoreSpeechTake(blob){
   const dur=(performance.now()-speechStartTs)/1000;
-  // STT through our existing endpoint
+  // Web Speech API already produced a live transcript during the take. If it's
+  // good enough, use it directly and skip the ElevenLabs Scribe upload entirely
+  // (no STT cost). Scribe stays as fallback when Web Speech is unavailable or empty.
   let transcript='';
-  try{
-    const r=await fetch('/api/stt',{method:'POST',headers:{'Content-Type':blob.type,'x-device-id':deviceId(),'x-language':getLang()},body:blob});
-    if(r.status===401){showLogin();return;}
-    const d=await r.json();transcript=d.text||'';
-  }catch{err("Couldn't transcribe. Try again.");$('speechBtn').textContent='● Start speaking';$('speechBtn').classList.remove('live');$('speechBtn').disabled=false;return;}
-  const cleanw=s=>s.toLowerCase().replace(/[^a-z0-9']/g,'');
+  const liveWords=(speechLiveText||'').split(/\s+/).filter(Boolean);
+  if(liveWords.length>=3){
+    transcript=speechLiveText;
+  } else {
+    try{
+      const r=await fetch('/api/stt',{method:'POST',headers:{'Content-Type':blob.type,'x-device-id':deviceId(),'x-language':getLang()},body:blob});
+      if(r.status===401){showLogin();return;}
+      const d=await r.json();transcript=d.text||'';
+    }catch{err(t('err.no.hear'));$('speechBtn').textContent=t('tele.start');$('speechBtn').classList.remove('live');$('speechBtn').disabled=false;return;}
+  }
+  const cleanw=s=>s.toLowerCase().replace(/[^a-zäöüß0-9']/g,'');
   const words=transcript.trim().toLowerCase().split(/\s+/).filter(Boolean);
   if(words.length<3){err(t('tele.err.short'));$('speechBtn').textContent=t('tele.start');$('speechBtn').classList.remove('live');$('speechBtn').disabled=false;return;}
   const scriptW=speechScript.split(/\s+/).map(cleanw);
