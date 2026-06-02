@@ -50,6 +50,13 @@
   .back{background:var(--panel2);border:2px solid var(--line);border-bottom-width:3px;color:var(--blue);font-family:var(--font);font-weight:800;font-size:13px;letter-spacing:.5px;text-transform:uppercase;cursor:pointer;margin-bottom:14px;align-self:flex-start;display:inline-flex;align-items:center;gap:5px;padding:9px 14px 9px 11px;border-radius:22px;min-height:40px;transition:.1s}
   .back:active{transform:translateY(2px);border-bottom-width:1px;background:var(--line)}
   .cancel{background:var(--panel2);border:2px solid var(--line);border-bottom-width:3px;color:var(--bad);font-family:var(--font);font-weight:900;font-size:14px;cursor:pointer;padding:7px 11px;border-radius:22px;min-height:40px;min-width:40px;margin-right:6px;transition:.1s;display:inline-flex;align-items:center;justify-content:center;line-height:1}
+  .cam-btn{background:var(--panel2);border:2px solid var(--line);border-bottom-width:3px;color:var(--ink);font-size:16px;cursor:pointer;padding:6px 10px;border-radius:22px;min-height:40px;min-width:40px;margin-right:6px;transition:.1s;display:inline-flex;align-items:center;justify-content:center;line-height:1}
+  .cam-btn.on{background:var(--accent);border-color:var(--accent2);color:#fff;box-shadow:0 0 0 0 rgba(88,204,2,.5);animation:ring 1.4s infinite}
+  .cam-btn.loading{opacity:.6;cursor:wait}
+  .cam-btn:active{transform:translateY(2px);border-bottom-width:1px}
+  .selfview{position:absolute;top:14px;right:14px;width:96px;height:128px;border-radius:14px;background:#111;border:2.5px solid #fff;box-shadow:0 6px 18px rgba(0,0,0,.25);object-fit:cover;z-index:25;transform:scaleX(-1);transition:opacity .2s}
+  .selfview.hidden{display:none}
+  @media(min-width:460px){.selfview{top:24px;right:24px}}
   .cancel:active{transform:translateY(2px);border-bottom-width:1px;background:rgba(255,75,75,.08)}
   .chathead{display:flex;align-items:center;gap:12px;padding-bottom:14px;border-bottom:2px solid var(--line);margin-bottom:14px}
   .chathead .av{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;background:var(--panel2);flex-shrink:0}
@@ -524,9 +531,11 @@
     <div class="av" id="chatAv">😎</div>
     <div style="flex:1"><div class="nm" id="chatNm"></div><div class="gl" id="chatGl"></div></div>
     <div id="timer" style="font-weight:900;font-size:14px;color:var(--muted);margin-right:8px;font-variant-numeric:tabular-nums">5:00</div>
+    <button class="cam-btn" id="camBtn" onclick="toggleCamera()" title="Camera">📷</button>
     <button class="back" id="chatEndBtn" style="margin:0" onclick="endScene()">End ▸</button>
   </div>
   <div class="livestrip hidden" id="liveStrip"></div>
+  <video id="selfView" class="selfview hidden" muted playsinline></video>
   <div class="feed" id="feed"></div>
   <div class="dock">
     <button class="mic" id="mic" onclick="toggleRec()">🎤</button>
@@ -596,6 +605,7 @@
 import { PARTNERS as PARTNERS_EN } from "./personas.js";
 import { PARTNERS as PARTNERS_DE } from "./personas_de.js";
 import { t, getLang, setLang, bcp47, scribeLang } from "./i18n.js";
+import { enableCamera as blEnable, disableCamera as blDisable, markTurnStart as blTurnStart, markTurnEnd as blTurnEnd, isCameraOn as blCameraOn } from "./bodylang.js";
 // Active partner table swaps when the user toggles language. Most code paths
 // read window.PARTNERS to stay in sync after a switch.
 let PARTNERS = getLang() === 'de' ? PARTNERS_DE : PARTNERS_EN;
@@ -607,6 +617,25 @@ let cur=null,curGoal=null,curVariant=0,curSession=null,history=[],won=false,nudg
 let curScenarioIndex=null,curVoiceOverride=null;
 // Currently playing TTS audio element, kept so endScene/back-out can cut it off mid-sentence.
 let currentAudio=null;
+// User-toggled camera flag (persists across the chat session). MediaPipe loads on first enable.
+let cameraDesired=false;
+window.toggleCamera=async()=>{
+  const btn=$('camBtn');const sv=$('selfView');
+  if(blCameraOn()||cameraDesired){
+    cameraDesired=false;
+    blDisable();
+    if(sv)sv.classList.add('hidden');
+    if(btn){btn.classList.remove('on');btn.classList.remove('loading');}
+    return;
+  }
+  cameraDesired=true;
+  if(btn)btn.classList.add('loading');
+  const ok=await blEnable(sv);
+  if(btn)btn.classList.remove('loading');
+  if(!ok){cameraDesired=false;err(t('err.mic.blocked'));return;}
+  if(sv)sv.classList.remove('hidden');
+  if(btn)btn.classList.add('on');
+};
 function logTurn(role,text,extra={}){
   // Fire-and-forget persistence of one conversation turn.
   if(!curSession||!text)return;
@@ -1074,8 +1103,11 @@ async function startRec(){
     mediaRecorder.ondataavailable=e=>{if(e.data.size>0)chunks.push(e.data);};
     startDeliveryAnalysis(stream);
     startConvoSR();
+    if(blCameraOn())blTurnStart();
     mediaRecorder.onstop=async()=>{
       const delivery=stopDeliveryAnalysis();
+      const bodylang=blTurnEnd();
+      if(delivery&&bodylang)delivery.bodylang=bodylang;
       const liveText=convoSRText;
       stopConvoSR();
       stream.getTracks().forEach(t=>t.stop());
@@ -1184,7 +1216,11 @@ function summarizeDelivery(text,delivery){
   conf-=Math.min(20,paceOff*0.5);
   conf-=Math.min(15,Math.max(0,delivery.pauseFrames-3)*0.6);
   conf=Math.max(0,Math.min(100,Math.round(conf)));
-  return {wpm,fillers,tone,pitchStd:Math.round(pitchStd),confidence:conf,duration:Math.round(delivery.duration)};
+  const out={wpm,fillers,tone,pitchStd:Math.round(pitchStd),confidence:conf,duration:Math.round(delivery.duration)};
+  // Forward body-language aggregates verbatim so they get persisted with each turn
+  // and picked up by the dashboard.
+  if(delivery.bodylang)out.bodylang=delivery.bodylang;
+  return out;
 }
 function renderDelivery(d){
   if(!d)return '';
@@ -1303,6 +1339,7 @@ async function runCancelDiscard(){
   stopTimer();ended=true;drillMode=false;
   if(recording)stopRec();
   stopActiveAudio();
+  if(blCameraOn()){blDisable();cameraDesired=false;const sv=$('selfView');if(sv)sv.classList.add('hidden');const cb=$('camBtn');if(cb)cb.classList.remove('on');}
   $('endModal').classList.add('hidden');
   if(curSession){
     try{
@@ -1347,6 +1384,7 @@ async function runScoreEnd(){
   // hit STT, and bounce the user back), and any TTS playing through the partner's last line.
   if(recording)stopRec();
   stopActiveAudio();
+  if(blCameraOn()){blDisable();cameraDesired=false;const sv=$('selfView');if(sv)sv.classList.add('hidden');const cb=$('camBtn');if(cb)cb.classList.remove('on');}
   const wasDrill=drillMode;drillMode=false;
   go('debrief');startScoringAnim();
   try{
@@ -1586,6 +1624,7 @@ function renderDashboard(d){
     {key:"delivery",   label:t('progress.cat.delivery'),   sub:t('progress.cat.delivery.sub')},
     {key:"language",   label:t('progress.cat.language'),   sub:t('progress.cat.language.sub')},
     {key:"engagement", label:t('progress.cat.engagement'), sub:t('progress.cat.engagement.sub')},
+    {key:"body",       label:t('progress.cat.body'),       sub:t('progress.cat.body.sub')},
     {key:"performance",label:t('progress.cat.performance'),sub:t('progress.cat.performance.sub')},
   ];
   const dimsHtml=CATS.map(cat=>{

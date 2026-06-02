@@ -90,6 +90,29 @@ function powerScore(per100) {
 }
 // Conversation turn length: 12-40 words is a healthy back-and-forth.
 // Very short = stonewalling/monosyllabic; very long = lecturing.
+// Body-language scoring. Each metric is already 0..1 from MediaPipe; map to 0-100.
+function eyeContactScore(r) {
+  if (r == null) return null;
+  if (r >= 0.75) return 100;
+  if (r >= 0.55) return 80;
+  if (r >= 0.35) return 60;
+  return Math.max(20, Math.round(r * 160));
+}
+function postureScoreOut(r) {
+  if (r == null) return null;
+  return Math.max(20, Math.min(100, Math.round(r * 100)));
+}
+function gestureScoreOut(g) {
+  if (g == null) return null;
+  // Sweet spot: 0.25-0.6 (purposeful movement). Too low = stiff, too high = fidgety.
+  if (g >= 0.25 && g <= 0.6) return 100;
+  if (g < 0.25) return Math.max(25, Math.round(g * 280));
+  return Math.max(30, Math.round(100 - (g - 0.6) * 150));
+}
+function stillnessScoreOut(s) {
+  if (s == null) return null;
+  return Math.max(20, Math.min(100, Math.round(s * 100)));
+}
 function turnLenScore(avgWords) {
   if (avgWords == null) return null;
   if (avgWords >= 12 && avgWords <= 40) return 100;
@@ -228,6 +251,12 @@ module.exports = async (req, res) => {
       ...deliveries.map(d => d.pitchStd).filter(x => x != null && x > 0),
       ...speechTakes.map(t => t.pitch_std).filter(x => x != null && x > 0),
     ]);
+    // --- Body-language aggregates (only present for turns where the user enabled the camera) ---
+    const bls = deliveries.map(d => d.bodylang).filter(b => b && b.samples > 5);
+    const eyeContact = avg(bls.map(b => b.eyeContact).filter(x => x != null));
+    const posture = avg(bls.map(b => b.postureScore).filter(x => x != null));
+    const gesture = avg(bls.map(b => b.gestureLevel).filter(x => x != null));
+    const stillness = avg(bls.map(b => b.stillnessScore).filter(x => x != null));
     const totalWords = msgs.reduce((a, m) => a + wordCount(m.text), 0);
     const totalFillers = deliveries.reduce((a, d) => a + (d.fillers || 0), 0) +
       speechTakes.reduce((a, t) => a + (t.fillers || 0), 0);
@@ -393,6 +422,23 @@ module.exports = async (req, res) => {
         tip: avgTurnWords == null ? "" : avgTurnWords < 6 ? L("Monosyllabic. Add one specific detail per turn.","Einsilbig. Pack ein konkretes Detail pro Beitrag rein.") :
              avgTurnWords > 60 ? L("You're lecturing. Cut your turns in half.","Du dozierst. Halbiere deine Beiträge.") :
              L("Balanced back-and-forth.","Ausgewogenes Hin und Her.") },
+      // Body language. Only populated when the user enabled the camera during a scene.
+      { key: "eye", category: "body", label: L("Eye contact","Blickkontakt"), value: eyeContact != null ? Math.round(eyeContact * 100) + "%" : null, score: eyeContactScore(eyeContact), target: L("75%+ facing forward","75%+ nach vorn gerichtet"),
+        tip: eyeContact == null ? "" : eyeContact >= 0.75 ? L("You hold the camera. Easy to trust.","Du hältst die Kamera. Wirkt vertrauenswürdig.") :
+             eyeContact >= 0.55 ? L("Decent. Look up between thoughts, not down.","Ordentlich. Schau zwischen Gedanken nach oben, nicht runter.") :
+             L("Eyes drift away too often. Anchor on the lens.","Blick wandert zu oft ab. Fixier die Linse.") },
+      { key: "posture", category: "body", label: L("Posture","Haltung"), value: posture != null ? Math.round(posture * 100) + "%" : null, score: postureScoreOut(posture), target: L("Shoulders level, head upright","Schultern gerade, Kopf aufrecht"),
+        tip: posture == null ? "" : posture >= 0.75 ? L("Open and grounded.","Offen und geerdet.") :
+             posture >= 0.5 ? L("Slight lean. Pull your spine up between turns.","Leichte Schräglage. Streck dich zwischen den Beiträgen.") :
+             L("Slumped or tilted. Reset your shoulders before you speak.","Krumm oder verkippt. Setz die Schultern neu, bevor du sprichst.") },
+      { key: "gesture", category: "body", label: L("Gesture activity","Gestik"), value: gesture != null ? Math.round(gesture * 100) + "%" : null, score: gestureScoreOut(gesture), target: L("Purposeful, not constant","Gezielt, nicht ständig"),
+        tip: gesture == null ? "" : gesture < 0.15 ? L("Stiff. Use your hands on the key word, not the filler.","Steif. Nutz die Hände auf dem Schlüsselwort, nicht beim Füllen.") :
+             gesture > 0.7 ? L("A lot of motion. Plant your hands between beats.","Viel Bewegung. Park die Hände zwischen den Beats.") :
+             L("Gestures look intentional.","Die Gesten wirken bewusst.") },
+      { key: "stillness", category: "body", label: L("Head steadiness","Kopf-Ruhe"), value: stillness != null ? Math.round(stillness * 100) + "%" : null, score: stillnessScoreOut(stillness), target: L("Move with purpose, not nerves","Bewusst bewegen, nicht nervös"),
+        tip: stillness == null ? "" : stillness >= 0.75 ? L("Calm presence. Movement reads as conviction.","Ruhige Präsenz. Bewegung wirkt wie Überzeugung.") :
+             stillness >= 0.5 ? L("Some sway. Anchor on one foot or sit deeper.","Etwas wackelig. Verlager das Gewicht oder sitz tiefer.") :
+             L("Lots of head movement. Slow down; it reads as nerves.","Viel Kopfbewegung. Mach langsamer, sonst wirkt's nervös.") },
     ];
 
     const measured = dims.filter(d => d.score != null);
