@@ -285,6 +285,18 @@
   .fbar i{display:block;height:100%;background:linear-gradient(90deg,var(--warn),var(--bad));border-radius:5px;transition:width .6s}
   .fbar-c{font-size:12px;font-weight:800;color:var(--muted);min-width:34px;text-align:right;font-variant-numeric:tabular-nums}
   .fbar-foot{font-size:11px;color:var(--muted);font-weight:700;line-height:1.4;margin-top:10px;padding-top:8px;border-top:1.5px solid var(--panel2)}
+  /* Speaker score trend chart */
+  .trend-card{background:#fff;border:2px solid var(--line);border-bottom-width:4px;border-radius:16px;padding:14px 16px;margin-bottom:14px}
+  .trend-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:10px}
+  .trend-head .l{font-size:11px;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);font-weight:800}
+  .trend-head .d{font-size:11px;color:var(--muted);font-weight:700}
+  .trend-svg{width:100%;height:120px;display:block}
+  .trend-empty{font-size:12px;color:var(--muted);font-weight:700;text-align:center;padding:20px 6px;line-height:1.5}
+  /* Locked dimension cards (no voice data yet) */
+  .dim-card.locked{background:var(--panel2);opacity:.85}
+  .dim-card.locked .dim-name{color:var(--muted)}
+  .dim-card.locked .dim-score{background:var(--line);color:var(--muted)}
+  .dim-locked-tip{font-size:11.5px;font-weight:700;color:var(--muted);line-height:1.4;padding:4px 0 0;font-style:italic}
   .theme-card{display:flex;align-items:center;gap:10px;background:#fff7d6;border:2px solid var(--warn);border-radius:14px;padding:11px 14px;margin-bottom:8px}
   .theme-card .ti{font-size:20px;flex-shrink:0}
   .theme-card .tt{font-size:14px;font-weight:900;color:#8a6500;flex:1}
@@ -921,6 +933,34 @@ window.toggleRec=async()=>{
   if(busy)return;
   if(!recording)await startRec();else stopRec();
 };
+// Web Speech API state for the conversation mic. When available it gives us
+// near-instant transcription (no ElevenLabs round-trip), and we use that text
+// directly. We still record audio for delivery analysis (pitch, volume), but
+// skip uploading it to /api/stt unless the SR transcript came back empty.
+let convoSR=null,convoSRText="",convoSRReady=false;
+function startConvoSR(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){convoSRReady=false;return;}
+  convoSRText="";convoSRReady=true;
+  try{
+    convoSR=new SR();
+    convoSR.continuous=true;convoSR.interimResults=true;convoSR.lang='en-US';
+    let final="";
+    convoSR.onresult=e=>{
+      let interim="";
+      for(let i=e.resultIndex;i<e.results.length;i++){
+        const t=e.results[i][0].transcript;
+        if(e.results[i].isFinal)final+=' '+t;else interim+=t;
+      }
+      convoSRText=(final+' '+interim).trim();
+      // Live preview in the mic hint so the user sees their words appear instantly.
+      const hint=$('michint');if(hint&&recording)hint.textContent=convoSRText?'"'+convoSRText.slice(0,40)+(convoSRText.length>40?'…':'')+'"':'Listening…';
+    };
+    convoSR.onend=()=>{if(recording){try{convoSR.start();}catch{}}};
+    convoSR.start();
+  }catch{convoSR=null;convoSRReady=false;}
+}
+function stopConvoSR(){if(convoSR){try{convoSR.stop();}catch{}convoSR=null;}}
 async function startRec(){
   try{
     const stream=await navigator.mediaDevices.getUserMedia({audio:true});
@@ -929,14 +969,25 @@ async function startRec(){
     chunks=[];
     mediaRecorder.ondataavailable=e=>{if(e.data.size>0)chunks.push(e.data);};
     startDeliveryAnalysis(stream);
+    startConvoSR();
     mediaRecorder.onstop=async()=>{
       const delivery=stopDeliveryAnalysis();
+      const liveText=convoSRText;
+      stopConvoSR();
       stream.getTracks().forEach(t=>t.stop());
+      // Fast path: if Web Speech captured a credible transcript, use it directly
+      // and skip the Scribe upload. Cuts perceived latency from ~1-2s to ~0ms
+      // and saves the STT call cost.
+      if(convoSRReady&&liveText&&liveText.split(/\s+/).filter(Boolean).length>=2){
+        await handleUserTurn(liveText,delivery);
+        return;
+      }
+      // Fallback: send the audio to ElevenLabs Scribe.
       const blob=new Blob(chunks,{type:mediaRecorder.mimeType||'audio/webm'});
       await transcribeAndTurn(blob,delivery);
     };
     mediaRecorder.start();recording=true;
-    $('mic').classList.add('rec');$('mic').textContent='■';$('michint').textContent='Tap to stop';
+    $('mic').classList.add('rec');$('mic').textContent='■';$('michint').textContent='Listening…';
     if(recHardStop)clearTimeout(recHardStop);
     recHardStop=setTimeout(()=>{if(recording)stopRec();},MAX_REC_MS);
   }catch(e){err('Mic blocked. Allow access or use Type instead.');}
@@ -947,6 +998,11 @@ function stopRec(){if(mediaRecorder&&recording){recording=false;if(recHardStop){
 // Common filler tokens, lowercased; matched as whole words.
 const FILLERS=["um","uh","like","you know","sort of","kind of","basically","actually","literally","right","i mean","er","ah"];
 let deliveryState=null;
+// Auto-stop on silence: once the user has clearly started speaking, watching for
+// SILENCE_END_MS of continuous quiet triggers stopRec() automatically so the user
+// doesn't have to tap the mic again. SILENCE_GRACE_MS protects against the first
+// half-second before they've actually spoken.
+const SILENCE_END_MS=1500, SILENCE_GRACE_MS=600, SPEECH_VOL_THRESHOLD=0.04;
 function startDeliveryAnalysis(stream){
   try{
     const ctx=new (window.AudioContext||window.webkitAudioContext)();
@@ -954,7 +1010,7 @@ function startDeliveryAnalysis(stream){
     const an=ctx.createAnalyser();an.fftSize=2048;
     src.connect(an);
     const buf=new Float32Array(an.fftSize);
-    deliveryState={ctx,an,buf,volSamples:[],pitchSamples:[],pauseFrames:0,startTs:performance.now(),rafId:0,lastSpeechTs:performance.now()};
+    deliveryState={ctx,an,buf,volSamples:[],pitchSamples:[],pauseFrames:0,startTs:performance.now(),rafId:0,lastSpeechTs:performance.now(),hasSpoken:false};
     const loop=()=>{
       if(!deliveryState)return;
       const {an,buf,volSamples,pitchSamples}=deliveryState;
@@ -962,12 +1018,21 @@ function startDeliveryAnalysis(stream){
       let sum=0;for(let i=0;i<buf.length;i++)sum+=buf[i]*buf[i];
       const vol=Math.min(1,Math.sqrt(sum/buf.length)*6);
       volSamples.push(vol);
-      if(vol>0.04){
+      if(vol>SPEECH_VOL_THRESHOLD){
         deliveryState.lastSpeechTs=performance.now();
+        deliveryState.hasSpoken=true;
         const f=autoCorr(buf,deliveryState.ctx.sampleRate);
         if(f>60&&f<400)pitchSamples.push(f);
       }else if(performance.now()-deliveryState.lastSpeechTs>700){
         deliveryState.pauseFrames++;
+      }
+      // Auto-stop. Only fires once the user has actually started speaking AND
+      // they've been silent for SILENCE_END_MS. Past SILENCE_GRACE_MS from start.
+      const elapsed=performance.now()-deliveryState.startTs;
+      const silentFor=performance.now()-deliveryState.lastSpeechTs;
+      if(recording&&deliveryState.hasSpoken&&elapsed>SILENCE_GRACE_MS&&silentFor>SILENCE_END_MS){
+        // Schedule outside RAF so we don't fight the analyser callback.
+        setTimeout(()=>{if(recording)stopRec();},0);
       }
       deliveryState.rafId=requestAnimationFrame(loop);
     };
@@ -1370,8 +1435,10 @@ function renderDashboard(d){
     <div class="hero-sub" style="font-size:11px;padding:0 2px">${p.sessions_total||0} total sessions tracked${p.days_active_30d?` · active ${p.days_active_30d} of last 30 days`:''}.</div>
   </div>`;
 
-  // Group measured dimensions by category for the health-app layout.
-  const measured=(d.dimensions||[]).filter(x=>x.score!=null);
+  // Group ALL dimensions by category. Unscored ones render as locked cards
+  // with a "run a voice scene to unlock" hint instead of disappearing.
+  const allDims=(d.dimensions||[]);
+  const measured=allDims.filter(x=>x.score!=null);
   const CATS=[
     {key:"delivery",   label:"Delivery",    sub:"How it sounds"},
     {key:"language",   label:"Language",    sub:"The words you use"},
@@ -1379,12 +1446,15 @@ function renderDashboard(d){
     {key:"performance",label:"Performance", sub:"Outcomes"},
   ];
   const dimsHtml=CATS.map(cat=>{
-    const group=measured.filter(x=>x.category===cat.key);
-    if(!group.length)return '';
-    const avg=Math.round(group.reduce((a,x)=>a+x.score,0)/group.length);
+    const groupAll=allDims.filter(x=>x.category===cat.key);
+    if(!groupAll.length)return '';
+    const groupMeasured=groupAll.filter(x=>x.score!=null);
+    const groupLocked=groupAll.filter(x=>x.score==null);
+    const avg=groupMeasured.length?Math.round(groupMeasured.reduce((a,x)=>a+x.score,0)/groupMeasured.length):null;
     return `<div class="dash-sec">
-      <h3><span>${cat.label}</span> <span class="cat-sub">${cat.sub}</span> <span class="ct ${dimColor(avg)}">${avg}</span></h3>
-      ${group.map(x=>renderDimCard(x,x.score>=75)).join('')}
+      <h3><span>${cat.label}</span> <span class="cat-sub">${cat.sub}</span> ${avg!=null?`<span class="ct ${dimColor(avg)}">${avg}</span>`:''}</h3>
+      ${groupMeasured.map(x=>renderDimCard(x,x.score>=75)).join('')}
+      ${groupLocked.map(x=>renderLockedDim(x)).join('')}
     </div>`;
   }).join('');
 
@@ -1444,6 +1514,7 @@ function renderDashboard(d){
       <div class="fbar-foot">Drop the worst one and your filler rate moves overnight.</div>
     </div>
   </div>`:'';
+  const trendHtml=renderScoreTrend(d.score_trend||[]);
   body.innerHTML=`
     <div class="dash-hero">
       ${ringSvg(d.composite)}
@@ -1453,6 +1524,7 @@ function renderDashboard(d){
         <div class="hero-sub">Scored against the patterns of top speakers, your delivery + conversation outcomes combined.</div>
       </div>
     </div>
+    ${trendHtml}
     ${practiceHtml}
     ${volHtml}
     ${highlightsHtml}
@@ -1461,6 +1533,68 @@ function renderDashboard(d){
     ${themesHtml}
     ${partnersHtml}
   `;
+}
+// Empty-state version for dimensions where we don't have data yet
+// (typically because the user hasn't run a voice scene with enough audio).
+function renderLockedDim(dim){
+  return `<div class="dim-card locked">
+    <div class="dim-row">
+      <div class="dim-name">${esc(dim.label)}</div>
+      <div class="dim-score">—</div>
+    </div>
+    <div class="dim-tgt">Target: ${esc(dim.target||'')}</div>
+    <div class="dim-locked-tip">Run a voice scene to unlock this metric.</div>
+  </div>`;
+}
+// Score-over-time chart. Renders an inline SVG line chart from per-take score points.
+// Two series colors: conversation vs speech, so the user can see which mode they're improving in.
+function renderScoreTrend(points){
+  if(!points||points.length<2){
+    return `<div class="trend-card">
+      <div class="trend-head"><div class="l">Speaker score over time</div></div>
+      <div class="trend-empty">Run at least two scenes to start a trend line.</div>
+    </div>`;
+  }
+  const W=320,H=110,padL=24,padR=8,padT=10,padB=18;
+  const xs=points.map(p=>new Date(p.ts).getTime());
+  const minX=Math.min(...xs),maxX=Math.max(...xs);
+  const xSpan=Math.max(1,maxX-minX);
+  const x=t=>padL+((t-minX)/xSpan)*(W-padL-padR);
+  const y=s=>padT+(1-s/100)*(H-padT-padB);
+  // Best-fit line through all points - shows true direction independent of noise.
+  const n=points.length;
+  const sx=xs.reduce((a,b)=>a+b,0),sy=points.reduce((a,p)=>a+p.score,0);
+  const sxy=points.reduce((a,p,i)=>a+xs[i]*p.score,0),sxx=xs.reduce((a,b)=>a+b*b,0);
+  const denom=n*sxx-sx*sx;
+  const slope=denom?(n*sxy-sx*sy)/denom:0;
+  const intercept=(sy-slope*sx)/n;
+  const trendY1=y(slope*minX+intercept),trendY2=y(slope*maxX+intercept);
+  // First-vs-last delta for the headline.
+  const first=points[0].score,last=points[points.length-1].score;
+  const delta=last-first;
+  const dirCol=delta>=0?'var(--accent2)':'var(--bad)';
+  // Polyline of actual takes.
+  const path=points.map((p,i)=>(i?'L':'M')+x(xs[i]).toFixed(1)+','+y(p.score).toFixed(1)).join(' ');
+  const dots=points.map((p,i)=>`<circle cx="${x(xs[i]).toFixed(1)}" cy="${y(p.score).toFixed(1)}" r="3" fill="${p.kind==='speech'?'var(--blue)':'var(--accent)'}"/>`).join('');
+  return `<div class="trend-card">
+    <div class="trend-head">
+      <div><div class="l">Speaker score over time</div>
+        <div style="font-size:20px;font-weight:900;color:var(--ink);margin-top:2px">${last}<span style="font-size:12px;color:${dirCol};font-weight:800;margin-left:6px">${delta>=0?'+':''}${delta} since first</span></div>
+      </div>
+      <div class="d">${points.length} take${points.length===1?'':'s'}</div>
+    </div>
+    <svg class="trend-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+      <line x1="${padL}" y1="${y(100)}" x2="${W-padR}" y2="${y(100)}" stroke="var(--line)" stroke-dasharray="3 3"/>
+      <line x1="${padL}" y1="${y(50)}" x2="${W-padR}" y2="${y(50)}" stroke="var(--line)" stroke-dasharray="3 3"/>
+      <line x1="${padL}" y1="${y(0)}" x2="${W-padR}" y2="${y(0)}" stroke="var(--line)"/>
+      <text x="2" y="${y(100)+4}" font-size="9" fill="var(--muted)" font-weight="800">100</text>
+      <text x="2" y="${y(50)+4}" font-size="9" fill="var(--muted)" font-weight="800">50</text>
+      <text x="6" y="${y(0)+4}" font-size="9" fill="var(--muted)" font-weight="800">0</text>
+      <line x1="${padL}" y1="${trendY1}" x2="${W-padR}" y2="${trendY2}" stroke="${dirCol}" stroke-width="1.5" stroke-dasharray="4 4" opacity=".55"/>
+      <path d="${path}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      ${dots}
+    </svg>
+  </div>`;
 }
 function renderDimCard(dim,isStrength){
   const c=dimColor(dim.score);

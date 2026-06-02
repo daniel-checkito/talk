@@ -490,6 +490,12 @@ module.exports = async (req, res) => {
         words_spoken: totalWords,
       },
       top_fillers: topFillers,
+      // Per-take score timeline for the dashboard's "progress over time" graph.
+      // Includes both conversation and speech takes, oldest first.
+      score_trend: [
+        ...takes.map(t => ({ ts: t.created_at, score: t.score, kind: "convo" })),
+        ...speechTakes.map(t => ({ ts: t.created_at, score: t.score, kind: "speech" })),
+      ].filter(p => p.score != null).sort((a, b) => new Date(a.ts) - new Date(b.ts)),
     });
   } catch (e) {
     return res.status(500).json({ error: String(e.message || e) });
