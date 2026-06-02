@@ -213,6 +213,20 @@
   .dash-sec{margin-bottom:18px}
   .dash-sec h3{font-size:11px;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);font-weight:800;margin-bottom:9px;display:flex;align-items:center;gap:8px}
   .dash-sec h3 .ct{background:var(--panel2);color:var(--ink);border-radius:10px;padding:2px 7px;font-size:10px}
+  .dash-sec h3 .ct.g{background:var(--accent);color:#fff}
+  .dash-sec h3 .ct.y{background:var(--warn);color:#5a4400}
+  .dash-sec h3 .ct.r{background:var(--bad);color:#fff}
+  .dash-sec h3 .cat-sub{font-size:10px;font-weight:700;color:var(--muted);text-transform:none;letter-spacing:.2px;margin-left:-2px}
+  .highlight-card{background:#fff;border:2px solid var(--line);border-bottom-width:4px;border-radius:14px;padding:12px 14px;margin-bottom:9px;display:flex;gap:11px;align-items:flex-start}
+  .highlight-card.good{border-color:var(--accent);background:#f4fce8}
+  .highlight-card.bad{border-color:var(--warn);background:#fffaea}
+  .hl-icon{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:900;flex-shrink:0;color:#fff}
+  .highlight-card.good .hl-icon{background:var(--accent)}
+  .highlight-card.bad .hl-icon{background:var(--warn);color:#5a4400}
+  .hl-body{flex:1;min-width:0}
+  .hl-tag{font-size:10px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);font-weight:800;margin-bottom:2px}
+  .hl-title{font-size:15px;font-weight:900;color:var(--ink);line-height:1.25;margin-bottom:3px}
+  .hl-sub{font-size:12px;font-weight:700;color:var(--muted);line-height:1.4}
   .practice-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px}
   .pr-cell{background:#fff;border:2px solid var(--line);border-bottom-width:3px;border-radius:12px;padding:10px 8px;text-align:center}
   .pr-cell .v{font-size:22px;font-weight:900;color:var(--ink);line-height:1}
@@ -451,9 +465,13 @@
 
 <section class="screen" id="s-progress">
   <div class="logo">Pro<span>gress</span></div>
-  <p class="sub">Your speaker dashboard. Strengths, weaknesses, and the dimensions top speakers actually live or die by.</p>
+  <p class="sub">Your speaker dashboard. Every dimension that separates a great speaker from a forgettable one.</p>
   <div id="dashBody"><div class="loading">⟳ Loading dashboard...</div></div>
   <div id="costSlot"></div>
+  <details class="dash-fold" id="talksFold">
+    <summary><span>Past talks</span></summary>
+    <div class="fold-body" id="talksFoldBody"><div class="loading">⟳ Loading...</div></div>
+  </details>
   <details class="dash-fold" id="dashFold">
     <summary><span>Per-prompt takes</span></summary>
     <div class="fold-body">
@@ -473,16 +491,8 @@
   <div style="flex:1"></div>
 </section>
 
-<section class="screen" id="s-talks">
-  <button class="back" onclick="go('home')">‹ Back</button>
-  <div class="logo">Past <span>talks</span></div>
-  <p class="sub">Every scene you've run. Tap one to read the transcript.</p>
-  <div id="talksList"><div class="loading">⟳ Loading...</div></div>
-  <div style="flex:1"></div>
-</section>
-
 <section class="screen" id="s-talk">
-  <button class="back" onclick="navTo('talks')">‹ All talks</button>
+  <button class="back" onclick="navTo('progress')">‹ Progress</button>
   <div id="talkHead"></div>
   <div id="talkBody"><div class="loading">⟳ Loading...</div></div>
 </section>
@@ -546,10 +556,9 @@ const $=id=>document.getElementById(id);
 const NAV_HTML=`
   <button class="nav-item" data-nav="home" onclick="navTo('home')"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7h-6v7H4a1 1 0 0 1-1-1V11z"/></svg>HOME</button>
   <button class="nav-item" data-nav="practice" onclick="navTo('practice')"><svg viewBox="0 0 24 24"><path d="M4 9v6M7 6v12M17 6v12M20 9v6M7 12h10"/></svg>PRACTICE</button>
-  <button class="nav-item" data-nav="progress" onclick="navTo('progress')"><svg viewBox="0 0 24 24"><path d="M3 17l5-5 4 4 8-9"/><path d="M14 7h6v6"/></svg>PROGRESS</button>
-  <button class="nav-item" data-nav="talks" onclick="navTo('talks')"><svg viewBox="0 0 24 24"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8z"/></svg>TALKS</button>`;
+  <button class="nav-item" data-nav="progress" onclick="navTo('progress')"><svg viewBox="0 0 24 24"><path d="M3 17l5-5 4 4 8-9"/><path d="M14 7h6v6"/></svg>PROGRESS</button>`;
 $('appNav').innerHTML=NAV_HTML;
-const TABS=new Set(['home','progress','talks']);
+const TABS=new Set(['home','progress']);
 const go=s=>{
   document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));
   $('s-'+s).classList.add('active');
@@ -589,14 +598,14 @@ window.replayLast=()=>{
   startScene();
 };
 function setNavActive(screen){
-  const map={progress:'progress',goal:'practice',talks:'talks',talk:'talks'};
+  // Past talks now live inside Progress, so talks + talk detail map to the progress tab.
+  const map={progress:'progress',goal:'practice',talks:'progress',talk:'progress'};
   const tab=map[screen]||'home';
   document.querySelectorAll('.nav-item').forEach(el=>el.classList.toggle('active',el.dataset.nav===tab));
 }
 window.navTo=key=>{
   if(key==='home'){go('home');return;}
   if(key==='progress'){openProgress();return;}
-  if(key==='talks'){openTalks();return;}
   if(key==='practice'){quickDrill();return;}
 };
 // Quick Drill: random partner + random goal + random mood, 90-second timer.
@@ -1107,9 +1116,10 @@ window.setProgressMode=m=>{
 };
 window.openProgress=async()=>{
   go('progress');
-  // Load the dashboard (left side panel) in parallel with the per-prompt strip.
+  // Dashboard + costs + past talks load in parallel.
   loadDashboard();
   loadCosts();
+  loadTalksInline();
   const scopeEl=$('pScope');
   let qs='device_id='+encodeURIComponent(deviceId())+'&mode='+progressMode;
   if(progressMode==='conversation'){
@@ -1256,14 +1266,39 @@ function renderDashboard(d){
     <div class="hero-sub" style="font-size:11px;padding:0 2px">${p.sessions_total||0} total sessions tracked${p.days_active_30d?` · active ${p.days_active_30d} of last 30 days`:''}.</div>
   </div>`;
 
-  const strengthsHtml=d.strengths&&d.strengths.length?`<div class="dash-sec">
-    <h3>Your strengths <span class="ct">${d.strengths.length}</span></h3>
-    ${d.strengths.map(s=>renderDimCard(s,true)).join('')}
-  </div>`:'';
+  // Group measured dimensions by category for the health-app layout.
+  const measured=(d.dimensions||[]).filter(x=>x.score!=null);
+  const CATS=[
+    {key:"delivery",   label:"Delivery",    sub:"How it sounds"},
+    {key:"language",   label:"Language",    sub:"The words you use"},
+    {key:"performance",label:"Performance", sub:"Whether it lands"},
+  ];
+  const dimsHtml=CATS.map(cat=>{
+    const group=measured.filter(x=>x.category===cat.key);
+    if(!group.length)return '';
+    const avg=Math.round(group.reduce((a,x)=>a+x.score,0)/group.length);
+    return `<div class="dash-sec">
+      <h3><span>${cat.label}</span> <span class="cat-sub">${cat.sub}</span> <span class="ct ${dimColor(avg)}">${avg}</span></h3>
+      ${group.map(x=>renderDimCard(x,x.score>=75)).join('')}
+    </div>`;
+  }).join('');
 
-  const weakHtml=d.weaknesses&&d.weaknesses.length?`<div class="dash-sec">
-    <h3>Work on this <span class="ct">${d.weaknesses.length}</span></h3>
-    ${d.weaknesses.map(w=>renderDimCard(w,false)).join('')}
+  // Quick takeaway: top strength + top weakness with trend, surfaced above the breakdown.
+  const top=d.strengths&&d.strengths[0];
+  const bottom=d.weaknesses&&d.weaknesses[0];
+  const highlightsHtml=(top||bottom)?`<div class="dash-sec">
+    <h3>Highlights</h3>
+    ${top?`<div class="highlight-card good">
+      <div class="hl-icon">✓</div>
+      <div class="hl-body"><div class="hl-tag">Strength</div><div class="hl-title">${esc(top.label)} · ${top.score}/100</div>
+      <div class="hl-sub">${esc(top.tip||'')}</div></div>
+    </div>`:''}
+    ${bottom?`<div class="highlight-card bad">
+      <div class="hl-icon">!</div>
+      <div class="hl-body"><div class="hl-tag">Work on this${bottom.trend&&bottom.trend.dir==='up'?' · improving':''}</div>
+      <div class="hl-title">${esc(bottom.label)} · ${bottom.score}/100</div>
+      <div class="hl-sub">${esc(bottom.tip||'')}</div></div>
+    </div>`:''}
   </div>`:'';
 
   const themesHtml=d.themes&&d.themes.length?`<div class="dash-sec">
@@ -1281,14 +1316,6 @@ function renderDashboard(d){
     </div>`).join('')}
   </div>`:'';
 
-  // All measured dimensions (full breakdown, foldable so the main view stays scannable).
-  const allDimsHtml=d.dimensions&&d.dimensions.length?`<details class="dash-fold">
-    <summary><span>All dimensions</span></summary>
-    <div class="fold-body">
-      ${d.dimensions.filter(x=>x.score!=null).map(x=>renderDimCard(x,x.score>=75)).join('')}
-    </div>
-  </details>`:'';
-
   body.innerHTML=`
     <div class="dash-hero">
       ${ringSvg(d.composite)}
@@ -1299,11 +1326,10 @@ function renderDashboard(d){
       </div>
     </div>
     ${practiceHtml}
-    ${weakHtml}
-    ${strengthsHtml}
+    ${highlightsHtml}
+    ${dimsHtml}
     ${themesHtml}
     ${partnersHtml}
-    ${allDimsHtml}
   `;
 }
 function renderDimCard(dim,isStrength){
@@ -1381,24 +1407,24 @@ function renderProgress(d){
 }
 function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
-/* ---------- past talks ---------- */
-window.openTalks=async()=>{
-  go('talks');
-  $('talksList').innerHTML='<div class="loading">⟳ Loading...</div>';
+/* ---------- past talks (folded inside Progress) ---------- */
+async function loadTalksInline(){
+  const slot=$('talksFoldBody');if(!slot)return;
   try{
     const r=await fetch('/api/conversations?device_id='+encodeURIComponent(deviceId()));
     const d=await r.json();
     renderTalksList(d.sessions||[]);
   }catch(e){
-    $('talksList').innerHTML='<div class="err">Could not load conversations.</div>';
+    slot.innerHTML='<div class="err">Could not load conversations.</div>';
   }
-};
+}
 function renderTalksList(sessions){
+  const slot=$('talksFoldBody');if(!slot)return;
   if(!sessions.length){
-    $('talksList').innerHTML='<div class="takelist"><div class="empty">No talks yet. Start a scene and your past conversations will show up here.</div></div>';
+    slot.innerHTML='<div class="empty" style="font-weight:700;color:var(--muted);padding:18px 6px;text-align:center;line-height:1.5">No talks yet. Start a scene and your past conversations will show up here.</div>';
     return;
   }
-  $('talksList').innerHTML=sessions.map(s=>{
+  slot.innerHTML=sessions.map(s=>{
     if(s.kind==='speech'){
       const when=new Date(s.last_at).toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
       const ctx=(s.context||'').replace(/^./,c=>c.toUpperCase());

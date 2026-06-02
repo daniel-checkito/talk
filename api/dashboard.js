@@ -176,33 +176,73 @@ module.exports = async (req, res) => {
     const goalHits = takes.filter(t => t.hit_goal).length;
     const goalHitPct = takes.length ? (goalHits / takes.length) * 100 : null;
 
+    // Tempo consistency: std dev of per-turn wpm. Top speakers have controlled variance,
+    // not a perfectly flat metronome. Score by how tight the spread is.
+    const wpmSeries = deliveries.map(d => d.wpm).filter(x => x > 0);
+    let tempoStd = null;
+    if (wpmSeries.length >= 3) {
+      const m = wpmSeries.reduce((a, b) => a + b, 0) / wpmSeries.length;
+      tempoStd = Math.sqrt(wpmSeries.reduce((a, b) => a + (b - m) ** 2, 0) / wpmSeries.length);
+    }
+    function tempoScore(std) {
+      if (std == null) return null;
+      if (std < 12) return 100;
+      if (std < 22) return 85;
+      if (std < 35) return 65;
+      return Math.max(20, Math.round(65 - (std - 35) * 1.2));
+    }
+
+    // Pause control: pauses per minute of speech. Sweet spot ~4-8/min (strategic),
+    // <2 = no breathing room, >12 = lots of dead air.
+    const pauseTotalFrames = deliveries.reduce((a, d) => a + (d.pauseFrames || 0), 0) +
+                             speechTakes.reduce((a, t) => a + (t.pause_count || 0), 0);
+    const totalSpeakSec = deliveries.reduce((a, d) => a + (d.duration || 0), 0) +
+                          speechTakes.reduce((a, t) => a + (t.duration_s || 0), 0);
+    const pausesPerMin = totalSpeakSec > 30 ? pauseTotalFrames / (totalSpeakSec / 60) : null;
+    function pauseScore(ppm) {
+      if (ppm == null) return null;
+      if (ppm >= 4 && ppm <= 8) return 100;
+      if (ppm >= 2 && ppm <= 12) return 75;
+      if (ppm < 2) return Math.max(30, Math.round(60 + ppm * 7));
+      return Math.max(25, Math.round(75 - (ppm - 12) * 4));
+    }
+
     // --- Per-dimension scores ---
+    // Categories: 'delivery' (how it sounds), 'language' (the words), 'performance' (outcomes).
     const dims = [
-      { key: "pace", label: "Pace", value: avgWpm != null ? Math.round(avgWpm) + " wpm" : null, score: paceScore(avgWpm), target: "140-160 wpm",
+      { key: "pace", category: "delivery", label: "Pace", value: avgWpm != null ? Math.round(avgWpm) + " wpm" : null, score: paceScore(avgWpm), target: "140-160 wpm",
         tip: avgWpm == null ? "" : avgWpm < 130 ? "You're slow. Push energy on key sentences." :
              avgWpm > 175 ? "You're rushing. Land each beat, breathe between sentences." :
              "Pace is in the keynote pocket." },
-      { key: "fillers", label: "Filler words", value: fillerRate != null ? fillerRate.toFixed(1) + "%" : null, score: fillerRateScore(fillerRate), target: "<2% of words",
-        tip: fillerRate == null ? "" : fillerRate < 2 ? "Crisp. Top-speaker territory." :
-             fillerRate < 4 ? "A few slipping in. Replace with a half-second silence." :
-             "Heavy filler use. Record a take and pause instead of saying 'um'." },
-      { key: "variety", label: "Vocal variety", value: avgPitchStd != null ? Math.round(avgPitchStd) + " Hz" : null, score: varietyScore(avgPitchStd), target: "25+ Hz pitch range",
+      { key: "tempo", category: "delivery", label: "Tempo control", value: tempoStd != null ? "±" + Math.round(tempoStd) + " wpm" : null, score: tempoScore(tempoStd), target: "Tight, intentional variance",
+        tip: tempoStd == null ? "" : tempoStd < 15 ? "Steady rhythm. Watch you don't go flat." :
+             tempoStd < 30 ? "Healthy variation across turns." :
+             "Rhythm is erratic. Anchor pace to the moment, not your nerves." },
+      { key: "variety", category: "delivery", label: "Vocal variety", value: avgPitchStd != null ? Math.round(avgPitchStd) + " Hz" : null, score: varietyScore(avgPitchStd), target: "25+ Hz pitch range",
         tip: avgPitchStd == null ? "" : avgPitchStd < 12 ? "Monotone. Drop your pitch on key words; raise it for surprise." :
              avgPitchStd < 25 ? "Some variation. Push contrast on the most important phrase." :
              "Strong prosody. Keep using pitch to mark what matters." },
-      { key: "hedging", label: "Conviction", value: hedgeRate != null ? hedgeRate.toFixed(1) + " hedges/100w" : null, score: hedgeRateScore(hedgeRate), target: "<1.5 per 100 words",
+      { key: "pauses", category: "delivery", label: "Pause control", value: pausesPerMin != null ? pausesPerMin.toFixed(1) + "/min" : null, score: pauseScore(pausesPerMin), target: "4-8 strategic pauses/min",
+        tip: pausesPerMin == null ? "" : pausesPerMin < 2 ? "Almost no pauses. Silence is a tool, use it after key lines." :
+             pausesPerMin > 12 ? "A lot of dead air. Tighten transitions; one beat, then move." :
+             "Pauses are well placed." },
+      { key: "fillers", category: "language", label: "Filler words", value: fillerRate != null ? fillerRate.toFixed(1) + "%" : null, score: fillerRateScore(fillerRate), target: "<2% of words",
+        tip: fillerRate == null ? "" : fillerRate < 2 ? "Crisp. Top-speaker territory." :
+             fillerRate < 4 ? "A few slipping in. Replace with a half-second silence." :
+             "Heavy filler use. Record a take and pause instead of saying 'um'." },
+      { key: "hedging", category: "language", label: "Conviction", value: hedgeRate != null ? hedgeRate.toFixed(1) + " hedges/100w" : null, score: hedgeRateScore(hedgeRate), target: "<1.5 per 100 words",
         tip: hedgeRate == null ? "" : hedgeRate < 1.5 ? "Direct. You say what you mean." :
              hedgeRate < 3 ? "Watch 'kind of', 'I think', 'just'. Drop them and the line lands harder." :
              "Lots of hedging. Reread your transcripts and strike every 'maybe', 'sort of', 'I guess'." },
-      { key: "confidence", label: "Confidence", value: avgConfidence != null ? Math.round(avgConfidence) + "%" : null, score: confidenceScore(avgConfidence), target: "75% or higher",
+      { key: "confidence", category: "performance", label: "Confidence", value: avgConfidence != null ? Math.round(avgConfidence) + "%" : null, score: confidenceScore(avgConfidence), target: "75% or higher",
         tip: avgConfidence == null ? "" : avgConfidence >= 75 ? "You sound like you mean it." :
              avgConfidence >= 60 ? "Solid. Tighten pace and fillers to push higher." :
              "Composite is low. Focus on pace + fillers; conviction follows." },
-      { key: "goalhit", label: "Goal hit rate", value: goalHitPct != null ? Math.round(goalHitPct) + "%" : null, score: rateScore(goalHitPct), target: "70%+",
+      { key: "goalhit", category: "performance", label: "Goal hit rate", value: goalHitPct != null ? Math.round(goalHitPct) + "%" : null, score: rateScore(goalHitPct), target: "70%+",
         tip: goalHitPct == null ? "" : goalHitPct >= 70 ? "You're closing scenes." :
              goalHitPct >= 40 ? "Half-and-half. Pick one goal and run it three times." :
              "Most scenes don't land the win. Re-read the goal hint before each take." },
-      { key: "greats", label: "'Great' turn rate", value: greatPct != null ? Math.round(greatPct) + "%" : null, score: rateScore(greatPct ? greatPct * 1.6 : null), target: "30%+ of turns",
+      { key: "greats", category: "performance", label: "'Great' turn rate", value: greatPct != null ? Math.round(greatPct) + "%" : null, score: rateScore(greatPct ? greatPct * 1.6 : null), target: "30%+ of turns",
         tip: greatPct == null ? "" : greatPct >= 25 ? "You land strong lines regularly." :
              greatPct >= 12 ? "A few sharp moments per scene. Build more around them." :
              "Few standout lines. Study which feedback notes say 'great' and lean in." },
