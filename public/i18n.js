@@ -10,7 +10,7 @@ const STRINGS = {
     "lang.toggle.title": "Switch language",
 
     // Home
-    "home.sub": "Talk through the conversations that matter. Speak out loud, hear them respond, get coached in real time.",
+    "home.sub": "Your AI co-pilot for talks, pitches, and interviews. Prep once, then get live help when it counts.",
     "home.streak.drill": "Quick Drill streak",
     "home.streak.daily": "Daily streak",
     "home.label.who": "Who are you talking to?",
@@ -319,6 +319,41 @@ const STRINGS = {
     "present.err.mic": "Mic blocked. Allow access and retry, or tap points to check them by hand.",
     "present.err.generate": "Couldn't build the cards. Try again.",
     "present.hint.tap": "Tap a point to check it off by hand. Swipe for the next card.",
+    "present.progress.lbl": "Covered",
+
+    // Home: primary modes + secondary conversations
+    "home.present.t": "Present", "home.present.s": "Live cue cards that keep you on track during a real talk",
+    "home.train.t": "Train", "home.train.s": "Rehearse your talk and get coached on what to fix",
+    "home.interview.t": "Interview", "home.interview.s": "Upload your context, get live help answering questions",
+    "home.conv.more": "Practice conversations",
+    "home.conv.sub": "Rehearse real conversations out loud with an AI partner, or read a script on the teleprompter.",
+    "home.drill.t": "Quick Drill", "home.drill.s": "90-second improv against a random partner",
+
+    // Train mode
+    "train.title.a": "Tra", "train.title.b": "in",
+    "train.sub": "Upload your slides, rehearse out loud, and get coached on exactly what to change before the real thing.",
+    "train.generate": "Build cards & rehearse",
+    "train.hint": "Tap Go live and rehearse out loud. End when you're done for coaching.",
+    "train.finish": "Finish ▸",
+    "train.again": "↻ Rehearse again",
+    "train.scoring": "⟳ Scoring your rehearsal…",
+    "train.nospeech": "Go live and rehearse out loud first, then I can coach you.",
+    "train.report.title": "Coaching",
+    "train.report.fix": "What to change",
+    "train.report.missed": "Points you skipped or rushed",
+
+    // Interview mode
+    "iv.title.a": "Inter", "iv.title.b": "view",
+    "iv.sub": "Give the AI your background, then go live. It listens to the conversation and shows you what to say, the moment you need it.",
+    "iv.label.text": "Your context",
+    "iv.label.file": "Or add a file (PDF / PowerPoint)",
+    "iv.ctx.ph": "Paste your CV, the job description, the project you're discussing, key facts you want to land…",
+    "iv.start": "Start live help",
+    "iv.stage.title": "Interview",
+    "iv.hint": "Tap Go live. I'll suggest answers as the conversation goes, or tap Help me anytime.",
+    "iv.empty": "Your suggested answers will appear here, newest on top, as soon as you go live.",
+    "iv.thinking": "Thinking…",
+    "iv.help": "💡 Help me",
   },
   de: {
     "brand.suffix": "hearse",
@@ -327,7 +362,7 @@ const STRINGS = {
     "nav.progress": "FORTSCHRITT",
     "lang.toggle.title": "Sprache wechseln",
 
-    "home.sub": "Übe die Gespräche, die wirklich zählen. Sprich laut, hör die Antworten, lass dich live coachen.",
+    "home.sub": "Dein KI-Co-Pilot für Vorträge, Pitches und Interviews. Einmal vorbereiten, dann Live-Hilfe, wenn es zählt.",
     "home.streak.drill": "Quick-Drill-Serie",
     "home.streak.daily": "Tagesserie",
     "home.label.who": "Mit wem sprichst du?",
@@ -619,6 +654,41 @@ const STRINGS = {
     "present.err.mic": "Mikrofon blockiert. Zugriff erlauben und erneut versuchen, oder Punkte per Tippen abhaken.",
     "present.err.generate": "Karten konnten nicht erstellt werden. Versuch es nochmal.",
     "present.hint.tap": "Tippe einen Punkt an, um ihn von Hand abzuhaken. Wische für die nächste Karte.",
+    "present.progress.lbl": "Erledigt",
+
+    // Home: Hauptmodi + Gespräche (sekundär)
+    "home.present.t": "Präsentieren", "home.present.s": "Live-Karten, die dich beim echten Vortrag auf Kurs halten",
+    "home.train.t": "Trainieren", "home.train.s": "Vortrag proben und Coaching bekommen, was du ändern solltest",
+    "home.interview.t": "Interview", "home.interview.s": "Kontext hochladen, Live-Hilfe beim Antworten bekommen",
+    "home.conv.more": "Gespräche üben",
+    "home.conv.sub": "Übe echte Gespräche laut mit einem KI-Partner, oder lies ein Skript auf dem Teleprompter.",
+    "home.drill.t": "Quick Drill", "home.drill.s": "90 Sekunden Improvisation gegen einen zufälligen Partner",
+
+    // Trainieren-Modus
+    "train.title.a": "Trai", "train.title.b": "nieren",
+    "train.sub": "Lade deine Folien hoch, probe laut und lass dich coachen, was du vor dem echten Termin ändern solltest.",
+    "train.generate": "Karten bauen & proben",
+    "train.hint": "Tippe Live gehen und probe laut. Beende für dein Coaching.",
+    "train.finish": "Fertig ▸",
+    "train.again": "↻ Nochmal proben",
+    "train.scoring": "⟳ Deine Probe wird bewertet…",
+    "train.nospeech": "Geh erst live und probe laut, dann kann ich dich coachen.",
+    "train.report.title": "Coaching",
+    "train.report.fix": "Was du ändern solltest",
+    "train.report.missed": "Übersprungene oder gehetzte Punkte",
+
+    // Interview-Modus
+    "iv.title.a": "Inter", "iv.title.b": "view",
+    "iv.sub": "Gib der KI deinen Hintergrund, dann geh live. Sie hört dem Gespräch zu und zeigt dir, was du sagen sollst, genau im richtigen Moment.",
+    "iv.label.text": "Dein Kontext",
+    "iv.label.file": "Oder Datei hinzufügen (PDF / PowerPoint)",
+    "iv.ctx.ph": "Füge deinen Lebenslauf ein, die Stellenanzeige, das Projekt, wichtige Fakten, die du platzieren willst…",
+    "iv.start": "Live-Hilfe starten",
+    "iv.stage.title": "Interview",
+    "iv.hint": "Tippe Live gehen. Ich schlage Antworten vor, während das Gespräch läuft, oder tippe jederzeit Hilf mir.",
+    "iv.empty": "Deine Antwortvorschläge erscheinen hier, neueste oben, sobald du live gehst.",
+    "iv.thinking": "Denkt nach…",
+    "iv.help": "💡 Hilf mir",
   },
 };
 

@@ -504,6 +504,36 @@
   .pe-add:active{transform:translateY(1px)}
   .pe-bridgewrap{margin-top:12px}
   .pe-lbl{font-size:10px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);font-weight:800;margin-bottom:5px}
+  /* home: primary mode cards + secondary conversations fold */
+  .mode-card{border-bottom-width:4px}
+  .mode-card .tt{font-size:18px}
+  .conv-fold{margin-top:20px;border-top:2px solid var(--line);padding-top:6px}
+  .conv-fold summary{list-style:none;cursor:pointer;font-size:13px;font-weight:800;letter-spacing:.3px;color:var(--muted);padding:10px 2px;display:flex;align-items:center;gap:6px;text-transform:uppercase}
+  .conv-fold summary::-webkit-details-marker{display:none}
+  .conv-fold summary::before{content:'▸';font-size:12px;transition:.15s}
+  .conv-fold[open] summary::before{transform:rotate(90deg)}
+  .conv-fold .fold-body{padding-top:4px}
+  /* train: live metrics strip */
+  .pres-metrics{display:flex;gap:8px;margin-bottom:10px;flex-shrink:0}
+  .pres-metrics .m{flex:1;background:var(--panel2);border:1.5px solid var(--line);border-radius:10px;padding:6px 8px;font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;text-align:center}
+  .pres-metrics .m b{display:block;font-size:18px;color:var(--ink);font-variant-numeric:tabular-nums;margin-top:2px}
+  .pres-metrics .m.g{border-color:var(--accent);color:var(--accent2)}.pres-metrics .m.g b{color:var(--accent2)}
+  .pres-metrics .m.w{border-color:var(--warn);color:#8a6500}.pres-metrics .m.w b{color:#8a6500}
+  .pres-metrics .m.r{border-color:var(--bad);color:var(--bad)}.pres-metrics .m.r b{color:var(--bad)}
+  /* train: coaching report */
+  .coach-score{font-size:46px;font-weight:900;line-height:1;text-align:center;margin:8px 0;color:var(--accent2)}
+  .coach-score small{font-size:18px;color:var(--muted)}
+  .coach-score.warn{color:#c79200}.coach-score.bad{color:var(--bad)}
+  .coach-summary{font-size:15px;font-weight:700;color:var(--ink);line-height:1.5;text-align:center;margin-bottom:8px}
+  .coach-delivery{font-size:13px;font-weight:700;color:var(--muted);text-align:center;margin-bottom:6px}
+  /* interview: live answer feed */
+  .iv-feed{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;gap:10px;padding:2px 0 8px}
+  .iv-empty{margin:auto;text-align:center;color:var(--muted);font-weight:700;font-size:14px;padding:30px 20px;line-height:1.5}
+  .iv-card{background:#fff;border:2px solid var(--accent);border-bottom-width:4px;border-radius:16px;padding:14px;animation:pop .3s cubic-bezier(.34,1.56,.64,1)}
+  .iv-card.loading-card{border-color:var(--line)}
+  .iv-answer{font-size:17px;font-weight:800;line-height:1.45;color:var(--ink)}
+  .iv-points{margin-top:9px;border-top:1.5px dashed var(--line);padding-top:9px;display:flex;flex-direction:column;gap:4px}
+  .iv-points span{font-size:13px;font-weight:700;color:var(--accent2)}
 </style>
 </head>
 <body>
@@ -529,17 +559,24 @@
       <div class="streak cold" id="streak" title="Daily streak">🔥 0</div>
     </div>
   </div>
-  <p class="sub" id="homeSub">Talk through the conversations that matter. Speak out loud, hear them respond, get coached in real time.</p>
+  <p class="sub" id="homeSub">Your AI co-pilot for talks, pitches, and interviews. Prep once, then get live help when it counts.</p>
   <div id="lastSession" class="hidden"></div>
-  <div class="label" id="homeWho">Who are you talking to?</div>
-  <div class="tcard" data-partner-key="friend" onclick="pickPartner('friend')"><div class="ic">😎</div><div><div class="tt">A friend</div><div class="ts">banter, timing, being funnier</div></div><div class="arr">›</div></div>
-  <div class="tcard" data-partner-key="date" onclick="pickPartner('date')"><div class="ic">💘</div><div><div class="tt">A date</div><div class="ts">flirting, curiosity, not being needy</div></div><div class="arr">›</div></div>
-  <div class="tcard" data-partner-key="boss" onclick="pickPartner('boss')"><div class="ic">💼</div><div><div class="tt">Your boss</div><div class="ts">negotiating, confidence, holding your number</div></div><div class="arr">›</div></div>
-  <div class="tcard" data-partner-key="stranger" onclick="pickPartner('stranger')"><div class="ic">👋</div><div><div class="tt">A stranger</div><div class="ts">approaching, small talk, getting past it</div></div><div class="arr">›</div></div>
-  <div class="tcard" data-partner-key="audience" onclick="pickPartner('audience')"><div class="ic">🎤</div><div><div class="tt">An audience</div><div class="ts">public speaking, hooks, Q&amp;A under pressure</div></div><div class="arr">›</div></div>
-  <div class="label" id="homeSpeech" style="margin-top:18px">Or rehearse a speech</div>
-  <div class="tcard" data-partner-key="speech" onclick="openSpeech()"><div class="ic">📖</div><div><div class="tt">Teleprompter</div><div class="ts">read a script, get scored on delivery + faithfulness</div></div><div class="arr">›</div></div>
-  <div class="tcard" data-partner-key="present" onclick="openPresent()"><div class="ic" style="background:#e5ffd6">🗂️</div><div><div class="tt">Present mode</div><div class="ts">live cue cards that tick off what you say</div></div><div class="arr">›</div></div>
+  <div class="tcard mode-card" onclick="openPresent()"><div class="ic" style="background:#e5ffd6">🗂️</div><div><div class="tt" id="homePresentT">Present</div><div class="ts" id="homePresentS">Live cue cards that keep you on track during a real talk</div></div><div class="arr">›</div></div>
+  <div class="tcard mode-card" onclick="openTrain()"><div class="ic" style="background:#ddf4ff">🎯</div><div><div class="tt" id="homeTrainT">Train</div><div class="ts" id="homeTrainS">Rehearse your talk and get coached on what to fix</div></div><div class="arr">›</div></div>
+  <div class="tcard mode-card" onclick="openInterview()"><div class="ic" style="background:#fff0d6">🎙️</div><div><div class="tt" id="homeInterviewT">Interview</div><div class="ts" id="homeInterviewS">Upload your context, get live help answering questions</div></div><div class="arr">›</div></div>
+  <details class="conv-fold" id="convFold">
+    <summary id="homeConvMore">Practice conversations</summary>
+    <div class="fold-body">
+      <p class="sub" id="homeConvSub" style="margin:8px 0 12px">Rehearse real conversations out loud with an AI partner, or read a script on the teleprompter.</p>
+      <div class="tcard" data-partner-key="friend" onclick="pickPartner('friend')"><div class="ic">😎</div><div><div class="tt">A friend</div><div class="ts">banter, timing, being funnier</div></div><div class="arr">›</div></div>
+      <div class="tcard" data-partner-key="date" onclick="pickPartner('date')"><div class="ic">💘</div><div><div class="tt">A date</div><div class="ts">flirting, curiosity, not being needy</div></div><div class="arr">›</div></div>
+      <div class="tcard" data-partner-key="boss" onclick="pickPartner('boss')"><div class="ic">💼</div><div><div class="tt">Your boss</div><div class="ts">negotiating, confidence, holding your number</div></div><div class="arr">›</div></div>
+      <div class="tcard" data-partner-key="stranger" onclick="pickPartner('stranger')"><div class="ic">👋</div><div><div class="tt">A stranger</div><div class="ts">approaching, small talk, getting past it</div></div><div class="arr">›</div></div>
+      <div class="tcard" data-partner-key="audience" onclick="pickPartner('audience')"><div class="ic">🎤</div><div><div class="tt">An audience</div><div class="ts">public speaking, hooks, Q&amp;A under pressure</div></div><div class="arr">›</div></div>
+      <div class="tcard" data-partner-key="speech" onclick="openSpeech()"><div class="ic">📖</div><div><div class="tt">Teleprompter</div><div class="ts">read a script, get scored on delivery + faithfulness</div></div><div class="arr">›</div></div>
+      <div class="tcard" onclick="navTo('practice')"><div class="ic">⚡</div><div><div class="tt" id="homeDrillT">Quick Drill</div><div class="ts" id="homeDrillS">90-second improv against a random partner</div></div><div class="arr">›</div></div>
+    </div>
+  </details>
   <div style="flex:1"></div>
 </section>
 
@@ -604,6 +641,7 @@
     <button class="back" id="presEndBtn" style="margin:0" onclick="endPresent()">End ▸</button>
   </div>
   <div class="pres-prog"><i id="presProg"></i></div>
+  <div class="pres-metrics hidden" id="presMetrics"></div>
   <div class="pcard" id="presCard"></div>
   <div class="pres-navrow">
     <button class="pn" id="presPrev" onclick="presNav(-1)">‹</button>
@@ -630,13 +668,42 @@
 
 <div class="modal-bg hidden" id="presSumModal">
   <div class="modal pres-summary" onclick="event.stopPropagation()">
-    <div class="modal-title" id="presSumTitle">Run finished</div>
-    <div class="modal-sub" id="presSumStats"></div>
-    <div id="presSumMissed" style="max-height:200px;overflow-y:auto;margin-bottom:8px"></div>
+    <div id="presSumBody"></div>
     <button class="btn btn-go" id="presSumAgain" onclick="presRunAgain()">↻ Run it again</button>
     <button class="modal-keep" id="presSumHome" onclick="presFinishHome()">Done</button>
   </div>
 </div>
+
+<section class="screen" id="s-interview-setup">
+  <button class="back" id="ivBack" onclick="go('home')">‹ Back</button>
+  <div class="logo"><span id="ivTitleA">Inter</span><span id="ivTitleB">view</span></div>
+  <p class="sub" id="ivSub">Give the AI your background, then go live. It listens to the conversation and shows you what to say, the moment you need it.</p>
+  <div id="ivResume"></div>
+  <div class="label" id="ivLabelText">Your context</div>
+  <textarea class="pres-ta" id="ivContext" style="min-height:120px" placeholder="Paste your CV, the job description, the project you're discussing, key facts you want to land…"></textarea>
+  <div class="label" id="ivLabelFile">Or add a file (PDF / PowerPoint)</div>
+  <div class="pres-file">
+    <label for="ivFile" id="ivFileBtn">Choose file</label>
+    <input type="file" id="ivFile" accept="application/pdf,.pdf,.pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation" style="display:none" onchange="ivFileChanged()">
+    <div class="fname" id="ivFileName">–</div>
+  </div>
+  <button class="btn btn-go" id="ivStartBtn" onclick="startInterview()">Start live help</button>
+  <div class="err hidden" id="ivErr" style="margin-top:10px"></div>
+</section>
+
+<section class="screen" id="s-interview-stage" style="position:relative">
+  <div class="pres-head">
+    <span class="ptime" id="ivTime">0:00</span>
+    <span class="ptitle" id="ivStageTitle">Interview</span>
+    <button class="back" id="ivEndBtn" style="margin:0" onclick="endInterview()">End ▸</button>
+  </div>
+  <div class="iv-feed" id="ivFeed"></div>
+  <div class="pres-ticker" id="ivTicker"></div>
+  <div class="pres-actions">
+    <button class="pres-live" id="ivLiveBtn" onclick="toggleIvLive()">● Go live</button>
+    <button class="pres-qa" id="ivHelpBtn" onclick="ivHelpNow()">💡 Help me</button>
+  </div>
+</section>
 
 <section class="screen" id="s-goal">
   <button class="back" onclick="go('home')">‹ back</button>
@@ -869,7 +936,6 @@ function writeLastSession(d){localStorage.setItem('rehearse_last_session',JSON.s
 const $=id=>document.getElementById(id);
 const NAV_HTML=`
   <button class="nav-item" data-nav="home" onclick="navTo('home')"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7h-6v7H4a1 1 0 0 1-1-1V11z"/></svg>HOME</button>
-  <button class="nav-item" data-nav="practice" onclick="navTo('practice')"><svg viewBox="0 0 24 24"><path d="M4 9v6M7 6v12M17 6v12M20 9v6M7 12h10"/></svg>PRACTICE</button>
   <button class="nav-item" data-nav="progress" onclick="navTo('progress')"><svg viewBox="0 0 24 24"><path d="M3 17l5-5 4 4 8-9"/><path d="M14 7h6v6"/></svg>PROGRESS</button>`;
 // Apply current language to every static piece of UI. Called on boot + after toggle.
 window.applyI18n=function(){
@@ -914,7 +980,13 @@ window.applyI18n=function(){
     'presLabelDeck':'present.label.deck','presFileBtn':'present.file.pick','presLabelNotes':'present.label.notes',
     'presLabelOutline':'present.label.outline','presGenBtn':'present.generate','presEndBtn':'present.end',
     'presQaTitle':'present.qa.title','presQaSub':'present.qa.sub','presQaGo':'present.qa.go','presQaClose':'present.qa.close',
-    'presSumTitle':'present.summary.title','presSumAgain':'present.summary.again','presSumHome':'present.summary.home',
+    'presSumHome':'present.summary.home',
+    'homePresentT':'home.present.t','homePresentS':'home.present.s',
+    'homeTrainT':'home.train.t','homeTrainS':'home.train.s',
+    'homeInterviewT':'home.interview.t','homeInterviewS':'home.interview.s',
+    'homeConvMore':'home.conv.more','homeConvSub':'home.conv.sub','homeDrillT':'home.drill.t','homeDrillS':'home.drill.s',
+    'ivTitleA':'iv.title.a','ivTitleB':'iv.title.b','ivSub':'iv.sub','ivLabelText':'iv.label.text','ivLabelFile':'iv.label.file',
+    'ivFileBtn':'present.file.pick','ivStartBtn':'iv.start','ivStageTitle':'iv.stage.title',
   };
   for(const id of Object.keys(map)){const el=$(id);if(el)el.textContent=t(map[id]);}
   // Teleprompter context dropdown options.
@@ -941,12 +1013,20 @@ window.applyI18n=function(){
   const po=$('presOutline');if(po)po.placeholder=t('present.outline.ph');
   const pq=$('presQaInp');if(pq)pq.placeholder=t('present.qa.ph');
   const pb=$('presBack');if(pb)pb.textContent=t('back');
-  const peb=$('presEndBtn');if(peb)peb.textContent=t('present.end');
+  const peb=$('presEndBtn');if(peb)peb.textContent=t(presMode==='train'?'train.finish':'present.end');
   const plb=$('presLiveBtn');if(plb&&!presLive)plb.textContent=t('present.live.start');
   const pqb=$('presQaBtn');if(pqb)pqb.textContent=t('present.qa.btn');
   if($('presFileName')&&!presFileObj)$('presFileName').textContent='–';
-  if($('s-present-setup')&&$('s-present-setup').classList.contains('active'))renderPresResume();
+  if($('s-present-setup')&&$('s-present-setup').classList.contains('active')){setDeckSetupTexts();renderPresResume();}
   if($('s-present-stage')&&$('s-present-stage').classList.contains('active')&&presDeck){renderPresCard();$('presDeckTitle').textContent=presDeck.title;}
+  // Interview-mode placeholders + back/end + live feed refresh.
+  const ivc=$('ivContext');if(ivc)ivc.placeholder=t('iv.ctx.ph');
+  const ivb=$('ivBack');if(ivb)ivb.textContent=t('back');
+  const ive=$('ivEndBtn');if(ive)ive.textContent=t('present.end');
+  const ivlb=$('ivLiveBtn');if(ivlb&&!ivLive)ivlb.textContent=t('present.live.start');
+  const ivhb=$('ivHelpBtn');if(ivhb)ivhb.textContent=t('iv.help');
+  if($('ivFileName')&&!ivFileObj)$('ivFileName').textContent='–';
+  if($('s-interview-stage')&&$('s-interview-stage').classList.contains('active'))renderIvFeed();
   $('langToggle').title=t('lang.toggle.title');
   // Localized partner cards on home.
   document.querySelectorAll('[data-partner-key]').forEach(el=>{
@@ -2509,11 +2589,24 @@ let presFileObj=null,presNavToken=0,presHardStop=null,presEditing=false;
 function presReadSaved(){try{return JSON.parse(localStorage.getItem(PRES_LS_KEY)||'null');}catch{return null;}}
 function presSave(deck){try{localStorage.setItem(PRES_LS_KEY,JSON.stringify(deck));}catch{}}
 
-window.openPresent=()=>{
+let presMode='present'; // 'present' | 'train'
+window.openPresent=()=>{ presMode='present'; openDeckSetup(); };
+window.openTrain=()=>{ presMode='train'; openDeckSetup(); };
+function openDeckSetup(){
   $('presErr').classList.add('hidden');
+  setDeckSetupTexts();
   renderPresResume();
   go('present-setup');
-};
+}
+// The deck setup screen + cue-card stage are shared by Present and Train; only
+// the copy and a few stage affordances differ, driven by presMode.
+function setDeckSetupTexts(){
+  const train=presMode==='train';
+  $('presTitleA').textContent=t(train?'train.title.a':'present.title.a');
+  $('presTitleB').textContent=t(train?'train.title.b':'present.title.b');
+  $('presSub').textContent=t(train?'train.sub':'present.sub');
+  $('presGenBtn').textContent=t(train?'train.generate':'present.generate');
+}
 function renderPresResume(){
   const saved=presReadSaved();const slot=$('presResume');if(!slot)return;
   if(!saved||!Array.isArray(saved.cards)||!saved.cards.length){slot.innerHTML='';return;}
@@ -2617,15 +2710,20 @@ window.generatePresent=async()=>{
     presSave(presDeck);
     enterPresentStage();
   }catch(e){presSetupErr(e.message||t('present.err.generate'));}
-  finally{btn.disabled=false;btn.textContent=t('present.generate');}
+  finally{btn.disabled=false;setDeckSetupTexts();}
 };
 
 function enterPresentStage(){
   presIdx=0;presCovered=new Set();presFinal='';presSentWords=0;presElapsed=0;presEditing=false;
+  const train=presMode==='train';
   $('presDeckTitle').textContent=presDeck.title;
   $('presTime').textContent='0:00';
-  $('presTicker').textContent=t('present.hint.tap');
+  $('presTicker').textContent=t(train?'train.hint':'present.hint.tap');
   $('presTicker').classList.remove('live');
+  $('presQaBtn').classList.toggle('hidden',train);   // Q&A is a Present affordance
+  $('presMetrics').classList.toggle('hidden',!train); // live pace/fillers only when training
+  if(train)$('presMetrics').innerHTML='';
+  $('presEndBtn').textContent=t(train?'train.finish':'present.end');
   syncPresLiveBtn();
   renderPresCard();
   go('present-stage');
@@ -2784,8 +2882,10 @@ async function startPresLive(){
   syncPresLiveBtn();
   presTrackInt=setInterval(presTrackTick,PRES_TRACK_MS);
   presTimeInt=setInterval(()=>{
-    const s=Math.floor((presElapsed+(performance.now()-presLiveSince))/1000);
+    const ms=presElapsed+(performance.now()-presLiveSince);
+    const s=Math.floor(ms/1000);
     $('presTime').textContent=Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
+    if(presMode==='train')updateTrainMetrics(ms/1000);
   },1000);
   presHardStop=setTimeout(stopPresLive,PRES_MAX_LIVE_MS);
   // Keep the screen awake on the podium; a sleeping phone kills the mic too.
@@ -2822,10 +2922,20 @@ function stopPresLive(){
   if(presTimeInt){clearInterval(presTimeInt);presTimeInt=null;}
   if(presHardStop){clearTimeout(presHardStop);presHardStop=null;}
   if(presWakeLock){try{presWakeLock.release();}catch{}presWakeLock=null;}
-  $('presTicker').textContent=t('present.hint.tap');
+  $('presTicker').textContent=t(presMode==='train'?'train.hint':'present.hint.tap');
   $('presTicker').classList.remove('live');
   syncPresLiveBtn();
   presTrackTick(); // flush whatever was said since the last tick
+}
+function updateTrainMetrics(durS){
+  const words=presFinal.trim().split(/\s+/).filter(Boolean);
+  const wpm=durS>3?Math.round(words.length/(durS/60)):0;
+  const fillers=countFillers(presFinal);
+  const wc=wpm?(wpm<110?'w':wpm>175?'r':'g'):'';
+  $('presMetrics').innerHTML=
+    `<span class="m ${wc}">${esc(t('live.wpm'))} <b>${wpm||'-'}</b></span>`+
+    `<span class="m ${fillers>6?'w':''}">${esc(t('tele.live.fillers'))} <b>${fillers}</b></span>`+
+    `<span class="m">${esc(t('present.progress.lbl'))} <b>${presCovered.size}/${presTotalPoints()}</b></span>`;
 }
 document.addEventListener('visibilitychange',()=>{
   // iOS drops the wake lock + speech recognition when the app is backgrounded;
@@ -2904,20 +3014,229 @@ window.askPresQA=async()=>{
 /* --- end of run: tiny client-side debrief, no server round trip --- */
 window.endPresent=()=>{
   stopPresLive();
+  if(presMode==='train'){endTrain();return;}
   const total=presTotalPoints();
   const missed=presDeck?presDeck.cards.flatMap(c=>c.points.filter(p=>!presCovered.has(p.id)).map(p=>({n:c.n,t:p.t}))):[];
-  $('presSumStats').textContent=t('present.summary.covered',{a:total-missed.length,b:total});
-  $('presSumMissed').innerHTML=missed.length
-    ?`<div class="label">${esc(t('present.summary.missed'))}</div>`+missed.map(m=>`<div class="ms">· <b>${m.n}</b> ${esc(m.t)}</div>`).join('')
-    :`<div class="ms" style="color:var(--accent2)">${esc(t('present.summary.none'))}</div>`;
+  $('presSumBody').innerHTML=
+    `<div class="modal-title">${esc(t('present.summary.title'))}</div>`+
+    `<div class="modal-sub">${esc(t('present.summary.covered',{a:total-missed.length,b:total}))}</div>`+
+    `<div style="max-height:220px;overflow-y:auto;margin-bottom:8px">`+
+    (missed.length
+      ?`<div class="label">${esc(t('present.summary.missed'))}</div>`+missed.map(m=>`<div class="ms">· <b>${m.n}</b> ${esc(m.t)}</div>`).join('')
+      :`<div class="ms" style="color:var(--accent2)">${esc(t('present.summary.none'))}</div>`)+
+    `</div>`;
+  $('presSumAgain').textContent=t('present.summary.again');
   $('presSumModal').classList.remove('hidden');
 };
+async function endTrain(){
+  const durS=presElapsed/1000;
+  const words=presFinal.trim().split(/\s+/).filter(Boolean);
+  $('presSumModal').classList.remove('hidden');
+  $('presSumAgain').textContent=t('train.again');
+  if(words.length<8){
+    $('presSumBody').innerHTML=`<div class="modal-title">${esc(t('train.report.title'))}</div><div class="modal-sub">${esc(t('train.nospeech'))}</div>`;
+    return;
+  }
+  $('presSumBody').innerHTML=`<div class="loading">${esc(t('train.scoring'))}</div>`;
+  const wpm=durS>3?Math.round(words.length/(durS/60)):0;
+  const fillers=countFillers(presFinal);
+  try{
+    const d=await api('/api/present',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action:'coach',
+        cards:presDeck.cards.map(c=>({title:c.title,points:c.points.map(p=>({t:p.t}))})),
+        transcript:presFinal,wpm,fillers,duration_s:durS,lang:getLang(),device_id:deviceId()})});
+    renderCoachReport(d,wpm,fillers);
+  }catch(e){
+    $('presSumBody').innerHTML=`<div class="modal-title">${esc(t('train.report.title'))}</div><div class="modal-sub">${esc(e.message||t('present.err.generate'))}</div>`;
+  }
+}
+function renderCoachReport(d,wpm,fillers){
+  const bucket=d.score>=80?'good':d.score>=55?'warn':'bad';
+  $('presSumBody').innerHTML=
+    `<div class="modal-title">${esc(t('train.report.title'))}</div>`+
+    `<div class="coach-score ${bucket}">${d.score}<small>/100</small></div>`+
+    (d.summary?`<div class="coach-summary">${esc(d.summary)}</div>`:'')+
+    (d.delivery?`<div class="coach-delivery">⏱ ${esc(d.delivery)}</div>`:'')+
+    `<div style="max-height:230px;overflow-y:auto">`+
+    (d.tips&&d.tips.length?`<div class="label" style="margin-top:12px">${esc(t('train.report.fix'))}</div>`+d.tips.map(x=>`<div class="ms">→ ${esc(x)}</div>`).join(''):'')+
+    (d.missed&&d.missed.length?`<div class="label" style="margin-top:12px">${esc(t('train.report.missed'))}</div>`+d.missed.map(x=>`<div class="ms">· ${esc(x)}</div>`).join(''):'')+
+    `</div>`;
+}
 window.presRunAgain=()=>{
   $('presSumModal').classList.add('hidden');
   enterPresentStage();
 };
 window.presFinishHome=()=>{
   $('presSumModal').classList.add('hidden');
+  bumpStreak();
+  go('home');
+};
+
+/* ---------- Interview mode: live AI helper for a real conversation ---------- */
+const IV_LS_KEY='rehearse_interview_ctx';
+const IV_MAX_LIVE_MS=2*60*60*1000;
+let ivContext='',ivLive=false,ivSR=null,ivStream=null,ivRec=null,ivRecTimer=null;
+let ivFinal='',ivBusy=false,ivTrigWords=0,ivElapsed=0,ivSince=0,ivTimeInt=null,ivWake=null,ivHardStop=null;
+let ivFileObj=null,ivFeed=[];
+
+window.openInterview=()=>{
+  $('ivErr').classList.add('hidden');
+  ivFileObj=null;$('ivFile').value='';$('ivFileName').textContent='–';$('ivFileName').classList.remove('has');
+  try{const saved=localStorage.getItem(IV_LS_KEY);if(saved&&!$('ivContext').value)$('ivContext').value=saved;}catch{}
+  go('interview-setup');
+};
+window.ivFileChanged=()=>{
+  const f=$('ivFile').files[0];const nameEl=$('ivFileName');ivFileObj=null;
+  if(!f){nameEl.textContent='–';nameEl.classList.remove('has');return;}
+  if(!presIsPdf(f)&&!presIsPpt(f)){ivSetupErr(t('present.err.notfile'));$('ivFile').value='';return;}
+  if(f.size>PRES_MAX_FILE){ivSetupErr(t('present.err.toobig'));$('ivFile').value='';return;}
+  ivFileObj=f;nameEl.textContent=f.name;nameEl.classList.add('has');$('ivErr').classList.add('hidden');
+};
+function ivSetupErr(msg){const e=$('ivErr');e.textContent=msg;e.classList.remove('hidden');}
+window.startInterview=async()=>{
+  const typed=$('ivContext').value.trim();
+  const btn=$('ivStartBtn');btn.disabled=true;
+  $('ivErr').classList.add('hidden');
+  try{
+    let ctx=typed;
+    if(ivFileObj){
+      btn.textContent=t('present.reading');
+      const slides=await extractSlides(ivFileObj);
+      const fileText=slides.map(s=>s.text).filter(Boolean).join('\n');
+      ctx=(typed?typed+'\n\n':'')+fileText;
+    }
+    ctx=ctx.trim();
+    ivContext=ctx.slice(0,12000);
+    try{localStorage.setItem(IV_LS_KEY,typed.slice(0,12000));}catch{}
+    enterIvStage();
+  }catch(e){ivSetupErr(e.message||t('present.err.generate'));}
+  finally{btn.disabled=false;btn.textContent=t('iv.start');}
+};
+function enterIvStage(){
+  ivLive=false;ivFinal='';ivBusy=false;ivTrigWords=0;ivElapsed=0;ivFeed=[];
+  $('ivTime').textContent='0:00';
+  $('ivTicker').textContent=t('iv.hint');
+  $('ivTicker').classList.remove('live');
+  renderIvFeed();
+  syncIvBtn();
+  go('interview-stage');
+}
+function renderIvFeed(){
+  const feed=$('ivFeed');
+  if(!ivFeed.length){feed.innerHTML=`<div class="iv-empty">${esc(t('iv.empty'))}</div>`;return;}
+  feed.innerHTML=ivFeed.map(it=>{
+    if(it.loading)return `<div class="iv-card loading-card"><div class="loading">${esc(t('iv.thinking'))}</div></div>`;
+    return `<div class="iv-card">
+      <div class="iv-answer">${esc(it.answer||'')}</div>
+      ${(it.points&&it.points.length)?`<div class="iv-points">${it.points.map(p=>`<span>• ${esc(p)}</span>`).join('')}</div>`:''}
+    </div>`;
+  }).join('');
+  feed.scrollTop=0;
+}
+function syncIvBtn(){
+  const b=$('ivLiveBtn');if(!b)return;
+  b.textContent=ivLive?t('present.live.stop'):t('present.live.start');
+  b.classList.toggle('live',ivLive);
+  $('ivHelpBtn').textContent=t('iv.help');
+}
+function ivLooksLikeQuestion(s){
+  if(/\?\s*$/.test(s.trim()))return true;
+  return /(^|\b)(what|why|how|when|where|who|which|whats|what's|tell me|describe|explain|walk me|can you|could you|would you|do you|did you|have you|are you|is there|give me|wie|warum|was|welche|erzähl|erkläre|kannst du|könnten sie|wieso|weshalb)\b/i.test(s.trim());
+}
+window.toggleIvLive=()=>{ivLive?stopIvLive():startIvLive();};
+async function startIvLive(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(SR){
+    try{
+      ivSR=new SR();ivSR.continuous=true;ivSR.interimResults=true;ivSR.lang=bcp47();
+      ivSR.onresult=e=>{
+        let interim='';
+        for(let i=e.resultIndex;i<e.results.length;i++){
+          const txt=e.results[i][0].transcript;
+          if(e.results[i].isFinal){ivFinal+=' '+txt;ivMaybeAuto(txt);}else interim+=txt;
+        }
+        const tail=(ivFinal+' '+interim).trim().split(/\s+/).slice(-9).join(' ');
+        if(tail)$('ivTicker').textContent='🎙 …'+tail;
+      };
+      ivSR.onend=()=>{if(ivLive){try{ivSR.start();}catch{}}};
+      ivSR.start();
+    }catch{ivSR=null;err(t('present.err.mic'));return;}
+  }else{
+    try{ivStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});}
+    catch{err(t('present.err.mic'));return;}
+    ivRecSegment();
+  }
+  ivLive=true;ivSince=performance.now();
+  $('ivTicker').textContent=t('present.live.on');$('ivTicker').classList.add('live');
+  syncIvBtn();
+  ivTimeInt=setInterval(()=>{
+    const s=Math.floor((ivElapsed+(performance.now()-ivSince))/1000);
+    $('ivTime').textContent=Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
+  },1000);
+  ivHardStop=setTimeout(stopIvLive,IV_MAX_LIVE_MS);
+  try{ivWake=await navigator.wakeLock.request('screen');}catch{}
+}
+function ivRecSegment(){
+  if(!ivStream)return;
+  const mime=MediaRecorder.isTypeSupported('audio/webm')?'audio/webm':(MediaRecorder.isTypeSupported('audio/mp4')?'audio/mp4':'');
+  ivRec=new MediaRecorder(ivStream,mime?{mimeType:mime}:undefined);
+  const chunks=[];
+  ivRec.ondataavailable=e=>{if(e.data.size>0)chunks.push(e.data);};
+  ivRec.onstop=async()=>{
+    const blob=new Blob(chunks,{type:ivRec.mimeType||'audio/webm'});
+    if(ivLive)ivRecSegment();
+    if(blob.size<2000)return;
+    try{
+      const r=await fetch('/api/stt',{method:'POST',headers:{'Content-Type':blob.type,'x-device-id':deviceId(),'x-language':getLang()},body:blob});
+      const d=await r.json();
+      if(d.text){ivFinal+=' '+d.text;$('ivTicker').textContent='🎙 …'+ivFinal.trim().split(/\s+/).slice(-9).join(' ');ivMaybeAuto(d.text);}
+    }catch{}
+  };
+  ivRec.start();
+  ivRecTimer=setTimeout(()=>{try{ivRec.state!=='inactive'&&ivRec.stop();}catch{}},15000);
+}
+function stopIvLive(){
+  if(!ivLive)return;
+  ivLive=false;ivElapsed+=performance.now()-ivSince;
+  if(ivSR){try{ivSR.stop();}catch{}ivSR=null;}
+  if(ivRecTimer){clearTimeout(ivRecTimer);ivRecTimer=null;}
+  if(ivRec){try{ivRec.state!=='inactive'&&ivRec.stop();}catch{}ivRec=null;}
+  if(ivStream){try{ivStream.getTracks().forEach(t=>t.stop());}catch{}ivStream=null;}
+  if(ivTimeInt){clearInterval(ivTimeInt);ivTimeInt=null;}
+  if(ivHardStop){clearTimeout(ivHardStop);ivHardStop=null;}
+  if(ivWake){try{ivWake.release();}catch{}ivWake=null;}
+  $('ivTicker').textContent=t('iv.hint');$('ivTicker').classList.remove('live');
+  syncIvBtn();
+}
+function ivMaybeAuto(chunk){
+  if(ivBusy)return;
+  const words=ivFinal.trim().split(/\s+/).filter(Boolean).length;
+  if(words-ivTrigWords<5)return;
+  if(ivLooksLikeQuestion(chunk)){ivTrigWords=words;ivAssist('');}
+}
+window.ivHelpNow=()=>{
+  const words=ivFinal.trim().split(/\s+/).filter(Boolean).length;
+  ivTrigWords=words;
+  ivAssist('');
+};
+async function ivAssist(question){
+  if(ivBusy)return;
+  ivBusy=true;
+  ivFeed.unshift({loading:true});
+  if(ivFeed.length>12)ivFeed.pop();
+  renderIvFeed();
+  try{
+    const transcript=ivFinal.trim().split(/\s+/).slice(-260).join(' ');
+    const d=await api('/api/present',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action:'assist',context:ivContext,transcript,question:question||'',lang:getLang(),device_id:deviceId()})});
+    ivFeed[0]={answer:d.answer||'',points:d.points||[]};
+    if(!d.answer&&(!d.points||!d.points.length))ivFeed.shift();
+  }catch(e){
+    ivFeed[0]={answer:e.message||t('present.err.generate'),points:[]};
+  }finally{ivBusy=false;renderIvFeed();}
+}
+window.endInterview=()=>{
+  stopIvLive();
   bumpStreak();
   go('home');
 };
