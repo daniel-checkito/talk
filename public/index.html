@@ -543,6 +543,22 @@
   .iv-answer{font-size:17px;font-weight:800;line-height:1.45;color:var(--ink)}
   .iv-points{margin-top:9px;border-top:1.5px dashed var(--line);padding-top:9px;display:flex;flex-direction:column;gap:4px}
   .iv-points span{font-size:13px;font-weight:700;color:var(--accent2)}
+  /* live HUD: big-type, glanceable, no scrolling */
+  .pcard.liveview{overflow:hidden;display:flex;flex-direction:column;justify-content:center;gap:14px;text-align:center}
+  .plive-slide{font-size:13px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);font-weight:800}
+  .plive-slide b{color:var(--ink);font-size:15px}
+  .plive-now{font-size:30px;font-weight:900;line-height:1.22;color:var(--ink);animation:slideIn .3s ease;cursor:pointer}
+  .plive-say{font-size:17px;font-weight:700;line-height:1.45;color:var(--accent2)}
+  .plive-next{font-size:13px;font-weight:700;color:var(--muted);line-height:1.4}
+  .plive-change{font-size:24px;font-weight:900;line-height:1.3;color:#0b6e9e;background:#ddf4ff;border:2.5px solid var(--blue);border-radius:18px;padding:18px 14px;animation:pop .35s cubic-bezier(.34,1.56,.64,1)}
+  .plive-change b{display:block;margin-top:8px;font-size:17px}
+  .plive-change.done{color:var(--accent2);background:#f0fbe6;border-color:var(--accent)}
+  .plive-dots{display:flex;justify-content:center;gap:7px;margin-top:4px}
+  .plive-dots i{width:11px;height:11px;border-radius:50%;background:var(--line);transition:.2s}
+  .plive-dots i.on{background:var(--accent)}
+  /* small pill button matching the house style (used in Profile) */
+  .mini-btn{background:var(--panel2);border:2px solid var(--line);border-bottom-width:3px;color:var(--blue);font-family:var(--font);font-weight:800;font-size:13px;letter-spacing:.5px;text-transform:uppercase;cursor:pointer;padding:9px 14px;border-radius:22px;transition:.1s;flex-shrink:0}
+  .mini-btn:active{transform:translateY(2px);border-bottom-width:1px;background:var(--line)}
   /* profile */
   .prof-row{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--panel2);border:2px solid var(--line);border-radius:14px;padding:12px 14px;font-size:15px;font-weight:800;color:var(--ink)}
   .prof-empty{background:var(--panel2);border:2px dashed var(--line);border-radius:14px;padding:14px;font-size:13px;font-weight:700;color:var(--muted);text-align:center}
@@ -570,26 +586,29 @@
   </div>
   <p class="sub" id="presSub">Upload your presentation and go. Live cue cards keep you on track, answer questions as they come, and tell you what to say next.</p>
   <div id="presResume"></div>
-  <div class="label" id="presLabelDeck">Your presentation (PDF or PowerPoint)</div>
-  <div class="pres-file">
-    <label for="presFile" id="presFileBtn">Choose file</label>
-    <input type="file" id="presFile" accept="application/pdf,.pdf,.pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation" style="display:none" onchange="presFileChanged()">
-    <div class="fname" id="presFileName">–</div>
+  <button class="btn btn-grey hidden" id="presNewBtn" onclick="showPresForm()">Create cards for a new presentation</button>
+  <div id="presForm">
+    <div class="label" id="presLabelDeck">Your presentation (PDF or PowerPoint)</div>
+    <div class="pres-file">
+      <label for="presFile" id="presFileBtn">Choose file</label>
+      <input type="file" id="presFile" accept="application/pdf,.pdf,.pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation" style="display:none" onchange="presFileChanged()">
+      <div class="fname" id="presFileName">–</div>
+    </div>
+    <div class="label" id="presLabelExtra">Additional materials (optional)</div>
+    <div class="pres-file">
+      <label for="presExtra" id="presExtraBtn">Add files</label>
+      <input type="file" id="presExtra" accept="application/pdf,.pdf,.pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation" multiple style="display:none" onchange="presExtraChanged()">
+      <div class="fname" id="presExtraName">–</div>
+    </div>
+    <div class="label" id="presLabelNotes">Context (optional)</div>
+    <textarea class="pres-ta" id="presNotes" placeholder="Anything the slides don't say: what the project is, who the audience is, what matters most…"></textarea>
+    <details class="conv-fold" id="outlineFold">
+      <summary id="presLabelOutline">No file? Type an outline instead</summary>
+      <textarea class="pres-ta" id="presOutline" style="margin-top:8px" placeholder="Paste slide titles or bullet points…"></textarea>
+    </details>
+    <button class="btn btn-go" id="presGenBtn" onclick="generatePresent()">Create cue cards</button>
+    <div class="err hidden" id="presErr" style="margin-top:10px"></div>
   </div>
-  <div class="label" id="presLabelExtra">Additional materials (optional)</div>
-  <div class="pres-file">
-    <label for="presExtra" id="presExtraBtn">Add files</label>
-    <input type="file" id="presExtra" accept="application/pdf,.pdf,.pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation" multiple style="display:none" onchange="presExtraChanged()">
-    <div class="fname" id="presExtraName">–</div>
-  </div>
-  <div class="label" id="presLabelNotes">Context (optional)</div>
-  <textarea class="pres-ta" id="presNotes" placeholder="Anything the slides don't say: what the project is, who the audience is, what matters most…"></textarea>
-  <details class="conv-fold" id="outlineFold">
-    <summary id="presLabelOutline">No file? Type an outline instead</summary>
-    <textarea class="pres-ta" id="presOutline" style="margin-top:8px" placeholder="Paste slide titles or bullet points…"></textarea>
-  </details>
-  <button class="btn btn-go" id="presGenBtn" onclick="generatePresent()">Create cue cards</button>
-  <div class="err hidden" id="presErr" style="margin-top:10px"></div>
   <div style="flex:1"></div>
 </section>
 
@@ -635,12 +654,10 @@
   <div class="label" id="profLangLbl" style="margin-top:14px">Language</div>
   <div class="prof-row">
     <span id="profLangName">English</span>
-    <button class="btn-grey" style="width:auto;padding:9px 16px" onclick="toggleLanguage()" id="profLangBtn">Switch</button>
+    <button class="mini-btn" onclick="toggleLanguage()" id="profLangBtn">Switch</button>
   </div>
   <div class="label" id="profDeckLbl" style="margin-top:20px">Your saved presentation</div>
   <div id="profDeck"></div>
-  <div class="label" id="profStreakLbl" style="margin-top:20px">Streak</div>
-  <div class="prof-row"><span id="profStreak">🔥 0 days</span></div>
   <details class="conv-fold" id="profExtrasFold" style="margin-top:20px">
     <summary id="profExtras">More tools</summary>
     <div class="fold-body">
@@ -1000,7 +1017,8 @@ window.applyI18n=function(){
     'presLabelOutline':'present.label.outline','presEndBtn':'present.end',
     'presSumHome':'present.summary.home',
     'profLangLbl':'profile.lang','profLangBtn':'profile.switch','profDeckLbl':'profile.deck',
-    'profStreakLbl':'profile.streak','profExtras':'profile.extras','profExtrasSub':'profile.extras.sub',
+    'profExtras':'profile.extras','profExtrasSub':'profile.extras.sub',
+    'presNewBtn':'present.new',
     'profDashT':'profile.dash.t','profDashS':'profile.dash.s','profDrillT':'home.drill.t','profDrillS':'home.drill.s',
     'ivTitleA':'iv.title.a','ivTitleB':'iv.title.b','ivSub':'iv.sub','ivLabelText':'iv.label.text','ivLabelFile':'iv.label.file',
     'ivFileBtn':'present.file.pick','ivStartBtn':'iv.start','ivStageTitle':'iv.stage.title',
@@ -1074,7 +1092,17 @@ function prepHome(){
   if($('presErr'))$('presErr').classList.add('hidden');
   setDeckSetupTexts();
   renderPresResume();
+  // With a saved deck, lead with 'continue' and tuck the upload form behind
+  // one button; with nothing saved the form IS the home screen.
+  const saved=presReadSaved();
+  const has=!!(saved&&Array.isArray(saved.cards)&&saved.cards.length);
+  $('presForm').classList.toggle('hidden',has);
+  $('presNewBtn').classList.toggle('hidden',!has);
 }
+window.showPresForm=()=>{
+  $('presNewBtn').classList.add('hidden');
+  $('presForm').classList.remove('hidden');
+};
 function renderHomeWidgets(){
   // streak chips (general + drill)
   const today=new Date().toISOString().slice(0,10);
@@ -1136,11 +1164,11 @@ function renderProfile(){
       slot.innerHTML=`<div class="prof-empty">${esc(t('profile.deck.none'))}</div>`;
     }
   }
-  const st=$('profStreak');if(st){const s=readStreak();st.textContent='🔥 '+(s.streak||0)+' '+t('profile.days');}
 }
 window.clearSavedDeck=()=>{
   try{localStorage.removeItem(PRES_LS_KEY);}catch{}
   renderProfile();
+  if($('s-home').classList.contains('active'))prepHome(); // resume card away, form back
 };
 // Start Quick Drill from the Practice landing screen. Behavior identical to the
 // old auto-start; only the entry point changed.
@@ -2654,6 +2682,7 @@ function renderPresResume(){
   <div class="pres-resume">
     <div class="rt"><div class="rn">🗂️ ${esc(saved.title)}</div><div class="rs">${esc(t('present.resume.meta',{c:saved.cards.length,p:pts}))}</div></div>
     <button onclick="presOpenSaved()">${esc(t('present.resume.open'))}</button>
+    <button class="prof-clear" onclick="clearSavedDeck()" title="${esc(t('profile.clear'))}">✕</button>
   </div>`;
 }
 window.presOpenSaved=()=>{
@@ -2792,8 +2821,10 @@ function renderPresCard(){
   if(!presDeck)return;
   const c=presDeck.cards[presIdx];
   const card=$('presCard');
-  const eb=$('presEditBtn');if(eb){eb.classList.toggle('on',presEditing);eb.textContent=presEditing?'✓':'✎';}
+  const eb=$('presEditBtn');if(eb){eb.classList.toggle('on',presEditing);eb.textContent=presEditing?'✓':'✎';eb.classList.toggle('hidden',presLive);}
+  card.classList.toggle('liveview',presLive&&!presEditing);
   if(presEditing){renderPresEdit(c,card);}
+  else if(presLive){renderPresLiveHud(c,card);}
   else{
     const allCov=c.points.every(p=>presCovered.has(p.id));
     card.classList.toggle('done',allCov);
@@ -2814,6 +2845,34 @@ function renderPresCard(){
   $('presNext').classList.toggle('pulse',!presEditing&&allCov&&presIdx<presDeck.cards.length-1);
   const total=presTotalPoints();
   $('presProg').style.width=(total?Math.round(100*presCovered.size/total):0)+'%';
+}
+// Live HUD: one glance, zero scrolling, zero taps. Shows the slide you're on,
+// the ONE thing to say right now (huge), how to say it, and what comes after.
+// When the card is done it flips into a 'change your slide' cue; auto-advance
+// does the rest.
+function renderPresLiveHud(c,card){
+  card.classList.remove('done');
+  const pending=c.points.filter(p=>!presCovered.has(p.id));
+  const cur=pending[0]||null;
+  const after=pending[1]||null;
+  const dots=c.points.map(p=>`<i class="${presCovered.has(p.id)?'on':''}"></i>`).join('');
+  const slideChip=`<div class="plive-slide">${esc(t('present.slide'))} <b>${c.n}</b>/${presDeck.cards.length} · ${esc(c.title)}</div>`;
+  if(!cur){
+    const nc=presDeck.cards[presIdx+1];
+    card.innerHTML=slideChip+(nc
+      ?`<div class="plive-change">⤴ ${esc(t('present.live.change'))}<b>${esc(t('present.slide'))} ${nc.n}: ${esc(nc.title)}</b></div>
+        ${c.bridge?`<div class="plive-say">„${esc(c.bridge)}“</div>`:''}
+        ${nc.points[0]?`<div class="plive-next">${esc(t('present.live.next'))} ${esc(nc.points[0].t)}</div>`:''}`
+      :`<div class="plive-change done">✓ ${esc(t('present.live.lastdone'))}</div>`)+
+      `<div class="plive-dots">${dots}</div>`;
+    return;
+  }
+  card.innerHTML=slideChip+
+    `<div class="plive-now" onclick="presTogglePoint('${cur.id}')">${esc(cur.t)}</div>`+
+    (cur.say?`<div class="plive-say">„${esc(cur.say)}“</div>`:'')+
+    (after?`<div class="plive-next">${esc(t('present.live.next'))} ${esc(after.t)}</div>`:
+      (presDeck.cards[presIdx+1]?`<div class="plive-next">${esc(t('present.live.next'))} ${esc(t('present.slide'))} ${presDeck.cards[presIdx+1].n}</div>`:''))+
+    `<div class="plive-dots">${dots}</div>`;
 }
 function renderPresEdit(c,card){
   card.classList.remove('done');
@@ -2890,6 +2949,17 @@ window.presNav=(d)=>{
 window.presTogglePoint=(id)=>{
   if(presCovered.has(id))presCovered.delete(id);else presCovered.add(id);
   renderPresCard();
+  // Tapping the big point in the live HUD is the manual 'skip'. If that was the
+  // last one on the card, run the same auto-advance as voice tracking.
+  if(presLive){
+    const c=presDeck.cards[presIdx];
+    const navAtCall=presNavToken;
+    if(c.points.every(p=>presCovered.has(p.id))&&presIdx<presDeck.cards.length-1){
+      presToast(t('present.slidechange',{n:presDeck.cards[presIdx+1].n}));
+      setTimeout(()=>{if(presLive&&presNavToken===navAtCall&&presIdx<presDeck.cards.length-1)presNav(1);},2500);
+    }
+    updatePresCoach();
+  }
 };
 // Swipe between cards (mobile is the primary device on the podium).
 (()=>{
@@ -2938,9 +3008,11 @@ async function startPresLive(){
   }
   presLive=true;presLiveSince=performance.now();
   presLastGrowthTs=performance.now();presLastWordCount=0;presNoProgressTicks=0;
+  if(presEditing)savePresEdit(); // can't edit on stage; commit whatever was open
   $('presTicker').textContent=t('present.live.on');
   $('presTicker').classList.add('live');
   syncPresLiveBtn();
+  renderPresCard(); // flip the card into the big-text live HUD
   updatePresCoach();
   presTrackInt=setInterval(presTrackTick,PRES_TRACK_MS);
   presTimeInt=setInterval(()=>{
@@ -2990,6 +3062,7 @@ function stopPresLive(){
   $('presCoach').classList.add('hidden');
   closePresQPop();
   syncPresLiveBtn();
+  renderPresCard(); // back to the full prep card view
   presTrackTick(); // flush whatever was said since the last tick
 }
 function updateTrainMetrics(durS){
@@ -3035,9 +3108,10 @@ async function presTrackTick(){
       const navAtCall=presNavToken;
       renderPresCard();
       if(c.points.every(p=>presCovered.has(p.id))&&presIdx<presDeck.cards.length-1){
-        presToast(t('present.card.done'));
+        presToast(t('present.slidechange',{n:presDeck.cards[presIdx+1].n}));
         // Auto-advance only if the presenter hasn't navigated themselves meanwhile.
-        setTimeout(()=>{if(presLive&&presNavToken===navAtCall&&presIdx<presDeck.cards.length-1)presNav(1);},1400);
+        // 2.5s so the 'change your slide' cue on the HUD is actually readable.
+        setTimeout(()=>{if(presLive&&presNavToken===navAtCall&&presIdx<presDeck.cards.length-1)presNav(1);},2500);
       }
     }else{
       presNoProgressTicks++; // they spoke a full window without hitting a planned point
@@ -3106,26 +3180,24 @@ function updatePresCoach(){
   const wpm=durS>8&&words.length>15?Math.round(words.length/(durS/60)):0;
   const silentS=presLastGrowthTs?(performance.now()-presLastGrowthTs)/1000:0;
   const nxt=nextUncovered();
+  // The live HUD already shows WHAT to say; this strip only fires for HOW
+  // you're doing (warnings). No warning -> no strip -> minimal screen.
   let cls='',html='';
-  if(silentS>10&&nxt){ // stalled: hand them the exact next line
+  if(silentS>10&&nxt){
     cls='urgent';
-    html=`🗣 ${esc(t('present.coach.silence'))} <b>${esc(nxt.t)}</b>${nxt.say?`<span class="say">„${esc(nxt.say)}“</span>`:''}`;
+    html=`🗣 ${esc(t('present.coach.silence'))}`;
   }else if(wpm>180){
     cls='warn';
     html=`🐢 ${esc(t('present.coach.slower'))}`;
   }else if(wpm&&wpm<95){
     cls='warn';
     html=`⚡ ${esc(t('present.coach.faster'))}`;
-  }else if(!nxt){
-    const nc=presDeck&&presDeck.cards[presIdx+1];
-    html=nc?`✓ ${esc(t('present.coach.next'))} <b>${esc(nc.title)}</b>`:`✓ ${esc(t('present.summary.none'))}`;
-  }else if(presNoProgressTicks>=2){ // talking, but not about the plan
+  }else if(presNoProgressTicks>=2&&nxt){ // talking, but not about the plan
     cls='warn';
-    html=`🎯 ${esc(t('present.coach.focus'))} <b>${esc(nxt.t)}</b>${nxt.say?`<span class="say">„${esc(nxt.say)}“</span>`:''}`;
-  }else{
-    html=`▶ ${esc(t('present.coach.now'))} <b>${esc(nxt.t)}</b>${nxt.say?`<span class="say">„${esc(nxt.say)}“</span>`:''}`;
+    html=`🎯 ${esc(t('present.coach.focus'))}`;
   }
-  el.className='pres-coach'+(cls?' '+cls:'');
+  if(!html){el.classList.add('hidden');return;}
+  el.className='pres-coach '+cls;
   el.innerHTML=html;
 }
 
