@@ -62,7 +62,7 @@ function parseJson(text) {
 /* ---------- action: cards ---------- */
 async function doCards(body, device_id) {
   const lang = body.lang === "de" ? "de" : "en";
-  const notes = String(body.notes || "").slice(0, 4000);
+  const notes = String(body.notes || "").slice(0, 8000);
   const wantTitle = !!body.want_title;
 
   // Either a list of slides (text already extracted client-side) or a pasted outline.

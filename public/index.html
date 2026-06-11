@@ -543,6 +543,10 @@
   .iv-answer{font-size:17px;font-weight:800;line-height:1.45;color:var(--ink)}
   .iv-points{margin-top:9px;border-top:1.5px dashed var(--line);padding-top:9px;display:flex;flex-direction:column;gap:4px}
   .iv-points span{font-size:13px;font-weight:700;color:var(--accent2)}
+  /* profile */
+  .prof-row{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--panel2);border:2px solid var(--line);border-radius:14px;padding:12px 14px;font-size:15px;font-weight:800;color:var(--ink)}
+  .prof-empty{background:var(--panel2);border:2px dashed var(--line);border-radius:14px;padding:14px;font-size:13px;font-weight:700;color:var(--muted);text-align:center}
+  .prof-clear{background:none;border:none;color:var(--bad);font-size:16px;font-weight:900;cursor:pointer;padding:0 6px;flex-shrink:0}
 </style>
 </head>
 <body>
@@ -562,30 +566,30 @@
 <section class="screen" id="s-home">
   <div class="top">
     <div class="logo">Re<span>hearse</span></div>
-    <div class="streak-row">
-      <button class="lang-toggle" id="langToggle" onclick="toggleLanguage()" title="Switch language">EN</button>
-      <div class="streak drill cold" id="drillStreak" title="Quick Drill streak">⚡ 0</div>
-      <div class="streak cold" id="streak" title="Daily streak">🔥 0</div>
-    </div>
+    <button class="lang-toggle" onclick="toggleLanguage()" title="Switch language">EN</button>
   </div>
-  <p class="sub" id="homeSub">Your AI co-pilot for talks, pitches, and interviews. Prep once, then get live help when it counts.</p>
-  <div id="lastSession" class="hidden"></div>
-  <div class="tcard mode-card" onclick="openPresent()"><div class="ic" style="background:#e5ffd6">🗂️</div><div><div class="tt" id="homePresentT">Present</div><div class="ts" id="homePresentS">Live cue cards that keep you on track during a real talk</div></div><div class="arr">›</div></div>
-  <div class="tcard mode-card" onclick="openTrain()"><div class="ic" style="background:#ddf4ff">🎯</div><div><div class="tt" id="homeTrainT">Train</div><div class="ts" id="homeTrainS">Rehearse your talk and get coached on what to fix</div></div><div class="arr">›</div></div>
-  <div class="tcard mode-card" onclick="openInterview()"><div class="ic" style="background:#fff0d6">🎙️</div><div><div class="tt" id="homeInterviewT">Interview</div><div class="ts" id="homeInterviewS">Upload your context, get live help answering questions</div></div><div class="arr">›</div></div>
-  <details class="conv-fold" id="convFold">
-    <summary id="homeConvMore">Practice conversations</summary>
-    <div class="fold-body">
-      <p class="sub" id="homeConvSub" style="margin:8px 0 12px">Rehearse real conversations out loud with an AI partner, or read a script on the teleprompter.</p>
-      <div class="tcard" data-partner-key="friend" onclick="pickPartner('friend')"><div class="ic">😎</div><div><div class="tt">A friend</div><div class="ts">banter, timing, being funnier</div></div><div class="arr">›</div></div>
-      <div class="tcard" data-partner-key="date" onclick="pickPartner('date')"><div class="ic">💘</div><div><div class="tt">A date</div><div class="ts">flirting, curiosity, not being needy</div></div><div class="arr">›</div></div>
-      <div class="tcard" data-partner-key="boss" onclick="pickPartner('boss')"><div class="ic">💼</div><div><div class="tt">Your boss</div><div class="ts">negotiating, confidence, holding your number</div></div><div class="arr">›</div></div>
-      <div class="tcard" data-partner-key="stranger" onclick="pickPartner('stranger')"><div class="ic">👋</div><div><div class="tt">A stranger</div><div class="ts">approaching, small talk, getting past it</div></div><div class="arr">›</div></div>
-      <div class="tcard" data-partner-key="audience" onclick="pickPartner('audience')"><div class="ic">🎤</div><div><div class="tt">An audience</div><div class="ts">public speaking, hooks, Q&amp;A under pressure</div></div><div class="arr">›</div></div>
-      <div class="tcard" data-partner-key="speech" onclick="openSpeech()"><div class="ic">📖</div><div><div class="tt">Teleprompter</div><div class="ts">read a script, get scored on delivery + faithfulness</div></div><div class="arr">›</div></div>
-      <div class="tcard" onclick="navTo('practice')"><div class="ic">⚡</div><div><div class="tt" id="homeDrillT">Quick Drill</div><div class="ts" id="homeDrillS">90-second improv against a random partner</div></div><div class="arr">›</div></div>
-    </div>
+  <p class="sub" id="presSub">Upload your presentation and go. Live cue cards keep you on track, answer questions as they come, and tell you what to say next.</p>
+  <div id="presResume"></div>
+  <div class="label" id="presLabelDeck">Your presentation (PDF or PowerPoint)</div>
+  <div class="pres-file">
+    <label for="presFile" id="presFileBtn">Choose file</label>
+    <input type="file" id="presFile" accept="application/pdf,.pdf,.pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation" style="display:none" onchange="presFileChanged()">
+    <div class="fname" id="presFileName">–</div>
+  </div>
+  <div class="label" id="presLabelExtra">Additional materials (optional)</div>
+  <div class="pres-file">
+    <label for="presExtra" id="presExtraBtn">Add files</label>
+    <input type="file" id="presExtra" accept="application/pdf,.pdf,.pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation" multiple style="display:none" onchange="presExtraChanged()">
+    <div class="fname" id="presExtraName">–</div>
+  </div>
+  <div class="label" id="presLabelNotes">Context (optional)</div>
+  <textarea class="pres-ta" id="presNotes" placeholder="Anything the slides don't say: what the project is, who the audience is, what matters most…"></textarea>
+  <details class="conv-fold" id="outlineFold">
+    <summary id="presLabelOutline">No file? Type an outline instead</summary>
+    <textarea class="pres-ta" id="presOutline" style="margin-top:8px" placeholder="Paste slide titles or bullet points…"></textarea>
   </details>
+  <button class="btn btn-go" id="presGenBtn" onclick="generatePresent()">Create cue cards</button>
+  <div class="err hidden" id="presErr" style="margin-top:10px"></div>
   <div style="flex:1"></div>
 </section>
 
@@ -623,23 +627,35 @@
   <div id="speechScore" class="hidden" style="margin-top:18px"></div>
 </section>
 
-<section class="screen" id="s-present-setup">
-  <button class="back" id="presBack" onclick="go('home')">‹ Back</button>
-  <div class="logo"><span id="presTitleA">Pre</span><span id="presTitleB">sent</span></div>
-  <p class="sub" id="presSub">Upload your slides. You get cue cards on your phone that check themselves off while you speak, so you stay on track in front of a real audience.</p>
-  <div id="presResume"></div>
-  <div class="label" id="presLabelDeck">Your slides (PDF, max 3 MB)</div>
-  <div class="pres-file">
-    <label for="presFile" id="presFileBtn">Choose PDF</label>
-    <input type="file" id="presFile" accept="application/pdf,.pdf,.pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation" style="display:none" onchange="presFileChanged()">
-    <div class="fname" id="presFileName">–</div>
+<section class="screen" id="s-profile">
+  <div class="top">
+    <div class="logo">Pro<span>file</span></div>
+    <button class="lang-toggle" onclick="toggleLanguage()" title="Switch language">EN</button>
   </div>
-  <div class="label" id="presLabelNotes">Notes for the AI (optional)</div>
-  <textarea class="pres-ta" id="presNotes" placeholder="Anything the slides don't say…"></textarea>
-  <div class="label" id="presLabelOutline">No PDF? Paste your outline instead</div>
-  <textarea class="pres-ta" id="presOutline" placeholder="Paste slide titles or bullet points…"></textarea>
-  <button class="btn btn-go" id="presGenBtn" onclick="generatePresent()">Generate cue cards</button>
-  <div class="err hidden" id="presErr" style="margin-top:10px"></div>
+  <div class="label" id="profLangLbl" style="margin-top:14px">Language</div>
+  <div class="prof-row">
+    <span id="profLangName">English</span>
+    <button class="btn-grey" style="width:auto;padding:9px 16px" onclick="toggleLanguage()" id="profLangBtn">Switch</button>
+  </div>
+  <div class="label" id="profDeckLbl" style="margin-top:20px">Your saved presentation</div>
+  <div id="profDeck"></div>
+  <div class="label" id="profStreakLbl" style="margin-top:20px">Streak</div>
+  <div class="prof-row"><span id="profStreak">🔥 0 days</span></div>
+  <details class="conv-fold" id="profExtrasFold" style="margin-top:20px">
+    <summary id="profExtras">More tools</summary>
+    <div class="fold-body">
+      <p class="sub" id="profExtrasSub" style="margin:8px 0 12px">Extras kept around for practice. Not needed for live presenting.</p>
+      <div class="tcard" onclick="navTo('progress')"><div class="ic">📊</div><div><div class="tt" id="profDashT">Speaking dashboard</div><div class="ts" id="profDashS">Your delivery metrics over time</div></div><div class="arr">›</div></div>
+      <div class="tcard" data-partner-key="friend" onclick="pickPartner('friend')"><div class="ic">😎</div><div><div class="tt">A friend</div><div class="ts">banter, timing, being funnier</div></div><div class="arr">›</div></div>
+      <div class="tcard" data-partner-key="date" onclick="pickPartner('date')"><div class="ic">💘</div><div><div class="tt">A date</div><div class="ts">flirting, curiosity, not being needy</div></div><div class="arr">›</div></div>
+      <div class="tcard" data-partner-key="boss" onclick="pickPartner('boss')"><div class="ic">💼</div><div><div class="tt">Your boss</div><div class="ts">negotiating, confidence, holding your number</div></div><div class="arr">›</div></div>
+      <div class="tcard" data-partner-key="stranger" onclick="pickPartner('stranger')"><div class="ic">👋</div><div><div class="tt">A stranger</div><div class="ts">approaching, small talk, getting past it</div></div><div class="arr">›</div></div>
+      <div class="tcard" data-partner-key="audience" onclick="pickPartner('audience')"><div class="ic">🎤</div><div><div class="tt">An audience</div><div class="ts">public speaking, hooks, Q&amp;A under pressure</div></div><div class="arr">›</div></div>
+      <div class="tcard" data-partner-key="speech" onclick="openSpeech()"><div class="ic">📖</div><div><div class="tt">Teleprompter</div><div class="ts">read a script, get scored on delivery + faithfulness</div></div><div class="arr">›</div></div>
+      <div class="tcard" onclick="navTo('practice')"><div class="ic">⚡</div><div><div class="tt" id="profDrillT">Quick Drill</div><div class="ts" id="profDrillS">90-second improv against a random partner</div></div><div class="arr">›</div></div>
+    </div>
+  </details>
+  <div style="flex:1"></div>
 </section>
 
 <section class="screen" id="s-present-stage" style="position:relative">
@@ -939,14 +955,14 @@ function writeLastSession(d){localStorage.setItem('rehearse_last_session',JSON.s
 const $=id=>document.getElementById(id);
 const NAV_HTML=`
   <button class="nav-item" data-nav="home" onclick="navTo('home')"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7h-6v7H4a1 1 0 0 1-1-1V11z"/></svg>HOME</button>
-  <button class="nav-item" data-nav="progress" onclick="navTo('progress')"><svg viewBox="0 0 24 24"><path d="M3 17l5-5 4 4 8-9"/><path d="M14 7h6v6"/></svg>PROGRESS</button>`;
+  <button class="nav-item" data-nav="profile" onclick="navTo('profile')"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>PROFILE</button>`;
 // Apply current language to every static piece of UI. Called on boot + after toggle.
 window.applyI18n=function(){
   const L=getLang();
-  $('langToggle').textContent=L.toUpperCase();
+  document.querySelectorAll('.lang-toggle').forEach(b=>{b.textContent=L.toUpperCase();b.title=t('lang.toggle.title');});
   document.documentElement.lang=L;
   // Bottom nav labels.
-  const navMap={home:t('nav.home'),practice:t('nav.practice'),progress:t('nav.progress')};
+  const navMap={home:t('nav.home'),profile:t('nav.profile'),progress:t('nav.progress')};
   document.querySelectorAll('.nav-item').forEach(el=>{
     const key=el.dataset.nav;if(!navMap[key])return;
     const lbl=el.querySelector('span.nav-lbl');
@@ -979,14 +995,13 @@ window.applyI18n=function(){
     'teleSub':'tele.sub','teleLabelContext':'tele.label.context','teleLabelPick':'tele.label.pick','teleLabelOwn':'tele.label.own',
     'teleUseBtn':'tele.useScript','teleBackBtn':'tele.pickAnother','teleAudienceLbl':'tele.live.audience',
     'teleLiveTime':'tele.live.time','teleLivePace':'tele.live.pace','teleLiveFillers':'tele.live.fillers','teleLiveTarget':'tele.live.target','teleLiveVol':'tele.live.vol',
-    'presTitleA':'present.title.a','presTitleB':'present.title.b','presSub':'present.sub',
-    'presLabelDeck':'present.label.deck','presFileBtn':'present.file.pick','presLabelNotes':'present.label.notes',
-    'presLabelOutline':'present.label.outline','presGenBtn':'present.generate','presEndBtn':'present.end',
+    'presLabelDeck':'present.label.deck','presFileBtn':'present.file.pick','presLabelExtra':'present.label.extra',
+    'presExtraBtn':'present.extra.btn','presLabelNotes':'present.label.notes',
+    'presLabelOutline':'present.label.outline','presEndBtn':'present.end',
     'presSumHome':'present.summary.home',
-    'homePresentT':'home.present.t','homePresentS':'home.present.s',
-    'homeTrainT':'home.train.t','homeTrainS':'home.train.s',
-    'homeInterviewT':'home.interview.t','homeInterviewS':'home.interview.s',
-    'homeConvMore':'home.conv.more','homeConvSub':'home.conv.sub','homeDrillT':'home.drill.t','homeDrillS':'home.drill.s',
+    'profLangLbl':'profile.lang','profLangBtn':'profile.switch','profDeckLbl':'profile.deck',
+    'profStreakLbl':'profile.streak','profExtras':'profile.extras','profExtrasSub':'profile.extras.sub',
+    'profDashT':'profile.dash.t','profDashS':'profile.dash.s','profDrillT':'home.drill.t','profDrillS':'home.drill.s',
     'ivTitleA':'iv.title.a','ivTitleB':'iv.title.b','ivSub':'iv.sub','ivLabelText':'iv.label.text','ivLabelFile':'iv.label.file',
     'ivFileBtn':'present.file.pick','ivStartBtn':'iv.start','ivStageTitle':'iv.stage.title',
   };
@@ -1013,11 +1028,11 @@ window.applyI18n=function(){
   // Present-mode placeholders + back buttons (back btns share generic styling, set text directly).
   const pn=$('presNotes');if(pn)pn.placeholder=t('present.notes.ph');
   const po=$('presOutline');if(po)po.placeholder=t('present.outline.ph');
-  const pb=$('presBack');if(pb)pb.textContent=t('back');
   const peb=$('presEndBtn');if(peb)peb.textContent=t(presMode==='train'?'train.finish':'present.end');
   const plb=$('presLiveBtn');if(plb&&!presLive)plb.textContent=t('present.live.start');
   if($('presFileName')&&!presFileObj)$('presFileName').textContent='–';
-  if($('s-present-setup')&&$('s-present-setup').classList.contains('active')){setDeckSetupTexts();renderPresResume();}
+  setDeckSetupTexts();
+  if($('s-home')&&$('s-home').classList.contains('active'))renderPresResume();
   if($('s-present-stage')&&$('s-present-stage').classList.contains('active')&&presDeck){renderPresCard();$('presDeckTitle').textContent=presDeck.title;}
   // Interview-mode placeholders + back/end + live feed refresh.
   const ivc=$('ivContext');if(ivc)ivc.placeholder=t('iv.ctx.ph');
@@ -1027,19 +1042,15 @@ window.applyI18n=function(){
   const ivhb=$('ivHelpBtn');if(ivhb)ivhb.textContent=t('iv.help');
   if($('ivFileName')&&!ivFileObj)$('ivFileName').textContent='–';
   if($('s-interview-stage')&&$('s-interview-stage').classList.contains('active'))renderIvFeed();
-  $('langToggle').title=t('lang.toggle.title');
-  // Localized partner cards on home.
+  // Localized partner cards (now in Profile).
   document.querySelectorAll('[data-partner-key]').forEach(el=>{
     const k=el.dataset.partnerKey;
     const tt=el.querySelector('.tt');const ts=el.querySelector('.ts');
     if(tt)tt.textContent=t('partner.'+k+'.name');
     if(ts)ts.textContent=t('partner.'+k+'.sub');
   });
-  // Streak titles.
-  const ds=$('drillStreak');if(ds)ds.title=t('home.streak.drill');
-  const s=$('streak');if(s)s.title=t('home.streak.daily');
-  // Re-render home widgets so last-session card uses new strings.
-  try{renderHomeWidgets();}catch{}
+  // Profile labels + dynamic bits.
+  try{renderProfile();}catch{}
 };
 window.toggleLanguage=function(){
   setLang(getLang()==='de'?'en':'de');
@@ -1047,15 +1058,23 @@ window.toggleLanguage=function(){
   applyI18n();
 };
 $('appNav').innerHTML=NAV_HTML;
-const TABS=new Set(['home','progress','practice']);
+// Screens that show the bottom nav. The live presenting/interview stages stay
+// full-screen (not listed). Conversation extras keep the nav so users can return.
+const TABS=new Set(['home','profile','progress','practice','goal','chat','debrief','speech','speech-stage','talks','talk']);
 const go=s=>{
   document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));
   $('s-'+s).classList.add('active');
   setNavActive(s);
   $('appNav').classList.toggle('show',TABS.has(s));
-  if(s==='home')renderHomeWidgets();
+  if(s==='home')prepHome();
+  if(s==='profile')renderProfile();
 };
 window.go=go;
+function prepHome(){
+  if($('presErr'))$('presErr').classList.add('hidden');
+  setDeckSetupTexts();
+  renderPresResume();
+}
 function renderHomeWidgets(){
   // streak chips (general + drill)
   const today=new Date().toISOString().slice(0,10);
@@ -1087,15 +1106,41 @@ window.replayLast=()=>{
   startScene();
 };
 function setNavActive(screen){
-  // Past talks now live inside Progress, so talks + talk detail map to the progress tab.
-  const map={progress:'progress',goal:'practice',talks:'progress',talk:'progress',practice:'practice'};
-  const tab=map[screen]||'home';
+  // Secondary/extra screens are reached from Profile, so they highlight Profile.
+  const profileScreens=new Set(['profile','progress','talks','talk','goal','practice','chat','debrief','speech','speech-stage']);
+  const tab=profileScreens.has(screen)?'profile':'home';
   document.querySelectorAll('.nav-item').forEach(el=>el.classList.toggle('active',el.dataset.nav===tab));
 }
 window.navTo=key=>{
-  if(key==='home'){go('home');return;}
+  if(key==='home'){presMode='present';go('home');return;}
+  if(key==='profile'){go('profile');return;}
   if(key==='progress'){openProgress();return;}
   if(key==='practice'){go('practice');setNavActive('practice');return;}
+};
+window.openProfile=()=>go('profile');
+function renderProfile(){
+  const L=getLang();
+  const ln=$('profLangName');if(ln)ln.textContent=L==='de'?'Deutsch':'English';
+  // saved presentation
+  const slot=$('profDeck');
+  if(slot){
+    const saved=presReadSaved();
+    if(saved&&Array.isArray(saved.cards)&&saved.cards.length){
+      const pts=saved.cards.reduce((a,c)=>a+c.points.length,0);
+      slot.innerHTML=`<div class="pres-resume">
+        <div class="rt"><div class="rn">🗂️ ${esc(saved.title)}</div><div class="rs">${esc(t('present.resume.meta',{c:saved.cards.length,p:pts}))}</div></div>
+        <button onclick="presOpenSaved()">${esc(t('present.resume.open'))}</button>
+        <button class="prof-clear" onclick="clearSavedDeck()" title="${esc(t('profile.clear'))}">✕</button>
+      </div>`;
+    }else{
+      slot.innerHTML=`<div class="prof-empty">${esc(t('profile.deck.none'))}</div>`;
+    }
+  }
+  const st=$('profStreak');if(st){const s=readStreak();st.textContent='🔥 '+(s.streak||0)+' '+t('profile.days');}
+}
+window.clearSavedDeck=()=>{
+  try{localStorage.removeItem(PRES_LS_KEY);}catch{}
+  renderProfile();
 };
 // Start Quick Drill from the Practice landing screen. Behavior identical to the
 // old auto-start; only the entry point changed.
@@ -2584,28 +2629,22 @@ let presDeck=null,presIdx=0,presCovered=new Set();
 let presLive=false,presSR=null,presStream=null,presRec=null,presRecTimer=null;
 let presFinal='',presSentWords=0,presTrackBusy=false,presTrackInt=null;
 let presElapsed=0,presLiveSince=0,presTimeInt=null,presWakeLock=null;
-let presFileObj=null,presNavToken=0,presHardStop=null,presEditing=false;
+let presFileObj=null,presNavToken=0,presHardStop=null,presEditing=false,presExtraFiles=[];
 
 function presReadSaved(){try{return JSON.parse(localStorage.getItem(PRES_LS_KEY)||'null');}catch{return null;}}
 function presSave(deck){try{localStorage.setItem(PRES_LS_KEY,JSON.stringify(deck));}catch{}}
 
 let presMode='present'; // 'present' | 'train'
-window.openPresent=()=>{ presMode='present'; openDeckSetup(); };
-window.openTrain=()=>{ presMode='train'; openDeckSetup(); };
-function openDeckSetup(){
-  $('presErr').classList.add('hidden');
-  setDeckSetupTexts();
-  renderPresResume();
-  go('present-setup');
-}
-// The deck setup screen + cue-card stage are shared by Present and Train; only
-// the copy and a few stage affordances differ, driven by presMode.
+// Present is the home screen itself. openPresent/openTrain stay so the (now
+// dormant) Train entry point still works if re-enabled later.
+window.openPresent=()=>{ presMode='present'; go('home'); };
+window.openTrain=()=>{ presMode='train'; go('home'); };
+// The home (deck setup) screen + cue-card stage are shared by Present and Train;
+// only the copy and a few stage affordances differ, driven by presMode.
 function setDeckSetupTexts(){
   const train=presMode==='train';
-  $('presTitleA').textContent=t(train?'train.title.a':'present.title.a');
-  $('presTitleB').textContent=t(train?'train.title.b':'present.title.b');
-  $('presSub').textContent=t(train?'train.sub':'present.sub');
-  $('presGenBtn').textContent=t(train?'train.generate':'present.generate');
+  const sub=$('presSub');if(sub)sub.textContent=t(train?'train.sub':'present.sub');
+  const gen=$('presGenBtn');if(gen)gen.textContent=t(train?'train.generate':'present.generate');
 }
 function renderPresResume(){
   const saved=presReadSaved();const slot=$('presResume');if(!slot)return;
@@ -2637,6 +2676,15 @@ window.presFileChanged=()=>{
   $('presErr').classList.add('hidden');
 };
 function presSetupErr(msg){const e=$('presErr');e.textContent=msg;e.classList.remove('hidden');}
+window.presExtraChanged=()=>{
+  const files=[...$('presExtra').files];
+  const nameEl=$('presExtraName');
+  presExtraFiles=files.filter(f=>(presIsPdf(f)||presIsPpt(f))&&f.size<=PRES_MAX_FILE);
+  if(!presExtraFiles.length){nameEl.textContent='–';nameEl.classList.remove('has');return;}
+  nameEl.textContent=presExtraFiles.length===1?presExtraFiles[0].name:t('present.extra.count',{n:presExtraFiles.length});
+  nameEl.classList.add('has');
+  $('presErr').classList.add('hidden');
+};
 
 // --- in-browser slide text extraction (no upload, no image tokens) ---
 function decodeXml(s){return s.replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/&apos;/g,"'").replace(/&amp;/g,'&');}
@@ -2679,8 +2727,18 @@ window.generatePresent=async()=>{
   const btn=$('presGenBtn');
   btn.disabled=true;
   $('presErr').classList.add('hidden');
-  const notes=$('presNotes').value.trim();
+  let notes=$('presNotes').value.trim();
   try{
+    // Fold any additional materials into the context the model gets (text only).
+    if(presExtraFiles.length){
+      btn.textContent=t('present.reading');
+      const parts=[];
+      for(const f of presExtraFiles){
+        try{const sl=await extractSlides(f);const txt=sl.map(s=>s.text).filter(Boolean).join(' ');if(txt)parts.push('['+f.name+'] '+txt);}catch{}
+      }
+      if(parts.length)notes=(notes?notes+'\n\n':'')+t('present.extra.label')+'\n'+parts.join('\n\n');
+    }
+    notes=notes.slice(0,8000);
     let allCards=[],deckTitle='';
     if(presFileObj){
       btn.textContent=t('present.reading');
@@ -2706,7 +2764,7 @@ window.generatePresent=async()=>{
     }
     if(!allCards.length)throw new Error(t('present.err.generate'));
     allCards.forEach((c,idx)=>c.n=idx+1); // sequential display numbers; point ids stay as assigned
-    presDeck={title:deckTitle||'Presentation',cards:allCards,notes:notes.slice(0,3000),savedAt:Date.now()};
+    presDeck={title:deckTitle||'Presentation',cards:allCards,notes:notes.slice(0,8000),savedAt:Date.now()};
     presSave(presDeck);
     enterPresentStage();
   }catch(e){presSetupErr(e.message||t('present.err.generate'));}
@@ -3347,7 +3405,7 @@ function showLogin(){
   applyI18n();
   setTimeout(()=>$('lpw').focus(),100);
 }
-function enterApp(){$('s-login').classList.remove('active');applyI18n();go('home');}
+function enterApp(){$('s-login').classList.remove('active');presMode='present';applyI18n();go('home');}
 // Auto-submit when Safari/Chrome autofills the password field (Face ID flow).
 // Only fires on actual autofill, never on typing.
 $('lpw').addEventListener('animationstart',e=>{
