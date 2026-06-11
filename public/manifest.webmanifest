@@ -1,7 +1,7 @@
 {
   "name": "Rehearse",
   "short_name": "Rehearse",
-  "description": "Audio-first conversation rehearsal sim.",
+  "description": "Dein KI-Co-Pilot für Präsentationen. Live-Stichwortkarten, die dich beim Vortrag auf Kurs halten.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

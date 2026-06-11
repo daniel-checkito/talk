@@ -724,22 +724,12 @@ const STRINGS = {
   },
 };
 
-let currentLang = (() => {
-  try {
-    const stored = localStorage.getItem('rehearse_lang');
-    if (stored === 'en' || stored === 'de') return stored;
-  } catch {}
-  // Auto-detect from browser, default to English.
-  const nav = (navigator.language || navigator.userLanguage || 'en').toLowerCase();
-  return nav.startsWith('de') ? 'de' : 'en';
-})();
+// German-only app. The English table is kept as a fallback for any key that
+// might be missing from the German table, but the UI never switches languages.
+let currentLang = 'de';
 
 export function getLang() { return currentLang; }
-export function setLang(lang) {
-  if (lang !== 'en' && lang !== 'de') return;
-  currentLang = lang;
-  try { localStorage.setItem('rehearse_lang', lang); } catch {}
-}
+export function setLang() { /* no-op: app is German-only */ }
 // Translate a key with optional {placeholder} substitution.
 export function t(key, vars) {
   const table = STRINGS[currentLang] || STRINGS.en;
@@ -748,5 +738,5 @@ export function t(key, vars) {
   return s;
 }
 // BCP-47 language tags for Web Speech API + ElevenLabs Scribe language code.
-export function bcp47() { return currentLang === 'de' ? 'de-DE' : 'en-US'; }
-export function scribeLang() { return currentLang === 'de' ? 'deu' : 'eng'; }
+export function bcp47() { return 'de-DE'; }
+export function scribeLang() { return 'deu'; }

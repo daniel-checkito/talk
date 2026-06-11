@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Rehearse - talk it out</title>
+<title>Rehearse – dein Präsentations-Co-Pilot</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="apple-touch-icon" href="/favicon.svg">
 <link rel="manifest" href="/manifest.webmanifest">
@@ -582,7 +582,6 @@
 <section class="screen" id="s-home">
   <div class="top">
     <div class="logo">Re<span>hearse</span></div>
-    <button class="lang-toggle" onclick="toggleLanguage()" title="Switch language">EN</button>
   </div>
   <p class="sub" id="presSub">Upload your presentation and go. Live cue cards keep you on track, answer questions as they come, and tell you what to say next.</p>
   <div id="presResume"></div>
@@ -649,14 +648,8 @@
 <section class="screen" id="s-profile">
   <div class="top">
     <div class="logo">Pro<span>file</span></div>
-    <button class="lang-toggle" onclick="toggleLanguage()" title="Switch language">EN</button>
   </div>
-  <div class="label" id="profLangLbl" style="margin-top:14px">Language</div>
-  <div class="prof-row">
-    <span id="profLangName">English</span>
-    <button class="mini-btn" onclick="toggleLanguage()" id="profLangBtn">Switch</button>
-  </div>
-  <div class="label" id="profDeckLbl" style="margin-top:20px">Your saved presentation</div>
+  <div class="label" id="profDeckLbl" style="margin-top:14px">Your saved presentation</div>
   <div id="profDeck"></div>
   <details class="conv-fold" id="profExtrasFold" style="margin-top:20px">
     <summary id="profExtras">More tools</summary>
@@ -975,9 +968,7 @@ const NAV_HTML=`
   <button class="nav-item" data-nav="profile" onclick="navTo('profile')"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>PROFILE</button>`;
 // Apply current language to every static piece of UI. Called on boot + after toggle.
 window.applyI18n=function(){
-  const L=getLang();
-  document.querySelectorAll('.lang-toggle').forEach(b=>{b.textContent=L.toUpperCase();b.title=t('lang.toggle.title');});
-  document.documentElement.lang=L;
+  document.documentElement.lang='de';
   // Bottom nav labels.
   const navMap={home:t('nav.home'),profile:t('nav.profile'),progress:t('nav.progress')};
   document.querySelectorAll('.nav-item').forEach(el=>{
@@ -1016,7 +1007,7 @@ window.applyI18n=function(){
     'presExtraBtn':'present.extra.btn','presLabelNotes':'present.label.notes',
     'presLabelOutline':'present.label.outline','presEndBtn':'present.end',
     'presSumHome':'present.summary.home',
-    'profLangLbl':'profile.lang','profLangBtn':'profile.switch','profDeckLbl':'profile.deck',
+    'profDeckLbl':'profile.deck',
     'profExtras':'profile.extras','profExtrasSub':'profile.extras.sub',
     'presNewBtn':'present.new',
     'profDashT':'profile.dash.t','profDashS':'profile.dash.s','profDrillT':'home.drill.t','profDrillS':'home.drill.s',
@@ -1069,11 +1060,6 @@ window.applyI18n=function(){
   });
   // Profile labels + dynamic bits.
   try{renderProfile();}catch{}
-};
-window.toggleLanguage=function(){
-  setLang(getLang()==='de'?'en':'de');
-  refreshPartners();
-  applyI18n();
 };
 $('appNav').innerHTML=NAV_HTML;
 // Screens that show the bottom nav. The live presenting/interview stages stay
@@ -1147,8 +1133,6 @@ window.navTo=key=>{
 };
 window.openProfile=()=>go('profile');
 function renderProfile(){
-  const L=getLang();
-  const ln=$('profLangName');if(ln)ln.textContent=L==='de'?'Deutsch':'English';
   // saved presentation
   const slot=$('profDeck');
   if(slot){
