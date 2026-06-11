@@ -1,24 +1,24 @@
 // POST /api/present -> Present mode (live cue cards for real-world presentations).
-// One endpoint with three actions so the whole feature fits in a single Vercel
+// One endpoint, three actions, so the whole feature stays inside a single Vercel
 // function (Hobby tier caps the function count):
-//   { action:"cards",  pdf_base64?, outline?, notes?, lang, device_id }
+//   { action:"cards",  slides?:[{n,text}], outline?, notes?, want_title?, lang, device_id }
 //     -> { title, cards:[{ n, title, points:[{id,t,say}], bridge }] }
 //   { action:"track",  points:[{id,t}], transcript, lang, device_id }
 //     -> { covered:["s1p2", ...] }
 //   { action:"answer", question, deck_title, card, notes, lang, device_id }
 //     -> { answer }
-// Body parsing is manual (raw read) because a base64 PDF can be a few MB and we
-// want to enforce our own size cap instead of trusting any parser default.
+// Slide TEXT is extracted in the browser (pdf.js / JSZip) and sent here, so we
+// never ship a multi-MB base64 PDF or pay for image tokens, and generation is
+// batched client-side to stay well under the function timeout.
 export const config = { api: { bodyParser: false } };
 
 import { hasCookie } from "./_auth.js";
 import { logUsage, anthropicCostMicros } from "./_usage.js";
 
-const MAX_BODY_BYTES = 4.4 * 1024 * 1024; // Vercel request cap is 4.5MB
-const SONNET = "claude-sonnet-4-6";
+const MAX_BODY_BYTES = 2 * 1024 * 1024;
 const HAIKU = "claude-haiku-4-5-20251001";
-const MAX_CARDS = 40;
 const MAX_POINTS_PER_CARD = 6;
+const MAX_SLIDES_PER_CALL = 10;
 
 function readRaw(req) {
   return new Promise((resolve, reject) => {
@@ -34,7 +34,7 @@ function readRaw(req) {
   });
 }
 
-async function claude({ model, system, content, max_tokens }) {
+async function claude({ system, content, max_tokens }) {
   const r = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -42,7 +42,7 @@ async function claude({ model, system, content, max_tokens }) {
       "x-api-key": process.env.ANTHROPIC_API_KEY,
       "anthropic-version": "2023-06-01",
     },
-    body: JSON.stringify({ model, max_tokens, system, messages: [{ role: "user", content }] }),
+    body: JSON.stringify({ model: HAIKU, max_tokens, system, messages: [{ role: "user", content }] }),
   });
   const data = await r.json();
   if (data.error) throw new Error(data.error.message || "anthropic error");
@@ -52,7 +52,6 @@ async function claude({ model, system, content, max_tokens }) {
 
 function parseJson(text) {
   const cleaned = text.replace(/```json|```/g, "").trim();
-  // The model occasionally wraps JSON in a sentence; grab the outermost braces.
   const start = cleaned.indexOf("{");
   const end = cleaned.lastIndexOf("}");
   if (start === -1 || end === -1) throw new Error("no JSON in model output");
@@ -62,59 +61,79 @@ function parseJson(text) {
 /* ---------- action: cards ---------- */
 async function doCards(body, device_id) {
   const lang = body.lang === "de" ? "de" : "en";
-  const notes = String(body.notes || "").slice(0, 6000);
-  const outline = String(body.outline || "").slice(0, 12000);
-  const pdf = typeof body.pdf_base64 === "string" ? body.pdf_base64 : "";
-  if (!pdf && !outline.trim()) return { status: 400, json: { error: "no deck" } };
+  const notes = String(body.notes || "").slice(0, 4000);
+  const wantTitle = !!body.want_title;
+
+  // Either a list of slides (text already extracted client-side) or a pasted outline.
+  let inSlides = Array.isArray(body.slides) ? body.slides
+    .slice(0, MAX_SLIDES_PER_CALL)
+    .map((s, i) => ({ n: Number(s.n) || i + 1, text: String(s.text || "").slice(0, 1600) })) : null;
+  let deckText;
+  if (inSlides && inSlides.length) {
+    deckText = inSlides.map((s) => `=== SLIDE ${s.n} ===\n${s.text || "(no text on this slide, likely a title or section divider)"}`).join("\n\n");
+  } else {
+    const outline = String(body.outline || "").slice(0, 12000);
+    if (!outline.trim()) return { status: 400, json: { error: "no deck" } };
+    deckText = outline;
+    inSlides = null;
+  }
 
   const langLine = lang === "de"
-    ? "Schreibe ALLES auf Deutsch, in natürlicher gesprochener Sprache (du-Form vermeiden, es ist ein Vortrag)."
+    ? "Schreibe ALLES auf Deutsch, in natürlicher gesprochener Sprache."
     : "Write everything in natural spoken English.";
-  const sys = `You are a presentation coach building CUE CARDS for someone about to give this presentation live, in person, with the slides behind them and a phone in front of them. The cards must let them present confidently even if they did not write the deck themselves, so the content has to actually teach them what each slide claims.
+  const oneCardRule = inSlides
+    ? `Produce EXACTLY ONE card per slide given, in the same order. If a slide has little or no text (a title or divider), still output a card with one short point such as introducing the topic or yourself.`
+    : `Turn the outline into a sensible sequence of cards, one per logical slide or section.`;
+  const sys = `You are a presentation coach building CUE CARDS for someone about to give this presentation live, in person, with the slides behind them and a phone in front of them. The cards must let them present confidently even if they did not write the deck, so the content has to actually teach them what each slide claims.
 ${langLine}
+${oneCardRule}
 Rules:
-- One card per slide, in order. Merge purely decorative slides (title page, section dividers, "thank you") into a card with a single point.
 - Per card: a short title (max 6 words) and 2-${MAX_POINTS_PER_CARD} talking points.
 - Each point has two parts:
-  "t": the CHECKLIST phrase, max 8 words, the concrete thing they must mention (a fact, number, name, claim from the slide). Glanceable at podium distance.
-  "say": 1-2 full spoken sentences showing HOW to say it well. Natural speech, no jargon dumps. If the slide has a number or term, explain what it means so the presenter understands it, not just reads it.
-- "bridge": one short spoken sentence that transitions to the NEXT slide. Omit it on the last card.
-- If speaker notes are provided, treat them as the presenter's intent and fold them in.
+  "t": the CHECKLIST phrase, max 8 words, the concrete thing they must mention (a fact, number, name, or claim from the slide). Glanceable at podium distance.
+  "say": ONE natural spoken sentence showing how to say it well (a second sentence ONLY if a number or term needs explaining, so the presenter understands it instead of just reading it).
+- "bridge": one short spoken sentence transitioning to the next slide. Omit on the last card.
+- If presenter notes are provided, treat them as the presenter's intent and fold them in.
 - No em-dashes or en-dashes anywhere; use commas or periods.
 Return ONLY valid JSON, no markdown, no preamble:
-{"title":"<deck title, max 6 words>","cards":[{"n":1,"title":"...","points":[{"t":"...","say":"..."}],"bridge":"..."}]}`;
+{${wantTitle ? '"title":"<deck title, max 6 words>",' : ""}"cards":[{"title":"...","points":[{"t":"...","say":"..."}],"bridge":"..."}]}`;
 
   const userText =
-    (outline ? "PRESENTATION OUTLINE (no PDF available):\n" + outline + "\n\n" : "") +
+    (inSlides ? "SLIDE TEXT:\n" + deckText : "PRESENTATION OUTLINE:\n" + deckText) + "\n\n" +
     (notes ? "PRESENTER'S OWN NOTES:\n" + notes + "\n\n" : "") +
     "Build the cue cards now.";
-  const content = pdf
-    ? [{ type: "document", source: { type: "base64", media_type: "application/pdf", data: pdf } }, { type: "text", text: userText }]
-    : [{ type: "text", text: userText }];
 
-  const { text, usage } = await claude({ model: SONNET, system: sys, content, max_tokens: 8000 });
+  // Bound output so a batch can never run long: ~700 tokens of headroom per slide.
+  const slideCount = inSlides ? inSlides.length : 8;
+  const maxTokens = Math.min(8000, 800 + slideCount * 700);
+  const { text, usage } = await claude({ system: sys, content: [{ type: "text", text: userText }], max_tokens: maxTokens });
   logUsage({
-    device_id, provider: "anthropic", service: "present_cards", model: SONNET,
+    device_id, provider: "anthropic", service: "present_cards", model: HAIKU,
     input_units: usage?.input_tokens || 0, output_units: usage?.output_tokens || 0,
-    cost_micros: anthropicCostMicros(SONNET, usage),
+    cost_micros: anthropicCostMicros(HAIKU, usage),
   });
 
   const parsed = parseJson(text);
   if (!Array.isArray(parsed.cards) || !parsed.cards.length) throw new Error("model returned no cards");
-  // Re-issue ids server-side so they are guaranteed unique and stable; the
-  // client and the track action key everything off these.
-  const cards = parsed.cards.slice(0, MAX_CARDS).map((c, ci) => ({
-    n: ci + 1,
-    title: String(c.title || "Slide " + (ci + 1)).slice(0, 80),
-    points: (Array.isArray(c.points) ? c.points : []).slice(0, MAX_POINTS_PER_CARD).map((p, pi) => ({
-      id: `s${ci + 1}p${pi + 1}`,
-      t: String(p.t || "").slice(0, 90),
-      say: String(p.say || "").slice(0, 400),
-    })).filter((p) => p.t),
-    bridge: c.bridge ? String(c.bridge).slice(0, 200) : "",
-  })).filter((c) => c.points.length);
+  // Stable, globally-unique ids keyed off each slide's real number (so ids stay
+  // unique even though the client assembles several batches into one deck).
+  const cards = parsed.cards.map((c, ci) => {
+    const n = inSlides ? (inSlides[ci] ? inSlides[ci].n : ci + 1) : (Number(c.n) || ci + 1);
+    return {
+      n,
+      title: String(c.title || "Slide " + n).slice(0, 80),
+      points: (Array.isArray(c.points) ? c.points : []).slice(0, MAX_POINTS_PER_CARD).map((p, pi) => ({
+        id: `s${n}p${pi + 1}`,
+        t: String(p.t || "").slice(0, 90),
+        say: String(p.say || "").slice(0, 400),
+      })).filter((p) => p.t),
+      bridge: c.bridge ? String(c.bridge).slice(0, 200) : "",
+    };
+  }).filter((c) => c.points.length);
   if (!cards.length) throw new Error("model returned empty cards");
-  return { status: 200, json: { title: String(parsed.title || "").slice(0, 60) || "Presentation", cards } };
+  const out = { cards };
+  if (wantTitle) out.title = String(parsed.title || "").slice(0, 60) || "Presentation";
+  return { status: 200, json: out };
 }
 
 /* ---------- action: track ---------- */
@@ -123,7 +142,7 @@ async function doTrack(body, device_id) {
   const transcript = String(body.transcript || "").slice(-2500);
   const points = (Array.isArray(body.points) ? body.points : [])
     .slice(0, 24)
-    .map((p) => ({ id: String(p.id || "").slice(0, 12), t: String(p.t || "").slice(0, 90) }))
+    .map((p) => ({ id: String(p.id || "").slice(0, 16), t: String(p.t || "").slice(0, 90) }))
     .filter((p) => p.id && p.t);
   if (!points.length || transcript.trim().split(/\s+/).length < 4) return { status: 200, json: { covered: [] } };
 
@@ -132,7 +151,7 @@ Return ONLY valid JSON: {"covered":["<id>", ...]} . Empty array if nothing was c
   const userText = "PENDING POINTS:\n" + points.map((p) => `${p.id}: ${p.t}`).join("\n") +
     "\n\nRECENT TRANSCRIPT:\n" + transcript;
 
-  const { text, usage } = await claude({ model: HAIKU, system: sys, content: [{ type: "text", text: userText }], max_tokens: 300 });
+  const { text, usage } = await claude({ system: sys, content: [{ type: "text", text: userText }], max_tokens: 300 });
   logUsage({
     device_id, provider: "anthropic", service: "present_track", model: HAIKU,
     input_units: usage?.input_tokens || 0, output_units: usage?.output_tokens || 0,
@@ -166,7 +185,7 @@ async function doAnswer(body, device_id) {
 Rules: maximum 60 words. Start with the direct answer in the first sentence, then at most two supporting sentences. Spoken language, no bullet symbols, no markdown, no em-dashes. If the question cannot be answered from the presentation context, say so honestly and give them one graceful spoken line to respond with anyway (for example offering to follow up after).`;
   const userText = `PRESENTATION: ${deckTitle}\n${cardCtx}\n${notes ? "PRESENTER NOTES:\n" + notes + "\n" : ""}\nQUESTION FROM THE AUDIENCE:\n${question}\n\nWrite the answer they should say now.`;
 
-  const { text, usage } = await claude({ model: HAIKU, system: sys, content: [{ type: "text", text: userText }], max_tokens: 350 });
+  const { text, usage } = await claude({ system: sys, content: [{ type: "text", text: userText }], max_tokens: 350 });
   logUsage({
     device_id, provider: "anthropic", service: "present_answer", model: HAIKU,
     input_units: usage?.input_tokens || 0, output_units: usage?.output_tokens || 0,
@@ -183,7 +202,7 @@ export default async function handler(req, res) {
     const raw = await readRaw(req);
     body = JSON.parse(raw.toString("utf8") || "{}");
   } catch (e) {
-    if (String(e.message) === "too_big") return res.status(413).json({ error: "PDF too large" });
+    if (String(e.message) === "too_big") return res.status(413).json({ error: "deck too large" });
     return res.status(400).json({ error: "bad json" });
   }
   const device_id = String(body.device_id || "").slice(0, 64);

@@ -489,6 +489,21 @@
   .pres-toast{position:absolute;left:50%;top:14%;transform:translateX(-50%);background:var(--accent);color:#fff;font-weight:900;font-size:15px;padding:10px 18px;border-radius:22px;box-shadow:0 8px 24px rgba(88,204,2,.4);z-index:40;animation:pop .35s cubic-bezier(.34,1.56,.64,1)}
   .pres-summary .ms{font-size:14px;font-weight:700;color:var(--ink);line-height:1.5;padding:6px 2px;border-bottom:1px dashed var(--line)}
   .pres-summary .ms:last-child{border-bottom:none}
+  /* card editing */
+  .pe-title{width:100%;font:inherit;font-size:20px;font-weight:900;color:var(--ink);border:2px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:12px}
+  .pe-title:focus{outline:none;border-color:var(--blue)}
+  .pe-point{border:2px solid var(--line);border-radius:12px;padding:10px;margin-bottom:10px;background:var(--panel2)}
+  .pe-row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+  .pe-t{flex:1;font:inherit;font-size:16px;font-weight:800;color:var(--ink);border:2px solid var(--line);border-radius:10px;padding:8px 10px;background:#fff}
+  .pe-t:focus{outline:none;border-color:var(--blue)}
+  .pe-del{background:#fff;border:2px solid var(--line);border-radius:10px;color:var(--bad);font-weight:900;font-size:15px;width:38px;height:38px;flex-shrink:0;cursor:pointer;transition:.1s}
+  .pe-del:active{transform:scale(.92)}
+  .pe-say{width:100%;font:inherit;font-size:14px;font-weight:700;color:var(--ink);border:2px solid var(--line);border-radius:10px;padding:8px 10px;background:#fff;resize:vertical;min-height:52px;line-height:1.45}
+  .pe-say:focus{outline:none;border-color:var(--blue)}
+  .pe-add{width:100%;background:#ddf4ff;border:2px dashed var(--blue);border-radius:12px;color:#0b6e9e;font-weight:800;font-size:14px;padding:11px;cursor:pointer;margin-bottom:6px;transition:.1s}
+  .pe-add:active{transform:translateY(1px)}
+  .pe-bridgewrap{margin-top:12px}
+  .pe-lbl{font-size:10px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);font-weight:800;margin-bottom:5px}
 </style>
 </head>
 <body>
@@ -570,7 +585,7 @@
   <div class="label" id="presLabelDeck">Your slides (PDF, max 3 MB)</div>
   <div class="pres-file">
     <label for="presFile" id="presFileBtn">Choose PDF</label>
-    <input type="file" id="presFile" accept="application/pdf,.pdf" style="display:none" onchange="presFileChanged()">
+    <input type="file" id="presFile" accept="application/pdf,.pdf,.pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation" style="display:none" onchange="presFileChanged()">
     <div class="fname" id="presFileName">–</div>
   </div>
   <div class="label" id="presLabelNotes">Notes for the AI (optional)</div>
@@ -585,6 +600,7 @@
   <div class="pres-head">
     <span class="ptime" id="presTime">0:00</span>
     <span class="ptitle" id="presDeckTitle"></span>
+    <button class="cam-btn" id="presEditBtn" onclick="togglePresEdit()" title="Edit cards">✎</button>
     <button class="back" id="presEndBtn" style="margin:0" onclick="endPresent()">End ▸</button>
   </div>
   <div class="pres-prog"><i id="presProg"></i></div>
@@ -2480,14 +2496,15 @@ function renderSpeechScore(r){
 // localStorage so the cards survive a reload on presentation day (generate at
 // home, open in class with zero network calls until you go live).
 const PRES_LS_KEY='rehearse_present_deck';
-const PRES_MAX_PDF=3*1024*1024;
-const PRES_TRACK_MS=9000;       // how often the rolling transcript is matched against points
+const PRES_MAX_FILE=25*1024*1024; // file is parsed in-browser, never uploaded, so we can be generous
+const PRES_SLIDES_PER_CALL=8;     // batch size for card generation (keeps each request well under the timeout)
+const PRES_TRACK_MS=9000;         // how often the rolling transcript is matched against points
 const PRES_MAX_LIVE_MS=60*60*1000;
 let presDeck=null,presIdx=0,presCovered=new Set();
 let presLive=false,presSR=null,presStream=null,presRec=null,presRecTimer=null;
 let presFinal='',presSentWords=0,presTrackBusy=false,presTrackInt=null;
 let presElapsed=0,presLiveSince=0,presTimeInt=null,presWakeLock=null;
-let presFileObj=null,presNavToken=0,presHardStop=null;
+let presFileObj=null,presNavToken=0,presHardStop=null,presEditing=false;
 
 function presReadSaved(){try{return JSON.parse(localStorage.getItem(PRES_LS_KEY)||'null');}catch{return null;}}
 function presSave(deck){try{localStorage.setItem(PRES_LS_KEY,JSON.stringify(deck));}catch{}}
@@ -2513,38 +2530,90 @@ window.presOpenSaved=()=>{
   presDeck=saved;
   enterPresentStage();
 };
+function presIsPpt(f){return /\.pptx$/i.test(f.name)||(f.type||'').includes('presentationml');}
+function presIsPdf(f){return /\.pdf$/i.test(f.name)||f.type==='application/pdf';}
 window.presFileChanged=()=>{
   const f=$('presFile').files[0];
   const nameEl=$('presFileName');
   presFileObj=null;
   if(!f){nameEl.textContent='–';nameEl.classList.remove('has');return;}
-  if(!(f.type==='application/pdf'||/\.pdf$/i.test(f.name))){presSetupErr(t('present.err.notpdf'));$('presFile').value='';nameEl.textContent='–';nameEl.classList.remove('has');return;}
-  if(f.size>PRES_MAX_PDF){presSetupErr(t('present.err.toobig'));$('presFile').value='';nameEl.textContent='–';nameEl.classList.remove('has');return;}
+  if(!presIsPdf(f)&&!presIsPpt(f)){presSetupErr(t('present.err.notfile'));$('presFile').value='';nameEl.textContent='–';nameEl.classList.remove('has');return;}
+  if(f.size>PRES_MAX_FILE){presSetupErr(t('present.err.toobig'));$('presFile').value='';nameEl.textContent='–';nameEl.classList.remove('has');return;}
   presFileObj=f;
   nameEl.textContent=f.name;nameEl.classList.add('has');
   $('presErr').classList.add('hidden');
 };
 function presSetupErr(msg){const e=$('presErr');e.textContent=msg;e.classList.remove('hidden');}
-function fileToBase64(f){
-  return new Promise((resolve,reject)=>{
-    const r=new FileReader();
-    r.onload=()=>resolve(String(r.result).split(',')[1]||'');
-    r.onerror=reject;
-    r.readAsDataURL(f);
-  });
+
+// --- in-browser slide text extraction (no upload, no image tokens) ---
+function decodeXml(s){return s.replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/&apos;/g,"'").replace(/&amp;/g,'&');}
+async function extractPdfSlides(buf){
+  const pdfjs=await import('https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/build/pdf.min.mjs');
+  pdfjs.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/build/pdf.worker.min.mjs';
+  const doc=await pdfjs.getDocument({data:buf}).promise;
+  const slides=[];
+  for(let i=1;i<=doc.numPages;i++){
+    const page=await doc.getPage(i);
+    const content=await page.getTextContent();
+    const text=content.items.map(it=>it.str).join(' ').replace(/\s+/g,' ').trim();
+    slides.push({n:i,text});
+  }
+  return slides;
 }
+async function extractPptxSlides(buf){
+  const JSZip=(await import('https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm')).default;
+  const zip=await JSZip.loadAsync(buf);
+  const names=Object.keys(zip.files)
+    .filter(n=>/^ppt\/slides\/slide\d+\.xml$/.test(n))
+    .sort((a,b)=>(+a.match(/(\d+)/)[1])-(+b.match(/(\d+)/)[1]));
+  const slides=[];
+  for(let i=0;i<names.length;i++){
+    const xml=await zip.files[names[i]].async('string');
+    const text=[...xml.matchAll(/<a:t>([\s\S]*?)<\/a:t>/g)].map(m=>decodeXml(m[1])).join(' ').replace(/\s+/g,' ').trim();
+    slides.push({n:i+1,text});
+  }
+  return slides;
+}
+async function extractSlides(file){
+  const buf=await file.arrayBuffer();
+  if(presIsPpt(file))return extractPptxSlides(buf);
+  return extractPdfSlides(buf);
+}
+
 window.generatePresent=async()=>{
   const outline=$('presOutline').value.trim();
   if(!presFileObj&&!outline){presSetupErr(t('present.err.nofile'));return;}
   const btn=$('presGenBtn');
-  btn.disabled=true;btn.textContent=t('present.generating');
+  btn.disabled=true;
   $('presErr').classList.add('hidden');
+  const notes=$('presNotes').value.trim();
   try{
-    const body={action:'cards',notes:$('presNotes').value.trim(),outline,lang:getLang(),device_id:deviceId()};
-    if(presFileObj)body.pdf_base64=await fileToBase64(presFileObj);
-    const d=await api('/api/present',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-    if(!d.cards||!d.cards.length)throw new Error(t('present.err.generate'));
-    presDeck={title:d.title,cards:d.cards,notes:$('presNotes').value.trim().slice(0,3000),savedAt:Date.now()};
+    let allCards=[],deckTitle='';
+    if(presFileObj){
+      btn.textContent=t('present.reading');
+      const slides=await extractSlides(presFileObj);
+      if(!slides.length)throw new Error(t('present.err.notext'));
+      if(slides.filter(s=>s.text&&s.text.length>1).length===0)throw new Error(t('present.err.notext'));
+      deckTitle=presFileObj.name.replace(/\.(pdf|pptx)$/i,'').replace(/[_\-]+/g,' ').trim().slice(0,60);
+      // Generate in small batches so no single request risks the function timeout.
+      for(let i=0;i<slides.length;i+=PRES_SLIDES_PER_CALL){
+        btn.textContent=t('present.writing',{a:Math.min(i+PRES_SLIDES_PER_CALL,slides.length),b:slides.length});
+        const chunk=slides.slice(i,i+PRES_SLIDES_PER_CALL);
+        const d=await api('/api/present',{method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({action:'cards',slides:chunk,notes,want_title:i===0&&!deckTitle,lang:getLang(),device_id:deviceId()})});
+        if(i===0&&!deckTitle&&d.title)deckTitle=d.title;
+        allCards=allCards.concat(d.cards||[]);
+      }
+    }else{
+      btn.textContent=t('present.generating');
+      const d=await api('/api/present',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({action:'cards',outline,notes,want_title:true,lang:getLang(),device_id:deviceId()})});
+      deckTitle=d.title||'Presentation';
+      allCards=d.cards||[];
+    }
+    if(!allCards.length)throw new Error(t('present.err.generate'));
+    allCards.forEach((c,idx)=>c.n=idx+1); // sequential display numbers; point ids stay as assigned
+    presDeck={title:deckTitle||'Presentation',cards:allCards,notes:notes.slice(0,3000),savedAt:Date.now()};
     presSave(presDeck);
     enterPresentStage();
   }catch(e){presSetupErr(e.message||t('present.err.generate'));}
@@ -2552,7 +2621,7 @@ window.generatePresent=async()=>{
 };
 
 function enterPresentStage(){
-  presIdx=0;presCovered=new Set();presFinal='';presSentWords=0;presElapsed=0;
+  presIdx=0;presCovered=new Set();presFinal='';presSentWords=0;presElapsed=0;presEditing=false;
   $('presDeckTitle').textContent=presDeck.title;
   $('presTime').textContent='0:00';
   $('presTicker').textContent=t('present.hint.tap');
@@ -2565,29 +2634,97 @@ function presTotalPoints(){return presDeck?presDeck.cards.reduce((a,c)=>a+c.poin
 function renderPresCard(){
   if(!presDeck)return;
   const c=presDeck.cards[presIdx];
-  const allCov=c.points.every(p=>presCovered.has(p.id));
   const card=$('presCard');
-  card.classList.toggle('done',allCov);
-  card.innerHTML=`
-    <div class="ck">${esc(t('present.slide'))} ${c.n}</div>
-    <div class="ct">${esc(c.title)}</div>
-    ${c.points.map(p=>`<div class="ppoint ${presCovered.has(p.id)?'cov':''}" onclick="presTogglePoint('${p.id}')"><div class="box">${presCovered.has(p.id)?'✓':''}</div><div class="pt">${esc(p.t)}</div></div>`).join('')}
-    <details class="pres-say" open>
-      <summary>▾ ${esc(t('present.say.label'))}</summary>
-      ${c.points.map(p=>`<div class="sline"><b>${esc(p.t)}:</b> ${esc(p.say)}</div>`).join('')}
-    </details>
-    ${c.bridge?`<div class="pres-bridge"><b>${esc(t('present.bridge.label'))}</b>${esc(c.bridge)}</div>`:''}`;
+  const eb=$('presEditBtn');if(eb){eb.classList.toggle('on',presEditing);eb.textContent=presEditing?'✓':'✎';}
+  if(presEditing){renderPresEdit(c,card);}
+  else{
+    const allCov=c.points.every(p=>presCovered.has(p.id));
+    card.classList.toggle('done',allCov);
+    card.innerHTML=`
+      <div class="ck">${esc(t('present.slide'))} ${c.n}</div>
+      <div class="ct">${esc(c.title)}</div>
+      ${c.points.map(p=>`<div class="ppoint ${presCovered.has(p.id)?'cov':''}" onclick="presTogglePoint('${p.id}')"><div class="box">${presCovered.has(p.id)?'✓':''}</div><div class="pt">${esc(p.t)}</div></div>`).join('')}
+      <details class="pres-say" open>
+        <summary>▾ ${esc(t('present.say.label'))}</summary>
+        ${c.points.map(p=>`<div class="sline"><b>${esc(p.t)}:</b> ${esc(p.say)}</div>`).join('')}
+      </details>
+      ${c.bridge?`<div class="pres-bridge"><b>${esc(t('present.bridge.label'))}</b>${esc(c.bridge)}</div>`:''}`;
+  }
   $('presCount').textContent=(presIdx+1)+' '+t('present.card.of')+' '+presDeck.cards.length;
   $('presPrev').disabled=presIdx===0;
   $('presNext').disabled=presIdx>=presDeck.cards.length-1;
-  $('presNext').classList.toggle('pulse',allCov&&presIdx<presDeck.cards.length-1);
+  const allCov=c.points.every(p=>presCovered.has(p.id));
+  $('presNext').classList.toggle('pulse',!presEditing&&allCov&&presIdx<presDeck.cards.length-1);
   const total=presTotalPoints();
   $('presProg').style.width=(total?Math.round(100*presCovered.size/total):0)+'%';
 }
+function renderPresEdit(c,card){
+  card.classList.remove('done');
+  card.innerHTML=`
+    <div class="ck">${esc(t('present.slide'))} ${c.n} · ${esc(t('present.editing'))}</div>
+    <input class="pe-title" id="peTitle" maxlength="80" value="${esc(c.title)}" placeholder="${esc(t('present.edit.title'))}">
+    <div id="pePoints">
+      ${c.points.map(p=>presEditPointHTML(p)).join('')}
+    </div>
+    <button class="pe-add" onclick="presAddPoint()">${esc(t('present.edit.add'))}</button>
+    <div class="pe-bridgewrap">
+      <div class="pe-lbl">${esc(t('present.bridge.label'))}</div>
+      <textarea class="pe-say" id="peBridge" maxlength="200" placeholder="${esc(t('present.bridge.label'))}">${esc(c.bridge||'')}</textarea>
+    </div>
+    <button class="btn btn-go" style="margin-top:14px" onclick="savePresEdit()">${esc(t('present.edit.done'))}</button>`;
+}
+function presEditPointHTML(p){
+  return `<div class="pe-point" data-id="${p.id}">
+    <div class="pe-row"><input class="pe-t" maxlength="90" value="${esc(p.t)}" placeholder="${esc(t('present.edit.point'))}"><button class="pe-del" onclick="presDelPoint('${p.id}')" title="delete">✕</button></div>
+    <textarea class="pe-say" maxlength="400" placeholder="${esc(t('present.edit.say'))}">${esc(p.say||'')}</textarea>
+  </div>`;
+}
+// Pull whatever is currently typed into the form back into the deck (without
+// re-rendering, so focus is preserved during add/delete/save).
+function readPresEdit(){
+  if(!presDeck||!$('peTitle'))return;
+  const c=presDeck.cards[presIdx];
+  c.title=$('peTitle').value.slice(0,80)||('Slide '+c.n);
+  c.bridge=$('peBridge').value.trim().slice(0,200);
+  c.points=[...document.querySelectorAll('#pePoints .pe-point')].map(r=>({
+    id:r.dataset.id,
+    t:r.querySelector('.pe-t').value.trim().slice(0,90),
+    say:r.querySelector('.pe-say').value.trim().slice(0,400),
+  })).filter(p=>p.t||p.say);
+}
+window.togglePresEdit=()=>{
+  if(!presDeck)return;
+  if(presEditing){savePresEdit();return;}
+  presEditing=true;renderPresCard();
+};
+window.presAddPoint=()=>{
+  readPresEdit();
+  const c=presDeck.cards[presIdx];
+  c.points.push({id:'e'+Math.random().toString(36).slice(2,9),t:'',say:''});
+  renderPresCard();
+  // focus the new point's checklist field
+  const rows=document.querySelectorAll('#pePoints .pe-point');
+  const last=rows[rows.length-1];if(last)last.querySelector('.pe-t').focus();
+};
+window.presDelPoint=(id)=>{
+  readPresEdit();
+  const c=presDeck.cards[presIdx];
+  c.points=c.points.filter(p=>p.id!==id);
+  renderPresCard();
+};
+window.savePresEdit=()=>{
+  readPresEdit();
+  const c=presDeck.cards[presIdx];
+  if(!c.points.length)c.points.push({id:'e'+Math.random().toString(36).slice(2,9),t:t('present.edit.point'),say:''});
+  presEditing=false;
+  presSave(presDeck);
+  renderPresCard();
+};
 window.presNav=(d)=>{
   if(!presDeck)return;
   const ni=presIdx+d;
   if(ni<0||ni>=presDeck.cards.length)return;
+  if(presEditing){readPresEdit();presSave(presDeck);} // carry edits to the new card
   presIdx=ni;presNavToken++;
   renderPresCard();
   $('presCard').scrollTop=0;
@@ -2602,6 +2739,7 @@ window.presTogglePoint=(id)=>{
   const card=$('presCard');if(!card)return;
   card.addEventListener('touchstart',e=>{sx=e.touches[0].clientX;sy=e.touches[0].clientY;},{passive:true});
   card.addEventListener('touchend',e=>{
+    if(presEditing)return; // don't hijack swipes while typing in the edit form
     const dx=e.changedTouches[0].clientX-sx,dy=e.changedTouches[0].clientY-sy;
     if(Math.abs(dx)>60&&Math.abs(dx)>Math.abs(dy)*1.6)presNav(dx<0?1:-1);
   },{passive:true});
@@ -2699,7 +2837,7 @@ document.addEventListener('visibilitychange',()=>{
 });
 
 async function presTrackTick(){
-  if(!presDeck||presTrackBusy)return;
+  if(!presDeck||presTrackBusy||presEditing)return;
   const words=presFinal.trim().split(/\s+/).filter(Boolean);
   if(words.length-presSentWords<6)return; // not enough new speech to bother the model
   // Candidates: unchecked points on the current card plus the next one, so
