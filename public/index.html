@@ -483,9 +483,18 @@
   .pres-live{flex:1;border:none;border-radius:16px;padding:15px;font-size:15px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;cursor:pointer;background:var(--accent);color:#fff;box-shadow:0 4px 0 var(--accent2);transition:.1s}
   .pres-live:active{transform:translateY(4px);box-shadow:0 0 0}
   .pres-live.live{background:var(--bad);box-shadow:0 4px 0 #d63030;animation:ring 1.4s infinite}
-  .pres-qa{border:2px solid var(--line);border-bottom-width:4px;border-radius:16px;padding:13px 16px;font-size:14px;font-weight:800;cursor:pointer;background:#fff7d6;border-color:var(--warn);color:#8a6500;transition:.1s}
-  .pres-qa:active{transform:translateY(2px);border-bottom-width:2px}
-  .pres-answer{background:#fff;border:2px solid var(--warn);border-radius:14px;padding:13px;margin-top:12px;font-size:16px;font-weight:700;line-height:1.5;color:var(--ink)}
+  /* live coach banner: tells the presenter what to do or say next */
+  .pres-coach{flex-shrink:0;border-radius:14px;padding:10px 13px;margin-bottom:10px;font-size:14px;font-weight:800;line-height:1.4;border:2px solid var(--accent);background:#f0fbe6;color:var(--accent2);animation:slideIn .3s ease}
+  .pres-coach .say{display:block;font-size:13px;font-weight:700;color:var(--ink);margin-top:4px;font-style:italic}
+  .pres-coach.warn{border-color:var(--warn);background:#fff7d6;color:#8a6500}
+  .pres-coach.urgent{border-color:var(--bad);background:rgba(255,75,75,.07);color:var(--bad)}
+  /* auto question popup */
+  .pres-qpop{position:absolute;left:14px;right:14px;bottom:96px;z-index:45;background:#fff;border:2.5px solid var(--warn);border-radius:18px;padding:13px 14px;box-shadow:0 14px 40px rgba(0,0,0,.18);animation:pop .3s cubic-bezier(.34,1.56,.64,1)}
+  .pres-qpop .qp-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+  .pres-qpop .qp-tag{font-size:10px;letter-spacing:.6px;text-transform:uppercase;font-weight:900;color:#8a6500;background:#fff7d6;border-radius:8px;padding:3px 8px}
+  .pres-qpop .qp-x{background:var(--panel2);border:none;border-radius:10px;width:30px;height:30px;font-size:14px;font-weight:900;color:var(--muted);cursor:pointer}
+  .pres-qpop .qp-q{font-size:12.5px;font-weight:700;color:var(--muted);line-height:1.4;margin-bottom:7px;font-style:italic}
+  .pres-qpop .qp-a{font-size:16px;font-weight:800;color:var(--ink);line-height:1.45}
   .pres-toast{position:absolute;left:50%;top:14%;transform:translateX(-50%);background:var(--accent);color:#fff;font-weight:900;font-size:15px;padding:10px 18px;border-radius:22px;box-shadow:0 8px 24px rgba(88,204,2,.4);z-index:40;animation:pop .35s cubic-bezier(.34,1.56,.64,1)}
   .pres-summary .ms{font-size:14px;font-weight:700;color:var(--ink);line-height:1.5;padding:6px 2px;border-bottom:1px dashed var(--line)}
   .pres-summary .ms:last-child{border-bottom:none}
@@ -642,6 +651,7 @@
   </div>
   <div class="pres-prog"><i id="presProg"></i></div>
   <div class="pres-metrics hidden" id="presMetrics"></div>
+  <div class="pres-coach hidden" id="presCoach"></div>
   <div class="pcard" id="presCard"></div>
   <div class="pres-navrow">
     <button class="pn" id="presPrev" onclick="presNav(-1)">‹</button>
@@ -651,20 +661,13 @@
   <div class="pres-ticker" id="presTicker"></div>
   <div class="pres-actions">
     <button class="pres-live" id="presLiveBtn" onclick="togglePresLive()">● Go live</button>
-    <button class="pres-qa" id="presQaBtn" onclick="openPresQA()">🙋 Question</button>
+  </div>
+  <div class="pres-qpop hidden" id="presQPop">
+    <div class="qp-head"><span class="qp-tag" id="presQPopTag">Question heard</span><button class="qp-x" onclick="closePresQPop()">✕</button></div>
+    <div class="qp-q" id="presQPopQ"></div>
+    <div class="qp-a" id="presQPopA"></div>
   </div>
 </section>
-
-<div class="modal-bg hidden" id="presQaModal" onclick="closePresQA(event)">
-  <div class="modal" onclick="event.stopPropagation()">
-    <div class="modal-title" id="presQaTitle">Answer a question</div>
-    <div class="modal-sub" id="presQaSub">Type what they asked, or leave it empty to use the last thing said in the room.</div>
-    <input id="presQaInp" placeholder="What did they ask?" autocomplete="off" style="width:100%;border:2px solid var(--line);border-radius:14px;padding:12px;font:inherit;font-size:15px;font-weight:700;margin-bottom:12px" onkeydown="if(event.key==='Enter')askPresQA()">
-    <div class="pres-answer hidden" id="presQaOut"></div>
-    <button class="btn btn-go" id="presQaGo" style="margin-top:12px" onclick="askPresQA()">Get answer</button>
-    <button class="modal-keep" id="presQaClose" onclick="closePresQA()">Close</button>
-  </div>
-</div>
 
 <div class="modal-bg hidden" id="presSumModal">
   <div class="modal pres-summary" onclick="event.stopPropagation()">
@@ -979,7 +982,6 @@ window.applyI18n=function(){
     'presTitleA':'present.title.a','presTitleB':'present.title.b','presSub':'present.sub',
     'presLabelDeck':'present.label.deck','presFileBtn':'present.file.pick','presLabelNotes':'present.label.notes',
     'presLabelOutline':'present.label.outline','presGenBtn':'present.generate','presEndBtn':'present.end',
-    'presQaTitle':'present.qa.title','presQaSub':'present.qa.sub','presQaGo':'present.qa.go','presQaClose':'present.qa.close',
     'presSumHome':'present.summary.home',
     'homePresentT':'home.present.t','homePresentS':'home.present.s',
     'homeTrainT':'home.train.t','homeTrainS':'home.train.s',
@@ -1011,11 +1013,9 @@ window.applyI18n=function(){
   // Present-mode placeholders + back buttons (back btns share generic styling, set text directly).
   const pn=$('presNotes');if(pn)pn.placeholder=t('present.notes.ph');
   const po=$('presOutline');if(po)po.placeholder=t('present.outline.ph');
-  const pq=$('presQaInp');if(pq)pq.placeholder=t('present.qa.ph');
   const pb=$('presBack');if(pb)pb.textContent=t('back');
   const peb=$('presEndBtn');if(peb)peb.textContent=t(presMode==='train'?'train.finish':'present.end');
   const plb=$('presLiveBtn');if(plb&&!presLive)plb.textContent=t('present.live.start');
-  const pqb=$('presQaBtn');if(pqb)pqb.textContent=t('present.qa.btn');
   if($('presFileName')&&!presFileObj)$('presFileName').textContent='–';
   if($('s-present-setup')&&$('s-present-setup').classList.contains('active')){setDeckSetupTexts();renderPresResume();}
   if($('s-present-stage')&&$('s-present-stage').classList.contains('active')&&presDeck){renderPresCard();$('presDeckTitle').textContent=presDeck.title;}
@@ -2720,7 +2720,8 @@ function enterPresentStage(){
   $('presTime').textContent='0:00';
   $('presTicker').textContent=t(train?'train.hint':'present.hint.tap');
   $('presTicker').classList.remove('live');
-  $('presQaBtn').classList.toggle('hidden',train);   // Q&A is a Present affordance
+  $('presCoach').classList.add('hidden');
+  closePresQPop();
   $('presMetrics').classList.toggle('hidden',!train); // live pace/fillers only when training
   if(train)$('presMetrics').innerHTML='';
   $('presEndBtn').textContent=t(train?'train.finish':'present.end');
@@ -2823,8 +2824,9 @@ window.presNav=(d)=>{
   const ni=presIdx+d;
   if(ni<0||ni>=presDeck.cards.length)return;
   if(presEditing){readPresEdit();presSave(presDeck);} // carry edits to the new card
-  presIdx=ni;presNavToken++;
+  presIdx=ni;presNavToken++;presNoProgressTicks=0;
   renderPresCard();
+  updatePresCoach();
   $('presCard').scrollTop=0;
 };
 window.presTogglePoint=(id)=>{
@@ -2848,7 +2850,6 @@ function syncPresLiveBtn(){
   const b=$('presLiveBtn');if(!b)return;
   b.textContent=presLive?t('present.live.stop'):t('present.live.start');
   b.classList.toggle('live',presLive);
-  $('presQaBtn').textContent=t('present.qa.btn');
 }
 window.togglePresLive=()=>{presLive?stopPresLive():startPresLive();};
 async function startPresLive(){
@@ -2860,8 +2861,9 @@ async function startPresLive(){
         let interim='';
         for(let i=e.resultIndex;i<e.results.length;i++){
           const txt=e.results[i][0].transcript;
-          if(e.results[i].isFinal)presFinal+=' '+txt;else interim+=txt;
+          if(e.results[i].isFinal){presFinal+=' '+txt;presMaybeQuestion(txt);}else interim+=txt;
         }
+        presLastGrowthTs=performance.now();
         const tail=(presFinal+' '+interim).trim().split(/\s+/).slice(-7).join(' ');
         if(tail){$('presTicker').textContent='🎙 …'+tail;}
       };
@@ -2877,15 +2879,18 @@ async function startPresLive(){
     startPresRecSegment();
   }
   presLive=true;presLiveSince=performance.now();
+  presLastGrowthTs=performance.now();presLastWordCount=0;presNoProgressTicks=0;
   $('presTicker').textContent=t('present.live.on');
   $('presTicker').classList.add('live');
   syncPresLiveBtn();
+  updatePresCoach();
   presTrackInt=setInterval(presTrackTick,PRES_TRACK_MS);
   presTimeInt=setInterval(()=>{
     const ms=presElapsed+(performance.now()-presLiveSince);
     const s=Math.floor(ms/1000);
     $('presTime').textContent=Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
     if(presMode==='train')updateTrainMetrics(ms/1000);
+    updatePresCoach();
   },1000);
   presHardStop=setTimeout(stopPresLive,PRES_MAX_LIVE_MS);
   // Keep the screen awake on the podium; a sleeping phone kills the mic too.
@@ -2904,7 +2909,7 @@ function startPresRecSegment(){
     try{
       const r=await fetch('/api/stt',{method:'POST',headers:{'Content-Type':blob.type,'x-device-id':deviceId(),'x-language':getLang()},body:blob});
       const d=await r.json();
-      if(d.text){presFinal+=' '+d.text;$('presTicker').textContent='🎙 …'+presFinal.trim().split(/\s+/).slice(-7).join(' ');}
+      if(d.text){presFinal+=' '+d.text;presLastGrowthTs=performance.now();presMaybeQuestion(d.text);$('presTicker').textContent='🎙 …'+presFinal.trim().split(/\s+/).slice(-7).join(' ');}
     }catch{}
   };
   presRec.start();
@@ -2924,6 +2929,8 @@ function stopPresLive(){
   if(presWakeLock){try{presWakeLock.release();}catch{}presWakeLock=null;}
   $('presTicker').textContent=t(presMode==='train'?'train.hint':'present.hint.tap');
   $('presTicker').classList.remove('live');
+  $('presCoach').classList.add('hidden');
+  closePresQPop();
   syncPresLiveBtn();
   presTrackTick(); // flush whatever was said since the last tick
 }
@@ -2964,6 +2971,7 @@ async function presTrackTick(){
     const d=await api('/api/present',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({action:'track',points,transcript:windowText,lang:getLang(),device_id:deviceId()})});
     if(Array.isArray(d.covered)&&d.covered.length){
+      presNoProgressTicks=0;
       d.covered.forEach(id=>presCovered.add(id));
       const c=presDeck.cards[presIdx];
       const navAtCall=presNavToken;
@@ -2973,7 +2981,10 @@ async function presTrackTick(){
         // Auto-advance only if the presenter hasn't navigated themselves meanwhile.
         setTimeout(()=>{if(presLive&&presNavToken===navAtCall&&presIdx<presDeck.cards.length-1)presNav(1);},1400);
       }
+    }else{
+      presNoProgressTicks++; // they spoke a full window without hitting a planned point
     }
+    updatePresCoach();
   }catch{}
   finally{presTrackBusy=false;}
 }
@@ -2984,32 +2995,81 @@ function presToast(msg){
   setTimeout(()=>el.remove(),1800);
 }
 
-/* --- Q&A: glanceable answer when the audience asks something --- */
-window.openPresQA=()=>{
-  $('presQaInp').value='';
-  $('presQaOut').classList.add('hidden');$('presQaOut').textContent='';
-  $('presQaModal').classList.remove('hidden');
-};
-window.closePresQA=(e)=>{if(e&&e.target!==e.currentTarget)return;$('presQaModal').classList.add('hidden');};
-window.askPresQA=async()=>{
-  if(!presDeck)return;
-  // No typed question: assume the question was the last thing said in the room.
-  const typed=$('presQaInp').value.trim();
-  const fallback=presFinal.trim().split(/\s+/).slice(-35).join(' ');
-  const question=typed||fallback;
-  if(!question){$('presQaOut').classList.remove('hidden');$('presQaOut').textContent=t('present.qa.ph');return;}
-  const out=$('presQaOut');
-  out.classList.remove('hidden');out.textContent=t('present.qa.thinking');
-  $('presQaGo').disabled=true;
+/* --- hands-free Q&A: detect audience questions, answer in an auto popup --- */
+let presQaBusy=false,presQaLast=0,presQPopTimer=null;
+const PRES_QA_COOLDOWN_MS=15000,PRES_QPOP_TTL_MS=35000;
+function presMaybeQuestion(chunk){
+  // Only during a real (Present) live run; rhetorical self-questions while
+  // training would spam popups.
+  if(presMode!=='present'||!presLive||presEditing||presQaBusy||!presDeck)return;
+  if(Date.now()-presQaLast<PRES_QA_COOLDOWN_MS)return;
+  const q=String(chunk||'').trim();
+  if(q.split(/\s+/).length<3||!ivLooksLikeQuestion(q))return;
+  presQaLast=Date.now();
+  presAnswerQuestion(q.split(/\s+/).slice(-40).join(' '));
+}
+async function presAnswerQuestion(question){
+  presQaBusy=true;
+  showPresQPop(question,t('present.qa.thinking'));
   try{
     const c=presDeck.cards[presIdx];
     const d=await api('/api/present',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({action:'answer',question,deck_title:presDeck.title,notes:presDeck.notes||'',
         card:{title:c.title,points:c.points.map(p=>({t:p.t,say:p.say}))},lang:getLang(),device_id:deviceId()})});
-    out.textContent=d.answer||t('present.err.generate');
-  }catch(e){out.textContent=e.message||t('present.err.generate');}
-  finally{$('presQaGo').disabled=false;}
+    showPresQPop(question,d.answer||t('present.err.generate'));
+  }catch(e){showPresQPop(question,e.message||t('present.err.generate'));}
+  finally{presQaBusy=false;}
+}
+function showPresQPop(question,answer){
+  $('presQPopTag').textContent=t('present.qpop.tag');
+  $('presQPopQ').textContent='»'+question+'«';
+  $('presQPopA').textContent=answer;
+  $('presQPop').classList.remove('hidden');
+  if(presQPopTimer)clearTimeout(presQPopTimer);
+  presQPopTimer=setTimeout(closePresQPop,PRES_QPOP_TTL_MS);
+}
+window.closePresQPop=()=>{
+  $('presQPop').classList.add('hidden');
+  if(presQPopTimer){clearTimeout(presQPopTimer);presQPopTimer=null;}
 };
+
+/* --- live coach banner: tells the presenter what to do or say next --- */
+let presLastGrowthTs=0,presLastWordCount=0,presNoProgressTicks=0;
+function nextUncovered(){
+  if(!presDeck)return null;
+  const c=presDeck.cards[presIdx];
+  return c.points.find(p=>!presCovered.has(p.id))||null;
+}
+function updatePresCoach(){
+  const el=$('presCoach');if(!el)return;
+  if(!presLive||presEditing){el.classList.add('hidden');return;}
+  const durS=(presElapsed+(performance.now()-presLiveSince))/1000;
+  const words=presFinal.trim().split(/\s+/).filter(Boolean);
+  const wpm=durS>8&&words.length>15?Math.round(words.length/(durS/60)):0;
+  const silentS=presLastGrowthTs?(performance.now()-presLastGrowthTs)/1000:0;
+  const nxt=nextUncovered();
+  let cls='',html='';
+  if(silentS>10&&nxt){ // stalled: hand them the exact next line
+    cls='urgent';
+    html=`🗣 ${esc(t('present.coach.silence'))} <b>${esc(nxt.t)}</b>${nxt.say?`<span class="say">„${esc(nxt.say)}“</span>`:''}`;
+  }else if(wpm>180){
+    cls='warn';
+    html=`🐢 ${esc(t('present.coach.slower'))}`;
+  }else if(wpm&&wpm<95){
+    cls='warn';
+    html=`⚡ ${esc(t('present.coach.faster'))}`;
+  }else if(!nxt){
+    const nc=presDeck&&presDeck.cards[presIdx+1];
+    html=nc?`✓ ${esc(t('present.coach.next'))} <b>${esc(nc.title)}</b>`:`✓ ${esc(t('present.summary.none'))}`;
+  }else if(presNoProgressTicks>=2){ // talking, but not about the plan
+    cls='warn';
+    html=`🎯 ${esc(t('present.coach.focus'))} <b>${esc(nxt.t)}</b>${nxt.say?`<span class="say">„${esc(nxt.say)}“</span>`:''}`;
+  }else{
+    html=`▶ ${esc(t('present.coach.now'))} <b>${esc(nxt.t)}</b>${nxt.say?`<span class="say">„${esc(nxt.say)}“</span>`:''}`;
+  }
+  el.className='pres-coach'+(cls?' '+cls:'');
+  el.innerHTML=html;
+}
 
 /* --- end of run: tiny client-side debrief, no server round trip --- */
 window.endPresent=()=>{
@@ -3140,8 +3200,13 @@ function syncIvBtn(){
   $('ivHelpBtn').textContent=t('iv.help');
 }
 function ivLooksLikeQuestion(s){
-  if(/\?\s*$/.test(s.trim()))return true;
-  return /(^|\b)(what|why|how|when|where|who|which|whats|what's|tell me|describe|explain|walk me|can you|could you|would you|do you|did you|have you|are you|is there|give me|wie|warum|was|welche|erzähl|erkläre|kannst du|könnten sie|wieso|weshalb)\b/i.test(s.trim());
+  const txt=s.trim();
+  if(/\?\s*$/.test(txt))return true;
+  // Language-split word lists: "was" is a German interrogative but an English
+  // past-tense verb, so a combined list would false-positive constantly.
+  if(getLang()==='de')
+    return /(^|\b)(wie|warum|was|wer|wann|wo|wozu|wieso|weshalb|welche[rsn]?|erzähl|erklär|können sie|kannst du|könnten sie|haben sie|hast du|gibt es|stimmt es|würden sie|würdest du)\b/i.test(txt);
+  return /(^|\b)(what|why|how|when|where|who|which|whats|what's|tell me|describe|explain|walk me|can you|could you|would you|do you|did you|have you|are you|is there|give me)\b/i.test(txt);
 }
 window.toggleIvLive=()=>{ivLive?stopIvLive():startIvLive();};
 async function startIvLive(){
