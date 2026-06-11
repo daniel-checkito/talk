@@ -106,33 +106,34 @@ async function doCards(body, device_id) {
   const langLine = lang === "de"
     ? "Schreibe ALLES auf Deutsch, in natürlicher gesprochener Sprache."
     : "Write everything in natural spoken English.";
-  const oneCardRule = inSlides
-    ? `Produce EXACTLY ONE card per slide given, in the same order. If a slide has little or no text (a title or divider), still output a card with one short point such as introducing the topic or yourself.`
-    : `Turn the outline into a sensible sequence of cards, one per logical slide or section.`;
-  const sys = `You are a presentation coach building CUE CARDS for someone about to give this presentation live, in person, with the slides behind them and a phone in front of them. The cards must let them present confidently even if they did not write the deck, so the content has to actually teach them what each slide claims.
+  const cardRule = inSlides
+    ? `Go slide by slide, in order. MOST slides become exactly ONE card. Split a single slide into TWO or more cards ONLY when it genuinely carries several distinct ideas, or so much content that one card would be cramped; each card then covers one coherent chunk you'd say in one stretch. On EVERY card set "n" to the SLIDE NUMBER it belongs to (multiple cards may share the same n). If a slide has little or no text (a title or divider), output one card with a single short point such as introducing the topic or yourself.`
+    : `Turn the outline into a sensible sequence of cards, one per logical section. Set "n" to the card's position, starting at 1.`;
+  const sys = `You are a presentation coach building CUE CARDS for someone about to give this presentation live, in person, with the slides behind them and a phone in front of them. The cards must let them present confidently even if they did not write the deck, so the content has to actually teach them what each slide claims and tell them what to SAY, not just what the topic is.
 ${langLine}
-${oneCardRule}
+${cardRule}
 Rules:
-- Per card: a short title (max 6 words) and 1-4 talking points. FEWER, BETTER: pick only the genuinely interesting, presentation-worthy content of the slide. A talk is not a reading of the slide; nothing important may be missing, but not everything on a slide deserves to be said.
+- Per card: a short title (max 6 words) and 2 to 5 talking points. Pick the genuinely presentation-worthy content; a talk is not a reading of the slide, but nothing important may be missing. If a slide has more than 5 worthwhile points, SPLIT it into multiple cards rather than cramming or dropping content.
 - NEVER make points out of things nobody says out loud: page numbers, footers, headers, image credits, source citations, URLs, file names, agenda listings, decorative labels, contact details. If a slide is mostly that, one short point is enough.
 - A title/opening slide gets a greeting point: welcome the audience, introduce yourself and the topic. A closing/thanks slide gets a wrap-up point: summarize the core message, thank them, invite questions.
-- Each point has two parts:
-  "t": the CHECKLIST phrase, max 8 words, the concrete idea they must get across (a fact, number, name, or claim from the slide). Glanceable at podium distance.
-  "say": ONE natural spoken sentence showing how to say it well (a second sentence ONLY if a number or term needs explaining, so the presenter understands it instead of just reading it). This is a suggestion; the presenter will use their own words.
-- "bridge": one short spoken sentence transitioning to the next slide. Omit on the last card.
+- Each point has two parts that must clearly match each other:
+  "t": the CHECKLIST phrase, max 8 words, the concrete idea (a fact, number, name, or claim). Glanceable at podium distance. It is a label for "say", so it must name the SAME idea "say" delivers.
+  "say": what to actually SAY out loud, in natural confident spoken language, so a presenter who did not write the deck still sounds like they understand it. ONE strong sentence, PLUS a second sentence whenever a number, term, or claim needs explaining (what it means, why it matters). Never just restate "t" in other words; teach the point so they could defend it.
+- "bridge": one short spoken sentence that hands off to the next slide and teases what is coming. Omit on the last card.
 - If presenter notes are provided, treat them as the presenter's intent and fold them in.
 - No em-dashes or en-dashes anywhere; use commas or periods.
 Return ONLY valid JSON, no markdown, no preamble:
-{${wantTitle ? '"title":"<deck title, max 6 words>",' : ""}"cards":[{"title":"...","points":[{"t":"...","say":"..."}],"bridge":"..."}]}`;
+{${wantTitle ? '"title":"<deck title, max 6 words>",' : ""}"cards":[{"n":<slide number>,"title":"...","points":[{"t":"...","say":"..."}],"bridge":"..."}]}`;
 
   const userText =
     (inSlides ? "SLIDE TEXT:\n" + deckText : "PRESENTATION OUTLINE:\n" + deckText) + "\n\n" +
     (notes ? "PRESENTER'S OWN NOTES:\n" + notes + "\n\n" : "") +
     "Build the cue cards now.";
 
-  // Bound output so a batch can never run long: ~700 tokens of headroom per slide.
+  // Bound output so a batch can never run long. More headroom per slide now that
+  // a dense slide may fan out into several cards with richer spoken lines.
   const slideCount = inSlides ? inSlides.length : 8;
-  const maxTokens = Math.min(8000, 800 + slideCount * 700);
+  const maxTokens = Math.min(8000, 700 + slideCount * 1000);
   const { text, usage } = await claude({ system: sys, content: [{ type: "text", text: userText }], max_tokens: maxTokens });
   logUsage({
     device_id, provider: "anthropic", service: "present_cards", model: HAIKU,
@@ -142,17 +143,29 @@ Return ONLY valid JSON, no markdown, no preamble:
 
   const parsed = parseJson(text);
   if (!Array.isArray(parsed.cards) || !parsed.cards.length) throw new Error("model returned no cards");
-  // Stable, globally-unique ids keyed off each slide's real number (so ids stay
-  // unique even though the client assembles several batches into one deck).
+  // A slide may now fan out into several cards, so the model reports each card's
+  // slide number "n". Ids stay globally unique by combining that slide number
+  // (unique across batches, since each slide lives in exactly one batch) with a
+  // per-slide card counter: s<n>c<k>p<i>.
+  const validNs = inSlides ? inSlides.map((s) => s.n) : null;
+  const perSlide = new Map(); // slide n -> cards seen so far
   const cards = parsed.cards.map((c, ci) => {
-    const n = inSlides ? (inSlides[ci] ? inSlides[ci].n : ci + 1) : (Number(c.n) || ci + 1);
+    let n;
+    if (inSlides) {
+      const want = Number(c.n);
+      n = validNs.includes(want) ? want : validNs[Math.min(ci, validNs.length - 1)];
+    } else {
+      n = Number(c.n) || ci + 1;
+    }
+    const k = (perSlide.get(n) || 0) + 1;
+    perSlide.set(n, k);
     return {
       n,
       title: String(c.title || "Slide " + n).slice(0, 80),
       points: (Array.isArray(c.points) ? c.points : []).slice(0, MAX_POINTS_PER_CARD).map((p, pi) => ({
-        id: `s${n}p${pi + 1}`,
+        id: `s${n}c${k}p${pi + 1}`,
         t: String(p.t || "").slice(0, 90),
-        say: String(p.say || "").slice(0, 400),
+        say: String(p.say || "").slice(0, 500),
       })).filter((p) => p.t),
       bridge: c.bridge ? String(c.bridge).slice(0, 200) : "",
     };

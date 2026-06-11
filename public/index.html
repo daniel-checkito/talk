@@ -155,13 +155,26 @@
   .plive-slide{font-size:12px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);font-weight:800}
   .plive-slide b{color:var(--ink);font-size:14px}
   .plive-now{font-size:30px;font-weight:900;line-height:1.22;color:var(--ink);animation:slideIn .3s ease;cursor:pointer}
-  /* live HUD hierarchy: small topic cue, then the spoken line as the hero */
-  .plive-eyebrow{font-size:13px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--accent2);line-height:1.25}
-  .plive-say-main{font-size:24px;font-weight:800;line-height:1.4;color:var(--ink);cursor:pointer;animation:slideIn .3s ease;padding:0 2px}
-  .plive-say-main.bare{font-weight:900}
-  .plive-tap{font-size:11px;font-weight:800;letter-spacing:.3px;text-transform:uppercase;color:var(--muted);opacity:.65}
   .plive-say{font-size:17px;font-weight:700;line-height:1.45;color:var(--accent2)}
   .plive-next{font-size:13px;font-weight:700;color:var(--muted);line-height:1.4}
+  /* live HUD karaoke list: every point on the card is visible (so you can read
+     ahead), the current one expands into the full spoken line, done ones check off */
+  .pcard.liveview.tele{justify-content:flex-start;text-align:left;overflow-y:auto;gap:9px}
+  .plive-list{display:flex;flex-direction:column;gap:8px;width:100%}
+  .prow{display:flex;gap:10px;align-items:flex-start;padding:9px 11px;border-radius:14px;cursor:pointer;transition:.15s}
+  .prow .pb{width:24px;height:24px;border-radius:50%;border:2.5px solid var(--line);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;color:#fff;margin-top:2px;transition:.15s}
+  .prow .pbody{flex:1;min-width:0}
+  .prow .rt{font-size:15px;font-weight:800;line-height:1.32;color:var(--ink)}
+  .prow.soon{opacity:.68}
+  .prow.cov{opacity:.55}
+  .prow.cov .pb{background:var(--accent);border-color:var(--accent2);animation:pop .35s cubic-bezier(.34,1.56,.64,1)}
+  .prow.cov .rt{text-decoration:line-through;text-decoration-thickness:2px;text-decoration-color:var(--accent);color:var(--muted)}
+  .prow.now{background:#f0fbe6;border:2.5px solid var(--accent);box-shadow:0 4px 0 var(--accent2);animation:slideIn .25s ease}
+  .prow.now .pb{border-color:var(--accent2)}
+  .prow.now .rt{font-size:12px;letter-spacing:.4px;text-transform:uppercase;color:var(--accent2);margin-bottom:4px}
+  .prow.now .rsay{font-size:21px;font-weight:800;line-height:1.4;color:var(--ink)}
+  .plive-after{font-size:13px;font-weight:700;color:var(--muted);line-height:1.4;border-top:1.5px solid var(--line);padding-top:9px;margin-top:2px}
+  .plive-after b{color:var(--ink)}
   .plive-change{font-size:24px;font-weight:900;line-height:1.3;color:#0b6e9e;background:#ddf4ff;border:2.5px solid var(--blue);border-radius:18px;padding:18px 14px;animation:pop .35s cubic-bezier(.34,1.56,.64,1)}
   .plive-change b{display:block;margin-top:8px;font-size:17px}
   .plive-change.done{color:var(--accent2);background:#f0fbe6;border-color:var(--accent)}
@@ -351,7 +364,7 @@ const PRES_DECKS_KEY='rehearse_present_decks';
 const PRES_MAX_FILE=20*1024*1024; // parsed in-browser, never uploaded; hard cap regardless
 const PRES_MAX_SLIDES=50;         // hard cap; bigger decks are refused outright
 const PRES_MAX_DECKS=30;          // localStorage budget
-const PRES_SLIDES_PER_CALL=8;     // batch size for card generation (keeps each request well under the timeout)
+const PRES_SLIDES_PER_CALL=6;     // batch size for card generation (keeps each request well under the timeout; smaller now that dense slides may fan out into several cards)
 const PRES_TRACK_MS=9000;         // how often the rolling transcript is matched against points
 const PRES_MAX_LIVE_MS=60*60*1000;
 function presDecks(){
@@ -552,8 +565,9 @@ window.generatePresent=async()=>{
         if(i===0&&!deckTitle&&d.title)deckTitle=d.title;
         allCards=allCards.concat(d.cards||[]);
       }
-      // Attach each slide's preview by the server-reported slide number, BEFORE
-      // the sequential renumber below.
+      // Attach each slide's preview by its real slide number. Cards keep that
+      // number (several cards can share one slide), so the preview and the
+      // "Folie N" label stay correct even when a slide fans out into multiple cards.
       const imgByN={};slides.forEach(s=>{if(s.img)imgByN[s.n]=s.img;});
       allCards.forEach(c=>{if(imgByN[c.n])c.img=imgByN[c.n];});
     }else{
@@ -566,7 +580,8 @@ window.generatePresent=async()=>{
     }
     presGenCheck();
     if(!allCards.length)throw new Error(t('err.generate'));
-    allCards.forEach((c,idx)=>c.n=idx+1); // sequential display numbers; point ids stay as assigned
+    // Keep each card's real slide number (the server assigns it; several cards
+    // may share one slide). Point ids are already globally unique.
     presDeck={id:'d'+Date.now()+Math.random().toString(36).slice(2,7),title:deckTitle||'Präsentation',cards:allCards,notes,savedAt:Date.now()};
     presSave(presDeck);
     enterPresentStage();
@@ -603,6 +618,7 @@ function renderPresCard(){
   const eb=$('presEditBtn');
   eb.classList.toggle('on',presEditing);eb.textContent=presEditing?'✓':'✎';eb.classList.toggle('hidden',presLive);
   card.classList.toggle('liveview',presLive&&!presEditing);
+  card.classList.remove('tele'); // the karaoke live HUD re-adds this when it has points to show
   // Q&A round entry: offered on the last slide (where the question round happens).
   const qb=$('presQaModeBtn');
   qb.classList.toggle('hidden',presIdx<presDeck.cards.length-1&&!presQaMode);
@@ -614,8 +630,9 @@ function renderPresCard(){
   else{
     const allCov=c.points.every(p=>presCovered.has(p.id));
     card.classList.toggle('done',allCov);
+    const pp=slidePart(presIdx);
     card.innerHTML=`
-      <div class="ck">Folie ${c.n}</div>
+      <div class="ck">Folie ${c.n}${pp.total>1?` · Karte ${pp.part}/${pp.total}`:''}</div>
       ${c.img?`<img class="pthumb" src="${c.img}" onclick="openSlideView()" alt="Folie ${c.n}">`:''}
       <div class="ct">${esc(c.title)}</div>
       ${c.points.map(p=>`<div class="ppoint ${presCovered.has(p.id)?'cov':''}" onclick="presTogglePoint('${p.id}')"><div class="box">${presCovered.has(p.id)?'✓':''}</div><div class="pt">${esc(p.t)}</div></div>`).join('')}
@@ -633,40 +650,54 @@ function renderPresCard(){
   const total=presTotalPoints();
   $('presProg').style.width=(total?Math.round(100*presCovered.size/total):0)+'%';
 }
-// Live HUD: one glance, zero scrolling, zero taps. Shows the slide you're on,
-// the ONE thing to say right now (huge), how to say it, and what comes after.
-// When the card is done it flips into a 'change your slide' cue; auto-advance
-// does the rest.
+// How many cards this slide fanned out into, and which one we're on (1-based).
+// Cards from one slide are contiguous, so a simple scan is enough.
+function slidePart(idx){
+  const n=presDeck.cards[idx].n;
+  const total=presDeck.cards.filter(x=>x.n===n).length;
+  const part=presDeck.cards.slice(0,idx+1).filter(x=>x.n===n).length;
+  return {part,total};
+}
+// Live HUD: a glanceable "karaoke" card. Every talking point is visible so the
+// presenter can read ahead, the current point expands into the full spoken line
+// (the hero, with its short label right above it so heading and line match),
+// covered points check off, and a footer teases what comes next. When the card
+// is done it flips into a 'change your slide' (or 'more on this slide') cue and
+// auto-advance does the rest.
 function renderPresLiveHud(c,card){
   card.classList.remove('done');
   const pending=c.points.filter(p=>!presCovered.has(p.id));
   const cur=pending[0]||null;
-  const after=pending[1]||null;
   const dots=c.points.map(p=>`<i class="${presCovered.has(p.id)?'on':''}"></i>`).join('');
-  const slideChip=`<div class="plive-slide">Folie <b>${c.n}</b>/${presDeck.cards.length} · ${esc(c.title)}</div>`+
+  const part=slidePart(presIdx);
+  const slideChip=`<div class="plive-slide">Folie <b>${c.n}</b>${part.total>1?` · Karte ${part.part}/${part.total}`:''} · ${esc(c.title)}</div>`+
     (c.img?`<img class="pthumb hud" src="${c.img}" onclick="openSlideView()" alt="Folie ${c.n}">`:'');
+  const nc=presDeck.cards[presIdx+1];
   if(!cur){
-    const nc=presDeck.cards[presIdx+1];
-    card.innerHTML=slideChip+(nc
-      ?`<div class="plive-change">⤴ Wechsle deine Folie<b>Folie ${nc.n}: ${esc(nc.title)}</b></div>
+    if(!nc){
+      card.innerHTML=slideChip+`<div class="plive-change done">✓ Alle Punkte abgedeckt. Starker Abschluss!</div><div class="plive-dots">${dots}</div>`;
+      return;
+    }
+    const sameSlide=nc.n===c.n;
+    card.innerHTML=slideChip+(sameSlide
+      ?`<div class="plive-change done">▸ Weiter auf dieser Folie<b>${esc(nc.title)}</b></div>
+        ${nc.points[0]?`<div class="plive-next">Als Nächstes: ${esc(nc.points[0].t)}</div>`:''}`
+      :`<div class="plive-change">⤴ Wechsle zur nächsten Folie<b>Folie ${nc.n}: ${esc(nc.title)}</b></div>
         ${c.bridge?`<div class="plive-say">„${esc(c.bridge)}“</div>`:''}
-        ${nc.points[0]?`<div class="plive-next">Danach: ${esc(nc.points[0].t)}</div>`:''}`
-      :`<div class="plive-change done">✓ Alle Punkte abgedeckt. Starker Abschluss!</div>`)+
+        ${nc.points[0]?`<div class="plive-next">Dann: ${esc(nc.points[0].t)}</div>`:''}`)+
       `<div class="plive-dots">${dots}</div>`;
     return;
   }
-  // The presenter glances and needs to know WHAT TO SAY. So the speakable line
-  // is the hero; the short topic label sits above it as a small cue. (Before,
-  // the tiny label was huge and the spoken line was buried, which read backwards.)
-  const eyebrow=cur.say?`<div class="plive-eyebrow">${esc(cur.t)}</div>`:'';
-  const hero=cur.say
-    ?`<div class="plive-say-main" onclick="presTogglePoint('${cur.id}')">„${esc(cur.say)}“</div>`
-    :`<div class="plive-say-main bare" onclick="presTogglePoint('${cur.id}')">${esc(cur.t)}</div>`;
-  card.innerHTML=slideChip+eyebrow+hero+
-    `<div class="plive-tap">✓ tippen, wenn gesagt</div>`+
-    (after?`<div class="plive-next">Danach: ${esc(after.t)}</div>`:
-      (presDeck.cards[presIdx+1]?`<div class="plive-next">Danach: Folie ${presDeck.cards[presIdx+1].n}</div>`:''))+
-    `<div class="plive-dots">${dots}</div>`;
+  card.classList.add('tele');
+  const rows=c.points.map(p=>{
+    if(presCovered.has(p.id))
+      return `<div class="prow cov" onclick="presTogglePoint('${p.id}')"><div class="pb">✓</div><div class="pbody"><div class="rt">${esc(p.t)}</div></div></div>`;
+    if(p.id===cur.id)
+      return `<div class="prow now" onclick="presTogglePoint('${cur.id}')"><div class="pb"></div><div class="pbody"><div class="rt">${esc(cur.t)}</div><div class="rsay">${cur.say?'„'+esc(cur.say)+'“':esc(cur.t)}</div></div></div>`;
+    return `<div class="prow soon" onclick="presTogglePoint('${p.id}')"><div class="pb"></div><div class="pbody"><div class="rt">${esc(p.t)}</div></div></div>`;
+  }).join('');
+  const after=nc?`<div class="plive-after">${nc.n===c.n?'Gleich:':'Nächste Folie:'} <b>${esc(nc.title)}</b></div>`:'';
+  card.innerHTML=slideChip+`<div class="plive-list">${rows}</div>`+after+`<div class="plive-dots">${dots}</div>`;
 }
 
 // Q&A round HUD: just listen and answer, no points left to track.
@@ -767,6 +798,13 @@ window.presNav=(d)=>{
   updatePresCoach();
   $('presCard').scrollTop=0;
 };
+// Toast for the auto-advance: a new physical slide gets the "change your slide"
+// cue; another card on the SAME slide just says "keep going" (nothing to change).
+function advanceToast(){
+  const c=presDeck.cards[presIdx],nc=presDeck.cards[presIdx+1];
+  if(!nc)return '';
+  return nc.n===c.n?'▸ Weiter':'⤴ Folie '+nc.n;
+}
 window.presTogglePoint=(id)=>{
   if(presCovered.has(id))presCovered.delete(id);else presCovered.add(id);
   renderPresCard();
@@ -776,7 +814,7 @@ window.presTogglePoint=(id)=>{
     const c=presDeck.cards[presIdx];
     const navAtCall=presNavToken;
     if(c.points.every(p=>presCovered.has(p.id))&&presIdx<presDeck.cards.length-1){
-      presToast('⤴ Folie '+presDeck.cards[presIdx+1].n);
+      presToast(advanceToast());
       setTimeout(()=>{if(presLive&&presNavToken===navAtCall&&presIdx<presDeck.cards.length-1)presNav(1);},2500);
     }
     updatePresCoach();
@@ -929,7 +967,7 @@ async function presTrackTick(){
       const navAtCall=presNavToken;
       renderPresCard();
       if(cur.points.every(p=>presCovered.has(p.id))&&presIdx<presDeck.cards.length-1){
-        presToast('⤴ Folie '+presDeck.cards[presIdx+1].n);
+        presToast(advanceToast());
         // Auto-advance only if the presenter hasn't navigated themselves meanwhile.
         // 2.5s so the 'change your slide' cue on the HUD is actually readable.
         setTimeout(()=>{if(presLive&&presNavToken===navAtCall&&presIdx<presDeck.cards.length-1)presNav(1);},2500);
