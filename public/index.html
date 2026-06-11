@@ -563,6 +563,7 @@
   .prof-row{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--panel2);border:2px solid var(--line);border-radius:14px;padding:12px 14px;font-size:15px;font-weight:800;color:var(--ink)}
   .prof-empty{background:var(--panel2);border:2px dashed var(--line);border-radius:14px;padding:14px;font-size:13px;font-weight:700;color:var(--muted);text-align:center}
   .prof-clear{background:none;border:none;color:var(--bad);font-size:16px;font-weight:900;cursor:pointer;padding:0 6px;flex-shrink:0}
+  .prof-note{font-size:11px;color:var(--muted);font-weight:700;margin-top:8px;padding-left:2px}
 </style>
 </head>
 <body>
@@ -606,6 +607,7 @@
       <textarea class="pres-ta" id="presOutline" style="margin-top:8px" placeholder="Paste slide titles or bullet points…"></textarea>
     </details>
     <button class="btn btn-go" id="presGenBtn" onclick="generatePresent()">Create cue cards</button>
+    <button class="btn btn-grey hidden" id="presCancelBtn" style="margin-top:10px" onclick="cancelGenerate()">Abbrechen</button>
     <div class="err hidden" id="presErr" style="margin-top:10px"></div>
   </div>
   <div style="flex:1"></div>
@@ -645,12 +647,22 @@
   <div id="speechScore" class="hidden" style="margin-top:18px"></div>
 </section>
 
+<section class="screen" id="s-decks">
+  <div class="top">
+    <div class="logo">Vor<span>träge</span></div>
+  </div>
+  <p class="sub" id="decksSub">Alle deine Präsentationen, auf diesem Gerät gespeichert.</p>
+  <div id="decksList"></div>
+  <button class="btn btn-go" id="decksNewBtn" style="margin-top:14px" onclick="decksNew()">＋ Neue Präsentation</button>
+  <div style="flex:1"></div>
+</section>
+
 <section class="screen" id="s-profile">
   <div class="top">
-    <div class="logo">Pro<span>file</span></div>
+    <div class="logo">Pro<span>fil</span></div>
   </div>
-  <div class="label" id="profDeckLbl" style="margin-top:14px">Your saved presentation</div>
-  <div id="profDeck"></div>
+  <div class="label" id="profUsageLbl" style="margin-top:14px">Verbrauch</div>
+  <div id="profUsage"></div>
   <details class="conv-fold" id="profExtrasFold" style="margin-top:20px">
     <summary id="profExtras">More tools</summary>
     <div class="fold-body">
@@ -965,12 +977,13 @@ function writeLastSession(d){localStorage.setItem('rehearse_last_session',JSON.s
 const $=id=>document.getElementById(id);
 const NAV_HTML=`
   <button class="nav-item" data-nav="home" onclick="navTo('home')"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7h-6v7H4a1 1 0 0 1-1-1V11z"/></svg>HOME</button>
-  <button class="nav-item" data-nav="profile" onclick="navTo('profile')"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>PROFILE</button>`;
+  <button class="nav-item" data-nav="decks" onclick="navTo('decks')"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="13" rx="2"/><path d="M8 21h8M12 18v3"/></svg>VORTRÄGE</button>
+  <button class="nav-item" data-nav="profile" onclick="navTo('profile')"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>PROFIL</button>`;
 // Apply current language to every static piece of UI. Called on boot + after toggle.
 window.applyI18n=function(){
   document.documentElement.lang='de';
   // Bottom nav labels.
-  const navMap={home:t('nav.home'),profile:t('nav.profile'),progress:t('nav.progress')};
+  const navMap={home:t('nav.home'),decks:t('nav.decks'),profile:t('nav.profile'),progress:t('nav.progress')};
   document.querySelectorAll('.nav-item').forEach(el=>{
     const key=el.dataset.nav;if(!navMap[key])return;
     const lbl=el.querySelector('span.nav-lbl');
@@ -1007,7 +1020,7 @@ window.applyI18n=function(){
     'presExtraBtn':'present.extra.btn','presLabelNotes':'present.label.notes',
     'presLabelOutline':'present.label.outline','presEndBtn':'present.end',
     'presSumHome':'present.summary.home',
-    'profDeckLbl':'profile.deck',
+    'decksSub':'decks.sub','decksNewBtn':'decks.new','presCancelBtn':'present.cancel','profUsageLbl':'profile.usage',
     'profExtras':'profile.extras','profExtrasSub':'profile.extras.sub',
     'presNewBtn':'present.new',
     'profDashT':'profile.dash.t','profDashS':'profile.dash.s','profDrillT':'home.drill.t','profDrillS':'home.drill.s',
@@ -1064,13 +1077,14 @@ window.applyI18n=function(){
 $('appNav').innerHTML=NAV_HTML;
 // Screens that show the bottom nav. The live presenting/interview stages stay
 // full-screen (not listed). Conversation extras keep the nav so users can return.
-const TABS=new Set(['home','profile','progress','practice','goal','chat','debrief','speech','speech-stage','talks','talk']);
+const TABS=new Set(['home','decks','profile','progress','practice','goal','chat','debrief','speech','speech-stage','talks','talk']);
 const go=s=>{
   document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));
   $('s-'+s).classList.add('active');
   setNavActive(s);
   $('appNav').classList.toggle('show',TABS.has(s));
   if(s==='home')prepHome();
+  if(s==='decks')renderDecks();
   if(s==='profile')renderProfile();
 };
 window.go=go;
@@ -1122,37 +1136,73 @@ window.replayLast=()=>{
 function setNavActive(screen){
   // Secondary/extra screens are reached from Profile, so they highlight Profile.
   const profileScreens=new Set(['profile','progress','talks','talk','goal','practice','chat','debrief','speech','speech-stage']);
-  const tab=profileScreens.has(screen)?'profile':'home';
+  const tab=screen==='decks'?'decks':(profileScreens.has(screen)?'profile':'home');
   document.querySelectorAll('.nav-item').forEach(el=>el.classList.toggle('active',el.dataset.nav===tab));
 }
 window.navTo=key=>{
   if(key==='home'){presMode='present';go('home');return;}
+  if(key==='decks'){go('decks');return;}
   if(key==='profile'){go('profile');return;}
   if(key==='progress'){openProgress();return;}
   if(key==='practice'){go('practice');setNavActive('practice');return;}
 };
+// From the Presentations tab: jump home with the upload form open.
+window.decksNew=()=>{
+  go('home');
+  showPresForm();
+};
 window.openProfile=()=>go('profile');
 function renderProfile(){
-  // saved presentation
-  const slot=$('profDeck');
-  if(slot){
-    const saved=presReadSaved();
-    if(saved&&Array.isArray(saved.cards)&&saved.cards.length){
-      const pts=saved.cards.reduce((a,c)=>a+c.points.length,0);
-      slot.innerHTML=`<div class="pres-resume">
-        <div class="rt"><div class="rn">🗂️ ${esc(saved.title)}</div><div class="rs">${esc(t('present.resume.meta',{c:saved.cards.length,p:pts}))}</div></div>
-        <button onclick="presOpenSaved()">${esc(t('present.resume.open'))}</button>
-        <button class="prof-clear" onclick="clearSavedDeck()" title="${esc(t('profile.clear'))}">✕</button>
-      </div>`;
-    }else{
-      slot.innerHTML=`<div class="prof-empty">${esc(t('profile.deck.none'))}</div>`;
-    }
-  }
+  // Only fetch when the Profile screen is actually visible; applyI18n calls
+  // this on boot too (even on the login screen), where a 401 would loop.
+  if(!$('s-profile').classList.contains('active'))return;
+  renderProfileUsage();
+}
+// API spend for this device: dollars, tokens, calls. Data comes from the
+// rehearse_usage log every endpoint already writes to.
+let profUsageBusy=false;
+async function renderProfileUsage(){
+  const el=$('profUsage');if(!el||profUsageBusy)return;
+  profUsageBusy=true;
+  el.innerHTML=`<div class="loading">⟳</div>`;
+  try{
+    const d=await api('/api/usage?device_id='+encodeURIComponent(deviceId()));
+    if(d.skipped){el.innerHTML=`<div class="prof-empty">${esc(t('profile.usage.none'))}</div>`;return;}
+    const tokIn=(d.services||[]).filter(s=>s.provider==='anthropic').reduce((a,s)=>a+(s.input_units||0),0);
+    const tokOut=(d.services||[]).filter(s=>s.provider==='anthropic').reduce((a,s)=>a+(s.output_units||0),0);
+    el.innerHTML=
+      `<div class="prof-row" style="margin-bottom:8px"><span>${esc(t('profile.usage.cost'))}</span><b>$${(d.total_usd||0).toFixed(2)}</b></div>`+
+      `<div class="prof-row" style="margin-bottom:8px"><span>${esc(t('profile.usage.tokens'))}</span><b>${(tokIn+tokOut).toLocaleString('de-DE')}</b></div>`+
+      `<div class="prof-row"><span>${esc(t('profile.usage.calls'))}</span><b>${(d.calls||0).toLocaleString('de-DE')}</b></div>`+
+      `<div class="prof-note">${esc(t('profile.usage.window'))}</div>`;
+  }catch{el.innerHTML=`<div class="prof-empty">${esc(t('profile.usage.none'))}</div>`;}
+  finally{profUsageBusy=false;}
 }
 window.clearSavedDeck=()=>{
-  try{localStorage.removeItem(PRES_LS_KEY);}catch{}
+  const latest=presReadSaved();
+  if(latest)presDeleteDeck(latest.id);
   renderProfile();
   if($('s-home').classList.contains('active'))prepHome(); // resume card away, form back
+};
+window.openDeckById=(id)=>{
+  const d=presDecks().find(x=>x.id===id);
+  if(!d)return;
+  presDeck=d;presMode='present';
+  enterPresentStage();
+};
+window.deleteDeckById=(id)=>{presDeleteDeck(id);renderDecks();};
+window.renderDecks=function renderDecks(){
+  const list=presDecks();const el=$('decksList');if(!el)return;
+  if(!list.length){el.innerHTML=`<div class="prof-empty">${esc(t('decks.empty'))}</div>`;return;}
+  el.innerHTML=list.map(d=>{
+    const pts=d.cards.reduce((a,c)=>a+c.points.length,0);
+    const date=new Date(d.savedAt||Date.now()).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
+    return `<div class="pres-resume" style="margin-bottom:10px">
+      <div class="rt"><div class="rn">🗂️ ${esc(d.title)}</div><div class="rs">${esc(t('present.resume.meta',{c:d.cards.length,p:pts}))} · ${date}</div></div>
+      <button onclick="openDeckById('${d.id}')">${esc(t('present.resume.open'))}</button>
+      <button class="prof-clear" onclick="deleteDeckById('${d.id}')" title="${esc(t('profile.clear'))}">✕</button>
+    </div>`;
+  }).join('');
 };
 // Start Quick Drill from the Practice landing screen. Behavior identical to the
 // old auto-start; only the entry point changed.
@@ -2632,8 +2682,11 @@ function renderSpeechScore(r){
 // Deck shape: {title, cards:[{n, title, points:[{id,t,say}], bridge}]}. Stored in
 // localStorage so the cards survive a reload on presentation day (generate at
 // home, open in class with zero network calls until you go live).
-const PRES_LS_KEY='rehearse_present_deck';
-const PRES_MAX_FILE=25*1024*1024; // file is parsed in-browser, never uploaded, so we can be generous
+const PRES_DECKS_KEY='rehearse_present_decks';
+const PRES_LS_KEY='rehearse_present_deck'; // legacy single-deck key, migrated into the list on first read
+const PRES_MAX_FILE=20*1024*1024; // parsed in-browser, never uploaded; hard cap regardless
+const PRES_MAX_SLIDES=50;         // hard cap; bigger decks are refused outright
+const PRES_MAX_DECKS=30;          // localStorage budget
 const PRES_SLIDES_PER_CALL=8;     // batch size for card generation (keeps each request well under the timeout)
 const PRES_TRACK_MS=9000;         // how often the rolling transcript is matched against points
 const PRES_MAX_LIVE_MS=60*60*1000;
@@ -2643,8 +2696,33 @@ let presFinal='',presSentWords=0,presTrackBusy=false,presTrackInt=null;
 let presElapsed=0,presLiveSince=0,presTimeInt=null,presWakeLock=null;
 let presFileObj=null,presNavToken=0,presHardStop=null,presEditing=false,presExtraFiles=[];
 
-function presReadSaved(){try{return JSON.parse(localStorage.getItem(PRES_LS_KEY)||'null');}catch{return null;}}
-function presSave(deck){try{localStorage.setItem(PRES_LS_KEY,JSON.stringify(deck));}catch{}}
+// Deck library: newest first. The pre-library single-deck key is migrated in.
+function presDecks(){
+  try{
+    let list=JSON.parse(localStorage.getItem(PRES_DECKS_KEY)||'null')||[];
+    const legacy=JSON.parse(localStorage.getItem(PRES_LS_KEY)||'null');
+    if(legacy&&Array.isArray(legacy.cards)&&legacy.cards.length){
+      legacy.id=legacy.id||('d'+(legacy.savedAt||Date.now()));
+      list.unshift(legacy);
+      localStorage.removeItem(PRES_LS_KEY);
+      localStorage.setItem(PRES_DECKS_KEY,JSON.stringify(list));
+    }
+    return list.filter(d=>d&&Array.isArray(d.cards)&&d.cards.length);
+  }catch{return [];}
+}
+function presReadSaved(){return presDecks()[0]||null;} // latest deck (home resume card)
+function presSave(deck){
+  try{
+    if(!deck.id)deck.id='d'+Date.now()+Math.random().toString(36).slice(2,7);
+    let list=presDecks().filter(d=>d.id!==deck.id);
+    list.unshift(deck);
+    if(list.length>PRES_MAX_DECKS)list=list.slice(0,PRES_MAX_DECKS);
+    localStorage.setItem(PRES_DECKS_KEY,JSON.stringify(list));
+  }catch{}
+}
+function presDeleteDeck(id){
+  try{localStorage.setItem(PRES_DECKS_KEY,JSON.stringify(presDecks().filter(d=>d.id!==id)));}catch{}
+}
 
 let presMode='present'; // 'present' | 'train'
 // Present is the home screen itself. openPresent/openTrain stay so the (now
@@ -2734,12 +2812,21 @@ async function extractSlides(file){
   return extractPdfSlides(buf);
 }
 
+let presGen=null; // {cancel, ctrl} while a generation is running
+window.cancelGenerate=()=>{
+  if(!presGen)return;
+  presGen.cancel=true;
+  try{presGen.ctrl&&presGen.ctrl.abort();}catch{}
+};
+function presGenCheck(){if(presGen&&presGen.cancel)throw new Error(t('present.canceled'));}
 window.generatePresent=async()=>{
   const outline=$('presOutline').value.trim();
   if(!presFileObj&&!outline){presSetupErr(t('present.err.nofile'));return;}
   const btn=$('presGenBtn');
   btn.disabled=true;
+  $('presCancelBtn').classList.remove('hidden');
   $('presErr').classList.add('hidden');
+  presGen={cancel:false,ctrl:null};
   let notes=$('presNotes').value.trim();
   try{
     // Fold any additional materials into the context the model gets (text only).
@@ -2747,6 +2834,7 @@ window.generatePresent=async()=>{
       btn.textContent=t('present.reading');
       const parts=[];
       for(const f of presExtraFiles){
+        presGenCheck();
         try{const sl=await extractSlides(f);const txt=sl.map(s=>s.text).filter(Boolean).join(' ');if(txt)parts.push('['+f.name+'] '+txt);}catch{}
       }
       if(parts.length)notes=(notes?notes+'\n\n':'')+t('present.extra.label')+'\n'+parts.join('\n\n');
@@ -2756,32 +2844,40 @@ window.generatePresent=async()=>{
     if(presFileObj){
       btn.textContent=t('present.reading');
       const slides=await extractSlides(presFileObj);
+      presGenCheck();
       if(!slides.length)throw new Error(t('present.err.notext'));
+      if(slides.length>PRES_MAX_SLIDES)throw new Error(t('present.err.toomany',{max:PRES_MAX_SLIDES}));
       if(slides.filter(s=>s.text&&s.text.length>1).length===0)throw new Error(t('present.err.notext'));
       deckTitle=presFileObj.name.replace(/\.(pdf|pptx)$/i,'').replace(/[_\-]+/g,' ').trim().slice(0,60);
       // Generate in small batches so no single request risks the function timeout.
       for(let i=0;i<slides.length;i+=PRES_SLIDES_PER_CALL){
+        presGenCheck();
         btn.textContent=t('present.writing',{a:Math.min(i+PRES_SLIDES_PER_CALL,slides.length),b:slides.length});
         const chunk=slides.slice(i,i+PRES_SLIDES_PER_CALL);
-        const d=await api('/api/present',{method:'POST',headers:{'Content-Type':'application/json'},
+        presGen.ctrl=new AbortController();
+        const d=await api('/api/present',{method:'POST',headers:{'Content-Type':'application/json'},signal:presGen.ctrl.signal,
           body:JSON.stringify({action:'cards',slides:chunk,notes,want_title:i===0&&!deckTitle,lang:getLang(),device_id:deviceId()})});
         if(i===0&&!deckTitle&&d.title)deckTitle=d.title;
         allCards=allCards.concat(d.cards||[]);
       }
     }else{
       btn.textContent=t('present.generating');
-      const d=await api('/api/present',{method:'POST',headers:{'Content-Type':'application/json'},
+      presGen.ctrl=new AbortController();
+      const d=await api('/api/present',{method:'POST',headers:{'Content-Type':'application/json'},signal:presGen.ctrl.signal,
         body:JSON.stringify({action:'cards',outline,notes,want_title:true,lang:getLang(),device_id:deviceId()})});
       deckTitle=d.title||'Presentation';
       allCards=d.cards||[];
     }
+    presGenCheck();
     if(!allCards.length)throw new Error(t('present.err.generate'));
     allCards.forEach((c,idx)=>c.n=idx+1); // sequential display numbers; point ids stay as assigned
-    presDeck={title:deckTitle||'Presentation',cards:allCards,notes:notes.slice(0,8000),savedAt:Date.now()};
+    presDeck={id:'d'+Date.now()+Math.random().toString(36).slice(2,7),title:deckTitle||'Presentation',cards:allCards,notes:notes.slice(0,8000),savedAt:Date.now()};
     presSave(presDeck);
     enterPresentStage();
-  }catch(e){presSetupErr(e.message||t('present.err.generate'));}
-  finally{btn.disabled=false;setDeckSetupTexts();}
+  }catch(e){
+    presSetupErr(presGen&&presGen.cancel?t('present.canceled'):(e.message||t('present.err.generate')));
+  }
+  finally{presGen=null;btn.disabled=false;$('presCancelBtn').classList.add('hidden');setDeckSetupTexts();}
 };
 
 function enterPresentStage(){
@@ -3072,11 +3168,12 @@ async function presTrackTick(){
   if(!presDeck||presTrackBusy||presEditing)return;
   const words=presFinal.trim().split(/\s+/).filter(Boolean);
   if(words.length-presSentWords<6)return; // not enough new speech to bother the model
-  // Candidates: unchecked points on the current card plus the next one, so
-  // talking ahead pre-checks the next card instead of getting lost.
-  const cards=[presDeck.cards[presIdx],presDeck.cards[presIdx+1]].filter(Boolean);
-  const points=cards.flatMap(c=>c.points).filter(p=>!presCovered.has(p.id)).map(p=>({id:p.id,t:p.t}));
-  if(!points.length){presSentWords=words.length;return;}
+  // Current card's pending points, plus the next card's so talking ahead
+  // pre-checks the next slide instead of getting lost.
+  const cur=presDeck.cards[presIdx],nxtCard=presDeck.cards[presIdx+1];
+  const pend=c=>c?c.points.filter(p=>!presCovered.has(p.id)).map(p=>({id:p.id,t:p.t})):[];
+  const points=pend(cur),nextPoints=pend(nxtCard);
+  if(!points.length&&!nextPoints.length){presSentWords=words.length;return;}
   // Send the new words plus a 25-word overlap so sentences cut by the tick
   // boundary still match.
   const windowText=words.slice(Math.max(0,presSentWords-25)).join(' ');
@@ -3084,14 +3181,24 @@ async function presTrackTick(){
   presTrackBusy=true;
   try{
     const d=await api('/api/present',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({action:'track',points,transcript:windowText,lang:getLang(),device_id:deviceId()})});
+      body:JSON.stringify({action:'track',points,next_points:nextPoints,transcript:windowText,lang:getLang(),device_id:deviceId()})});
+    let progressed=false;
     if(Array.isArray(d.covered)&&d.covered.length){
-      presNoProgressTicks=0;
+      progressed=true;
       d.covered.forEach(id=>presCovered.add(id));
-      const c=presDeck.cards[presIdx];
+    }
+    // 'moveon' = the speaker is essentially done with this slide, even if minor
+    // points are open. Sweep them so the HUD flips to the slide-change cue and
+    // the deck advances; the presenter shouldn't have to say everything.
+    if(d.moveon&&cur){
+      progressed=true;
+      cur.points.forEach(p=>presCovered.add(p.id));
+    }
+    if(progressed){
+      presNoProgressTicks=0;
       const navAtCall=presNavToken;
       renderPresCard();
-      if(c.points.every(p=>presCovered.has(p.id))&&presIdx<presDeck.cards.length-1){
+      if(cur.points.every(p=>presCovered.has(p.id))&&presIdx<presDeck.cards.length-1){
         presToast(t('present.slidechange',{n:presDeck.cards[presIdx+1].n}));
         // Auto-advance only if the presenter hasn't navigated themselves meanwhile.
         // 2.5s so the 'change your slide' cue on the HUD is actually readable.

@@ -89,10 +89,12 @@ async function doCards(body, device_id) {
 ${langLine}
 ${oneCardRule}
 Rules:
-- Per card: a short title (max 6 words) and 2-${MAX_POINTS_PER_CARD} talking points.
+- Per card: a short title (max 6 words) and 1-4 talking points. FEWER, BETTER: pick only the genuinely interesting, presentation-worthy content of the slide. A talk is not a reading of the slide; nothing important may be missing, but not everything on a slide deserves to be said.
+- NEVER make points out of things nobody says out loud: page numbers, footers, headers, image credits, source citations, URLs, file names, agenda listings, decorative labels, contact details. If a slide is mostly that, one short point is enough.
+- A title/opening slide gets a greeting point: welcome the audience, introduce yourself and the topic. A closing/thanks slide gets a wrap-up point: summarize the core message, thank them, invite questions.
 - Each point has two parts:
-  "t": the CHECKLIST phrase, max 8 words, the concrete thing they must mention (a fact, number, name, or claim from the slide). Glanceable at podium distance.
-  "say": ONE natural spoken sentence showing how to say it well (a second sentence ONLY if a number or term needs explaining, so the presenter understands it instead of just reading it).
+  "t": the CHECKLIST phrase, max 8 words, the concrete idea they must get across (a fact, number, name, or claim from the slide). Glanceable at podium distance.
+  "say": ONE natural spoken sentence showing how to say it well (a second sentence ONLY if a number or term needs explaining, so the presenter understands it instead of just reading it). This is a suggestion; the presenter will use their own words.
 - "bridge": one short spoken sentence transitioning to the next slide. Omit on the last card.
 - If presenter notes are provided, treat them as the presenter's intent and fold them in.
 - No em-dashes or en-dashes anywhere; use commas or periods.
@@ -141,15 +143,23 @@ Return ONLY valid JSON, no markdown, no preamble:
 async function doTrack(body, device_id) {
   const lang = body.lang === "de" ? "de" : "en";
   const transcript = String(body.transcript || "").slice(-2500);
-  const points = (Array.isArray(body.points) ? body.points : [])
-    .slice(0, 24)
+  const clean = (arr) => (Array.isArray(arr) ? arr : [])
+    .slice(0, 16)
     .map((p) => ({ id: String(p.id || "").slice(0, 16), t: String(p.t || "").slice(0, 90) }))
     .filter((p) => p.id && p.t);
-  if (!points.length || transcript.trim().split(/\s+/).length < 4) return { status: 200, json: { covered: [] } };
+  const points = clean(body.points);          // current slide
+  const nextPoints = clean(body.next_points); // next slide (talking ahead)
+  if ((!points.length && !nextPoints.length) || transcript.trim().split(/\s+/).length < 4) {
+    return { status: 200, json: { covered: [], moveon: false } };
+  }
 
-  const sys = `You check off talking points while someone gives a live presentation${lang === "de" ? " in German" : ""}. You get a list of pending points and the most recent transcript of what the speaker said. Mark a point as covered ONLY if the speaker genuinely addressed its substance, in any wording (the transcript comes from speech recognition, so tolerate misrecognized words that sound similar). Mentioning one word in passing is NOT covering it. Be strict; an unchecked point costs nothing, a wrongly checked one misleads the speaker.
-Return ONLY valid JSON: {"covered":["<id>", ...]} . Empty array if nothing was covered.`;
-  const userText = "PENDING POINTS:\n" + points.map((p) => `${p.id}: ${p.t}`).join("\n") +
+  const sys = `You follow along while someone gives a live presentation${lang === "de" ? " in German" : ""}. You get the pending talking points of the CURRENT slide (and possibly the NEXT slide), plus the latest transcript of what the speaker said.
+Mark a point as "covered" when the speaker got its core idea across IN ANY WORDING. Be generous: paraphrases, the speaker's own words, simplified versions, all count. The transcript comes from speech recognition, so tolerate garbled or similar-sounding words. Only leave a point unchecked if its substance truly has not come up yet.
+Also decide "moveon": true when the speaker is essentially done with the CURRENT slide. That means the main ideas landed, or they are clearly summarizing or transitioning, even if minor points remain. False while they are still mid-topic.
+Return ONLY valid JSON: {"covered":["<id>", ...],"moveon":true|false}`;
+  const userText =
+    "CURRENT SLIDE, PENDING POINTS:\n" + (points.length ? points.map((p) => `${p.id}: ${p.t}`).join("\n") : "(all covered already)") +
+    (nextPoints.length ? "\n\nNEXT SLIDE, PENDING POINTS:\n" + nextPoints.map((p) => `${p.id}: ${p.t}`).join("\n") : "") +
     "\n\nRECENT TRANSCRIPT:\n" + transcript;
 
   const { text, usage } = await claude({ system: sys, content: [{ type: "text", text: userText }], max_tokens: 300 });
@@ -159,13 +169,14 @@ Return ONLY valid JSON: {"covered":["<id>", ...]} . Empty array if nothing was c
     cost_micros: anthropicCostMicros(HAIKU, usage),
   });
 
-  let covered = [];
+  let covered = [], moveon = false;
   try {
     const parsed = parseJson(text);
-    const known = new Set(points.map((p) => p.id));
+    const known = new Set([...points, ...nextPoints].map((p) => p.id));
     covered = (Array.isArray(parsed.covered) ? parsed.covered : []).filter((id) => known.has(id));
+    moveon = !!parsed.moveon;
   } catch { covered = []; }
-  return { status: 200, json: { covered } };
+  return { status: 200, json: { covered, moveon } };
 }
 
 /* ---------- action: answer ---------- */
