@@ -20,6 +20,22 @@ const HAIKU = "claude-haiku-4-5-20251001";
 const MAX_POINTS_PER_CARD = 6;
 const MAX_SLIDES_PER_CALL = 10;
 
+// Per-device daily budget so one runaway client (or a stuck loop) can't burn
+// tokens unbounded. In-memory per serverless instance, like stt.js: not exact
+// accounting, but a real ceiling in practice.
+const DAY_MS = 24 * 60 * 60 * 1000;
+const DAILY_LIMITS = { cards: 80, track: 900, answer: 150 };
+const buckets = new Map(); // device|action -> {count, resetAt}
+function budgetCheck(device_id, action) {
+  const key = (device_id || "anon") + "|" + action;
+  const now = Date.now();
+  let b = buckets.get(key);
+  if (!b || now > b.resetAt) { b = { count: 0, resetAt: now + DAY_MS }; buckets.set(key, b); }
+  b.count++;
+  if (buckets.size > 5000) for (const [k, v] of buckets) if (now > v.resetAt) buckets.delete(k);
+  return b.count <= (DAILY_LIMITS[action] || 100);
+}
+
 function readRaw(req) {
   return new Promise((resolve, reject) => {
     const chunks = [];
@@ -34,17 +50,26 @@ function readRaw(req) {
   });
 }
 
-async function claude({ model = HAIKU, system, content, max_tokens }) {
-  const r = await fetch("https://api.anthropic.com/v1/messages", {
+async function claude({ model = HAIKU, system, content, max_tokens, tools }) {
+  const call = (messages) => fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "x-api-key": process.env.ANTHROPIC_API_KEY,
       "anthropic-version": "2023-06-01",
     },
-    body: JSON.stringify({ model, max_tokens, system, messages: [{ role: "user", content }] }),
-  });
-  const data = await r.json();
+    body: JSON.stringify({ model, max_tokens, system, messages, ...(tools ? { tools } : {}) }),
+  }).then((r) => r.json());
+
+  const messages = [{ role: "user", content }];
+  let data = await call(messages);
+  // Server-side tools (web search) can pause mid-loop; one continuation pass
+  // resumes the same turn. The trailing server_tool_use block tells the API
+  // to pick up where it left off.
+  if (!data.error && data.stop_reason === "pause_turn") {
+    messages.push({ role: "assistant", content: data.content });
+    data = await call(messages);
+  }
   if (data.error) throw new Error(data.error.message || "anthropic error");
   const text = (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("");
   return { text, usage: data.usage };
@@ -192,13 +217,23 @@ async function doAnswer(body, device_id) {
         .map((p) => "- " + String(p.t || "") + (p.say ? " (" + String(p.say).slice(0, 200) + ")" : "")).join("\n")
     : "";
 
+  // Q&A-round mode ('web': true) may search the internet when the deck doesn't
+  // contain the answer. max_uses caps the searches per question (cost guard).
+  const web = !!body.web;
   const sys = `Someone is mid-presentation and just got a question from the audience. Give them an answer they can read at a glance on their phone and deliver out loud${lang === "de" ? ", auf Deutsch" : ""}.
-Rules: maximum 60 words. Start with the direct answer in the first sentence, then at most two supporting sentences. Spoken language, no bullet symbols, no markdown, no em-dashes. If the question cannot be answered from the presentation context, say so honestly and give them one graceful spoken line to respond with anyway (for example offering to follow up after).`;
+Rules: maximum ${web ? 80 : 60} words. Start with the direct answer in the first sentence, then at most two supporting sentences. Spoken language, no bullet symbols, no markdown, no URLs, no em-dashes.${web
+    ? " Answer from the presentation context when it suffices. If it does not, use web search to find the fact, then answer in your own spoken words. If neither helps, say so honestly and give one graceful spoken line to respond with anyway."
+    : " If the question cannot be answered from the presentation context, say so honestly and give them one graceful spoken line to respond with anyway (for example offering to follow up after)."}`;
   const userText = `PRESENTATION: ${deckTitle}\n${cardCtx}\n${notes ? "PRESENTER NOTES:\n" + notes + "\n" : ""}\nQUESTION FROM THE AUDIENCE:\n${question}\n\nWrite the answer they should say now.`;
 
-  const { text, usage } = await claude({ system: sys, content: [{ type: "text", text: userText }], max_tokens: 350 });
+  const { text, usage } = await claude({
+    system: sys,
+    content: [{ type: "text", text: userText }],
+    max_tokens: web ? 700 : 350,
+    tools: web ? [{ type: "web_search_20250305", name: "web_search", max_uses: 2 }] : undefined,
+  });
   logUsage({
-    device_id, provider: "anthropic", service: "present_answer", model: HAIKU,
+    device_id, provider: "anthropic", service: web ? "present_qa_web" : "present_answer", model: HAIKU,
     input_units: usage?.input_tokens || 0, output_units: usage?.output_tokens || 0,
     cost_micros: anthropicCostMicros(HAIKU, usage),
   });
@@ -217,6 +252,9 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "bad json" });
   }
   const device_id = String(body.device_id || "").slice(0, 64);
+  if (["cards", "track", "answer"].includes(body.action) && !budgetCheck(device_id, body.action)) {
+    return res.status(429).json({ error: "Tageslimit erreicht. Versuch es morgen wieder." });
+  }
   try {
     let out;
     if (body.action === "cards") out = await doCards(body, device_id);
