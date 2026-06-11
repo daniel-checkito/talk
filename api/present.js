@@ -113,7 +113,7 @@ async function doCards(body, device_id) {
 ${langLine}
 ${cardRule}
 Rules:
-- Per card: a short title (max 6 words) and 2 to 5 talking points. Pick the genuinely presentation-worthy content; a talk is not a reading of the slide, but nothing important may be missing. If a slide has more than 5 worthwhile points, SPLIT it into multiple cards rather than cramming or dropping content.
+- Per card: a short title (max 6 words) and 3 to 5 talking points, so the presenter always has several things to say about the slide. Only true title, divider, or thanks slides may have 1 or 2 points. Mine the slide (and notes) for substance: facts, numbers, names, reasons, examples, consequences. A talk is not a reading of the slide, but nothing important may be missing. If a slide has more than 5 worthwhile points, SPLIT it into multiple cards rather than cramming or dropping content.
 - NEVER make points out of things nobody says out loud: page numbers, footers, headers, image credits, source citations, URLs, file names, agenda listings, decorative labels, contact details. If a slide is mostly that, one short point is enough.
 - A title/opening slide gets a greeting point: welcome the audience, introduce yourself and the topic. A closing/thanks slide gets a wrap-up point: summarize the core message, thank them, invite questions.
 - Each point has two parts that must clearly match each other:
