@@ -17,7 +17,6 @@ import { logUsage, anthropicCostMicros } from "./_usage.js";
 
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
 const HAIKU = "claude-haiku-4-5-20251001";
-const SONNET = "claude-sonnet-4-6";
 const MAX_POINTS_PER_CARD = 6;
 const MAX_SLIDES_PER_CALL = 10;
 
@@ -206,81 +205,6 @@ Rules: maximum 60 words. Start with the direct answer in the first sentence, the
   return { status: 200, json: { answer: text.trim() } };
 }
 
-/* ---------- action: coach (Train debrief) ---------- */
-async function doCoach(body, device_id) {
-  const lang = body.lang === "de" ? "de" : "en";
-  const transcript = String(body.transcript || "").slice(0, 14000);
-  if (transcript.trim().split(/\s+/).length < 8) return { status: 400, json: { error: "too short" } };
-  const cards = (Array.isArray(body.cards) ? body.cards : []).slice(0, 40);
-  const pointsList = cards.flatMap((c) => (Array.isArray(c.points) ? c.points : []).map((p) => String(p.t || ""))).filter(Boolean).slice(0, 120);
-  const wpm = Number(body.wpm) || 0;
-  const fillers = Number(body.fillers) || 0;
-  const durationS = Number(body.duration_s) || 0;
-
-  const langLine = lang === "de" ? "Antworte AUSSCHLIESSLICH auf Deutsch." : "Reply only in English.";
-  const sys = `You are a demanding but encouraging presentation coach. The user just REHEARSED their talk out loud (this is practice, not the real thing). You have the planned talking points and a transcript of what they actually said. Judge how well they delivered it and tell them precisely what to change before the real thing.
-${langLine}
-Delivery facts (already measured): pace ${wpm || "?"} words per minute, ${fillers} filler words, ${durationS ? Math.round(durationS) + " seconds spoken" : "duration unknown"}. A natural talk pace is 130-160 wpm; under 110 is sluggish, over 175 is rushed.
-Be specific and reference what they actually said. No generic advice. No em-dashes; use commas or periods.
-Return ONLY valid JSON, no markdown:
-{"score":<0-100 overall delivery score>,"summary":"<1-2 sentence verdict>","delivery":"<1 sentence on pace and fillers>","missed":["<planned point they did not cover or covered weakly>", ...],"tips":["<concrete change to make, max 18 words>", ...]}
-Keep "missed" to the points genuinely skipped or rushed (empty array if they covered everything). Give 3-5 "tips", ordered by impact.`;
-  const userText =
-    "PLANNED TALKING POINTS:\n" + (pointsList.length ? pointsList.map((p, i) => `${i + 1}. ${p}`).join("\n") : "(none provided)") +
-    "\n\nWHAT THEY ACTUALLY SAID (transcript):\n" + transcript +
-    "\n\nCoach them now.";
-
-  const { text, usage } = await claude({ model: SONNET, system: sys, content: [{ type: "text", text: userText }], max_tokens: 1400 });
-  logUsage({
-    device_id, provider: "anthropic", service: "present_coach", model: SONNET,
-    input_units: usage?.input_tokens || 0, output_units: usage?.output_tokens || 0,
-    cost_micros: anthropicCostMicros(SONNET, usage),
-  });
-  const parsed = parseJson(text);
-  return { status: 200, json: {
-    score: Math.max(0, Math.min(100, Number(parsed.score) || 0)),
-    summary: String(parsed.summary || "").slice(0, 400),
-    delivery: String(parsed.delivery || "").slice(0, 300),
-    missed: (Array.isArray(parsed.missed) ? parsed.missed : []).slice(0, 12).map((m) => String(m).slice(0, 120)),
-    tips: (Array.isArray(parsed.tips) ? parsed.tips : []).slice(0, 6).map((m) => String(m).slice(0, 160)),
-  } };
-}
-
-/* ---------- action: assist (Interview live help) ---------- */
-async function doAssist(body, device_id) {
-  const lang = body.lang === "de" ? "de" : "en";
-  const context = String(body.context || "").slice(0, 12000);
-  const transcript = String(body.transcript || "").slice(-1800);
-  const question = String(body.question || "").slice(0, 800);
-  if (!transcript.trim() && !question.trim()) return { status: 200, json: { answer: "", points: [] } };
-
-  const langLine = lang === "de" ? "Antworte AUSSCHLIESSLICH auf Deutsch." : "Reply only in English.";
-  const sys = `You are a live interview copilot. The user is IN an interview or conversation right now, with a phone in front of them. You hear a transcript of what was just said (it may include the interviewer's question and the user's own words, from speech recognition, so tolerate errors). Using the user's background CONTEXT, give them help they can glance at and speak from immediately.
-${langLine}
-Figure out what the user most needs to say next (usually answering the latest question). Then return, as JSON only:
-{"answer":"<a strong spoken answer in 1-3 short sentences they can say now, grounded in their context, max 55 words>","points":["<3 to 4 key bullet phrases to hit, max 7 words each>"]}
-Spoken, natural, confident, first person. No markdown, no em-dashes. If there is no clear question yet, give the single best thing to say or ask next.`;
-  const userText =
-    "USER BACKGROUND CONTEXT:\n" + (context || "(none provided)") +
-    "\n\nLATEST CONVERSATION (transcript):\n" + (transcript || "(nothing yet)") +
-    (question ? "\n\nThe user flagged this question specifically:\n" + question : "") +
-    "\n\nHelp them now.";
-
-  const { text, usage } = await claude({ system: sys, content: [{ type: "text", text: userText }], max_tokens: 500 });
-  logUsage({
-    device_id, provider: "anthropic", service: "present_assist", model: HAIKU,
-    input_units: usage?.input_tokens || 0, output_units: usage?.output_tokens || 0,
-    cost_micros: anthropicCostMicros(HAIKU, usage),
-  });
-  let out = { answer: "", points: [] };
-  try {
-    const parsed = parseJson(text);
-    out.answer = String(parsed.answer || "").slice(0, 500);
-    out.points = (Array.isArray(parsed.points) ? parsed.points : []).slice(0, 5).map((p) => String(p).slice(0, 80));
-  } catch { out.answer = text.trim().slice(0, 500); }
-  return { status: 200, json: out };
-}
-
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
   if (!hasCookie(req)) return res.status(401).json({ error: "unauthorized" });
@@ -298,8 +222,6 @@ export default async function handler(req, res) {
     if (body.action === "cards") out = await doCards(body, device_id);
     else if (body.action === "track") out = await doTrack(body, device_id);
     else if (body.action === "answer") out = await doAnswer(body, device_id);
-    else if (body.action === "coach") out = await doCoach(body, device_id);
-    else if (body.action === "assist") out = await doAssist(body, device_id);
     else return res.status(400).json({ error: "unknown action" });
     return res.status(out.status).json(out.json);
   } catch (e) {
