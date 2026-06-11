@@ -20,7 +20,7 @@ const STRINGS = {
   "stage.hint": "Tippe einen Punkt zum Abhaken. Wische für die nächste Karte.",
   "qa.thinking": "⟳ Denkt nach…",
   // Live-Coach (nur Warnungen; WAS zu sagen ist, zeigt das HUD)
-  "coach.silence": "Weiter geht's. Lies die Zeile unten laut vor.",
+  "coach.silence": "Weiter geht's. Lies den Text oben laut vor.",
   "coach.slower": "Etwas langsamer, du hetzt.",
   "coach.faster": "Etwas mehr Tempo.",
   "coach.focus": "Zurück zum Thema unten.",

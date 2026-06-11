@@ -152,9 +152,14 @@
   .pres-qpop .qp-a{font-size:16px;font-weight:800;color:var(--ink);line-height:1.45}
   /* live HUD */
   .pcard.liveview{overflow:hidden;display:flex;flex-direction:column;justify-content:center;gap:14px;text-align:center}
-  .plive-slide{font-size:13px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);font-weight:800}
-  .plive-slide b{color:var(--ink);font-size:15px}
+  .plive-slide{font-size:12px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);font-weight:800}
+  .plive-slide b{color:var(--ink);font-size:14px}
   .plive-now{font-size:30px;font-weight:900;line-height:1.22;color:var(--ink);animation:slideIn .3s ease;cursor:pointer}
+  /* live HUD hierarchy: small topic cue, then the spoken line as the hero */
+  .plive-eyebrow{font-size:13px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--accent2);line-height:1.25}
+  .plive-say-main{font-size:24px;font-weight:800;line-height:1.4;color:var(--ink);cursor:pointer;animation:slideIn .3s ease;padding:0 2px}
+  .plive-say-main.bare{font-weight:900}
+  .plive-tap{font-size:11px;font-weight:800;letter-spacing:.3px;text-transform:uppercase;color:var(--muted);opacity:.65}
   .plive-say{font-size:17px;font-weight:700;line-height:1.45;color:var(--accent2)}
   .plive-next{font-size:13px;font-weight:700;color:var(--muted);line-height:1.4}
   .plive-change{font-size:24px;font-weight:900;line-height:1.3;color:#0b6e9e;background:#ddf4ff;border:2.5px solid var(--blue);border-radius:18px;padding:18px 14px;animation:pop .35s cubic-bezier(.34,1.56,.64,1)}
@@ -650,9 +655,15 @@ function renderPresLiveHud(c,card){
       `<div class="plive-dots">${dots}</div>`;
     return;
   }
-  card.innerHTML=slideChip+
-    `<div class="plive-now" onclick="presTogglePoint('${cur.id}')">${esc(cur.t)}</div>`+
-    (cur.say?`<div class="plive-say">„${esc(cur.say)}“</div>`:'')+
+  // The presenter glances and needs to know WHAT TO SAY. So the speakable line
+  // is the hero; the short topic label sits above it as a small cue. (Before,
+  // the tiny label was huge and the spoken line was buried, which read backwards.)
+  const eyebrow=cur.say?`<div class="plive-eyebrow">${esc(cur.t)}</div>`:'';
+  const hero=cur.say
+    ?`<div class="plive-say-main" onclick="presTogglePoint('${cur.id}')">„${esc(cur.say)}“</div>`
+    :`<div class="plive-say-main bare" onclick="presTogglePoint('${cur.id}')">${esc(cur.t)}</div>`;
+  card.innerHTML=slideChip+eyebrow+hero+
+    `<div class="plive-tap">✓ tippen, wenn gesagt</div>`+
     (after?`<div class="plive-next">Danach: ${esc(after.t)}</div>`:
       (presDeck.cards[presIdx+1]?`<div class="plive-next">Danach: Folie ${presDeck.cards[presIdx+1].n}</div>`:''))+
     `<div class="plive-dots">${dots}</div>`;
