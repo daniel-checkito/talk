@@ -137,6 +137,14 @@
   .pres-navrow .pcount{flex:1;text-align:center;font-weight:900;font-size:14px;color:var(--muted);font-variant-numeric:tabular-nums}
   .pres-ticker{min-height:20px;font-size:12px;font-weight:700;color:var(--muted);text-align:center;margin-top:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:0}
   .pres-ticker.live{color:var(--accent2)}
+  /* live transcript caption: shows what the mic is hearing in real time */
+  .pres-caption{flex-shrink:0;margin-top:8px;display:flex;align-items:flex-start;gap:8px;background:#0f172a;color:#e7edf6;border-radius:13px;padding:9px 12px;min-height:44px;max-height:62px;overflow:hidden}
+  .pres-caption .mic{flex-shrink:0;font-size:13px;line-height:1.45;color:var(--accent)}
+  .pres-caption .txt{flex:1;font-size:14px;font-weight:600;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .pres-caption .txt .iv{color:#93a4bd} /* interim, not-yet-final words */
+  .pres-caption .txt .ph{color:#64748b;font-weight:500} /* placeholder */
+  .pres-caption.beat{animation:capBeat 1.4s ease infinite}
+  @keyframes capBeat{0%,100%{box-shadow:0 0 0 0 rgba(88,204,2,0)}50%{box-shadow:0 0 0 3px rgba(88,204,2,.25)}}
   .pres-actions{display:flex;gap:10px;margin-top:10px;flex-shrink:0}
   .pres-live{flex:1;border:none;border-radius:16px;padding:15px;font-size:15px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;cursor:pointer;background:var(--accent);color:#fff;box-shadow:0 4px 0 var(--accent2);transition:.1s}
   .pres-live:active{transform:translateY(4px);box-shadow:0 0 0}
@@ -286,6 +294,7 @@
   <div class="pres-prog"><i id="presProg"></i></div>
   <div class="pres-coach hidden" id="presCoach"></div>
   <div class="pcard" id="presCard"></div>
+  <div class="pres-caption hidden" id="presCaption"></div>
   <div class="pres-navrow">
     <button class="pn" id="presPrev" onclick="presNav(-1)">‹</button>
     <span class="pcount" id="presCount"></span>
@@ -603,7 +612,8 @@ function enterPresentStage(){
   $('presDeckTitle').textContent=presDeck.title;
   $('presTime').textContent='0:00';
   $('presTicker').textContent=t('stage.hint');
-  $('presTicker').classList.remove('live');
+  $('presTicker').classList.remove('live','hidden');
+  $('presCaption').classList.add('hidden');
   $('presCoach').classList.add('hidden');
   closePresQPop();
   syncPresLiveBtn();
@@ -851,8 +861,7 @@ async function startPresLive(){
           if(e.results[i].isFinal){presFinal+=' '+txt;presMaybeQuestion(txt);}else interim+=txt;
         }
         presLastGrowthTs=performance.now();
-        const tail=(presFinal+' '+interim).trim().split(/\s+/).slice(-7).join(' ');
-        if(tail){$('presTicker').textContent='🎙 …'+tail;}
+        presShowCaption(interim);
       };
       presSR.onend=()=>{if(presLive){try{presSR.start();}catch{}}};
       presSR.start();
@@ -868,8 +877,9 @@ async function startPresLive(){
   presLive=true;presLiveSince=performance.now();
   presLastGrowthTs=performance.now();presNoProgressTicks=0;
   if(presEditing)savePresEdit(); // can't edit on stage; commit whatever was open
-  $('presTicker').textContent='hört zu…';
-  $('presTicker').classList.add('live');
+  $('presTicker').classList.add('hidden'); // the live caption takes over the transcript role
+  $('presCaption').classList.remove('hidden');
+  presShowCaption('');
   syncPresLiveBtn();
   renderPresCard(); // flip the card into the big-text live HUD
   updatePresCoach();
@@ -896,7 +906,7 @@ function startPresRecSegment(){
     try{
       const r=await fetch('/api/stt',{method:'POST',headers:{'Content-Type':blob.type,'x-device-id':deviceId(),'x-language':getLang()},body:blob});
       const d=await r.json();
-      if(d.text){presFinal+=' '+d.text;presLastGrowthTs=performance.now();presMaybeQuestion(d.text);$('presTicker').textContent='🎙 …'+presFinal.trim().split(/\s+/).slice(-7).join(' ');}
+      if(d.text){presFinal+=' '+d.text;presLastGrowthTs=performance.now();presMaybeQuestion(d.text);presShowCaption('');}
     }catch{}
   };
   presRec.start();
@@ -915,7 +925,8 @@ function stopPresLive(){
   if(presHardStop){clearTimeout(presHardStop);presHardStop=null;}
   if(presWakeLock){try{presWakeLock.release();}catch{}presWakeLock=null;}
   $('presTicker').textContent=t('stage.hint');
-  $('presTicker').classList.remove('live');
+  $('presTicker').classList.remove('live','hidden');
+  $('presCaption').classList.add('hidden');
   $('presCoach').classList.add('hidden');
   closePresQPop();
   syncPresLiveBtn();
@@ -950,15 +961,18 @@ async function presTrackTick(){
   try{
     const d=await api('/api/present',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({action:'track',points,next_points:nextPoints,transcript:windowText,lang:getLang(),device_id:deviceId()})});
+    // 'next' = the speaker has already jumped to the next slide's material, so
+    // we skip ahead promptly instead of waiting for the current card to finish.
+    const jumpAhead=d.next&&nxtCard&&presIdx<presDeck.cards.length-1;
     let progressed=false;
     if(Array.isArray(d.covered)&&d.covered.length){
       progressed=true;
       d.covered.forEach(id=>presCovered.add(id));
     }
     // 'moveon' = the speaker is essentially done with this slide, even if minor
-    // points are open. Sweep them so the HUD flips to the slide-change cue and
-    // the deck advances; the presenter shouldn't have to say everything.
-    if(d.moveon&&cur){
+    // points are open. Sweep them (same for a jump-ahead) so the HUD flips to the
+    // slide-change cue and the deck advances; they shouldn't have to say everything.
+    if((d.moveon||jumpAhead)&&cur){
       progressed=true;
       cur.points.forEach(p=>presCovered.add(p.id));
     }
@@ -967,10 +981,11 @@ async function presTrackTick(){
       const navAtCall=presNavToken;
       renderPresCard();
       if(cur.points.every(p=>presCovered.has(p.id))&&presIdx<presDeck.cards.length-1){
-        presToast(advanceToast());
+        presToast(jumpAhead?'⏭ Du bist schon weiter':advanceToast());
         // Auto-advance only if the presenter hasn't navigated themselves meanwhile.
+        // A jump-ahead is snappier (they're already there); a normal finish gives
         // 2.5s so the 'change your slide' cue on the HUD is actually readable.
-        setTimeout(()=>{if(presLive&&presNavToken===navAtCall&&presIdx<presDeck.cards.length-1)presNav(1);},2500);
+        setTimeout(()=>{if(presLive&&presNavToken===navAtCall&&presIdx<presDeck.cards.length-1)presNav(1);},jumpAhead?1100:2500);
       }
     }else{
       presNoProgressTicks++; // they spoke a full window without hitting a planned point
@@ -979,7 +994,20 @@ async function presTrackTick(){
   }catch{}
   finally{presTrackBusy=false;}
 }
+// Live transcript band: the rolling tail of what's been recognised (final words
+// solid, the in-progress 'interim' phrase greyed). Lets the presenter see the
+// mic is actually hearing them, and what the auto-skip is reacting to.
+function presShowCaption(interim){
+  const el=$('presCaption');if(!el)return;
+  const finalTail=presFinal.trim().split(/\s+/).filter(Boolean).slice(-26).join(' ');
+  const body=(finalTail||interim)
+    ?esc(finalTail)+(interim?(finalTail?' ':'')+'<span class="iv">'+esc(interim)+'</span>':'')
+    :'<span class="ph">Warte auf Sprache…</span>';
+  el.innerHTML='<span class="mic">🎙</span><span class="txt">'+body+'</span>';
+  el.classList.toggle('beat',!finalTail&&!interim);
+}
 function presToast(msg){
+  if(!msg)return;
   const el=document.createElement('div');
   el.className='pres-toast';el.textContent=msg;
   $('s-present-stage').appendChild(el);

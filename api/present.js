@@ -191,9 +191,10 @@ async function doTrack(body, device_id) {
   }
 
   const sys = `You follow along while someone gives a live presentation${lang === "de" ? " in German" : ""}. You get the pending talking points of the CURRENT slide (and possibly the NEXT slide), plus the latest transcript of what the speaker said.
-Mark a point as "covered" when the speaker got its core idea across IN ANY WORDING. Be generous: paraphrases, the speaker's own words, simplified versions, all count. The transcript comes from speech recognition, so tolerate garbled or similar-sounding words. Only leave a point unchecked if its substance truly has not come up yet.
+Mark a point as "covered" when the speaker got its core idea across IN ANY WORDING. Be generous: paraphrases, the speaker's own words, simplified versions, all count. The transcript comes from speech recognition, so tolerate garbled or similar-sounding words. Only leave a point unchecked if its substance truly has not come up yet. Cover points from EITHER slide.
 Also decide "moveon": true when the speaker is essentially done with the CURRENT slide. That means the main ideas landed, or they are clearly summarizing or transitioning, even if minor points remain. False while they are still mid-topic.
-Return ONLY valid JSON: {"covered":["<id>", ...],"moveon":true|false}`;
+And decide "next": true when the speaker has clearly ALREADY MOVED ON to the next slide, meaning the recent transcript is mostly about the NEXT slide's points or topic, not the current one. This is a stronger signal than moveon and triggers an immediate jump ahead, so only set it true when you are confident the speaker has left the current slide behind. False if there is no next slide, or they are still on the current slide. Never set "next" without also reflecting any next-slide points they covered in "covered".
+Return ONLY valid JSON: {"covered":["<id>", ...],"moveon":true|false,"next":true|false}`;
   const userText =
     "CURRENT SLIDE, PENDING POINTS:\n" + (points.length ? points.map((p) => `${p.id}: ${p.t}`).join("\n") : "(all covered already)") +
     (nextPoints.length ? "\n\nNEXT SLIDE, PENDING POINTS:\n" + nextPoints.map((p) => `${p.id}: ${p.t}`).join("\n") : "") +
@@ -206,14 +207,15 @@ Return ONLY valid JSON: {"covered":["<id>", ...],"moveon":true|false}`;
     cost_micros: anthropicCostMicros(HAIKU, usage),
   });
 
-  let covered = [], moveon = false;
+  let covered = [], moveon = false, next = false;
   try {
     const parsed = parseJson(text);
     const known = new Set([...points, ...nextPoints].map((p) => p.id));
     covered = (Array.isArray(parsed.covered) ? parsed.covered : []).filter((id) => known.has(id));
     moveon = !!parsed.moveon;
+    next = !!parsed.next && nextPoints.length > 0; // only meaningful when a next slide was supplied
   } catch { covered = []; }
-  return { status: 200, json: { covered, moveon } };
+  return { status: 200, json: { covered, moveon, next } };
 }
 
 /* ---------- action: answer ---------- */
